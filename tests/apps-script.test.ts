@@ -17,7 +17,7 @@ function fixture() {
   ]);
   const state = {
     rows: [] as unknown[][], files: [] as DriveFile[], calls: [] as { url: string; options: Record<string, unknown> }[],
-    writeFailures: 0, maxRows: 1000, folderPublic: false, filePublic: false, locks: 0, releases: 0,
+    writeFailures: 0, maxRows: 1000, maxColumns: 27, folderPublic: false, filePublic: false, locks: 0, releases: 0,
     stagedFile: undefined as Omit<DriveFile, "id" | "size" | "trashed"> | undefined,
   };
   const response = (data: unknown, status = 200, headers = {}) => ({
@@ -26,6 +26,10 @@ function fixture() {
   const sheet = {
     getLastRow: () => state.rows.length,
     getMaxRows: () => state.maxRows,
+    getMaxColumns: () => state.maxColumns,
+    deleteColumns: (column: number, count: number) => {
+      state.rows.forEach((row) => row.splice(column - 1, count)); state.maxColumns -= count;
+    },
     insertRowsAfter: (after: number, count: number) => { assert.equal(after, state.maxRows); state.maxRows += count; },
     getLastColumn: () => Math.max(0, ...state.rows.map((row) => row.length)),
     getRange: (row: number, column: number, count = 1, columns = 1) => ({
@@ -86,12 +90,12 @@ function fixture() {
       }
       if (url.includes("/values/")) {
         assert.equal(options.method, "put");
-        assert.match(decodeURIComponent(url), new RegExp("/values/'Applications'!A" + (state.rows.length + 1) + ":AE" + (state.rows.length + 1) + "\\?valueInputOption=RAW$"));
+        assert.match(decodeURIComponent(url), new RegExp("/values/'Applications'!A" + (state.rows.length + 1) + ":AA" + (state.rows.length + 1) + "\\?valueInputOption=RAW$"));
         if (state.writeFailures-- > 0) return response({ error: "Private Google failure detail" }, 503);
         const row = JSON.parse(options.payload as string).values[0];
-        assert.equal(row.length, 31);
+        assert.equal(row.length, 27);
         state.rows.push(row);
-        return response({ updatedRows: 1, updatedColumns: 31, updatedRange: "'Applications'!A" + state.rows.length + ":AE" + state.rows.length });
+        return response({ updatedRows: 1, updatedColumns: 27, updatedRange: "'Applications'!A" + state.rows.length + ":AA" + state.rows.length });
       }
       const file = state.files.find((item) => url.includes("/files/" + item.id + "?"));
       if (file) return response(file);
@@ -136,8 +140,9 @@ test("Apps Script signed delivery writes RAW recruiter columns and retry dedupli
   assert.equal(state.rows[1][2], "=SUM(1,1)");
   assert.equal(state.rows[1][4], "+63 917 123 4567");
   assert.equal(state.rows[1][14], application().application.skills);
-  assert.equal(state.rows[1][17], "Ready");
-  assert.equal(state.rows[1][19], "In progress");
+  assert.equal(state.rows[1][17], application().application.education);
+  assert.equal(state.rows[1][21], "Yes");
+  assert.ok(!state.rows[0].some((header) => /^(NC2|Diploma|NBI\/apostille|Form 18a) status$/.test(String(header))));
   assert.equal(post().duplicate, true);
   assert.equal(state.rows.length, 2);
   assert.equal(state.files.length, 1);
@@ -186,16 +191,16 @@ test("Apps Script reuses uploaded CV after failed sheet write and returns saniti
   assert.equal(state.rows.length, 2);
 });
 
-test("Apps Script writes fixed A:AE coordinates without append table detection and expands a full sheet", () => {
+test("Apps Script writes fixed A:AA coordinates without append table detection and expands a full sheet", () => {
   const { state, post } = fixture();
   state.maxRows = 1;
   assert.equal(post().ok, true);
   assert.equal(state.maxRows, 101);
   assert.equal(state.rows[1][0], application().application.id);
-  assert.equal(state.rows[1][25], "Yes");
+  assert.equal(state.rows[1][21], "Yes");
   const write = state.calls.find(({ url }) => url.includes("/values/"));
   assert.ok(write);
-  assert.match(decodeURIComponent(write.url), /'Applications'!A2:AE2\?valueInputOption=RAW$/);
+  assert.match(decodeURIComponent(write.url), /'Applications'!A2:AA2\?valueInputOption=RAW$/);
   assert.ok(!write.url.includes(":append"));
 });
 
@@ -221,7 +226,7 @@ test("Apps Script stops on changed headers, conflicting references, or public CV
 test("Apps Script health endpoint has no applicant data or secret", () => {
   const { context, properties } = fixture();
   properties.clear();
-  assert.deepEqual(vm.runInContext("doGet()", context), { ok: true, service: "chapter-applications", version: 1 });
+  assert.deepEqual(vm.runInContext("doGet()", context), { ok: true, service: "chapter-applications", version: 1, schemaVersion: 2, columns: 27 });
 });
 
 test("Apps Script delivers diploma and other supporting files privately and retries without duplicates", () => {
@@ -238,11 +243,37 @@ test("Apps Script delivers diploma and other supporting files privately and retr
   assert.equal(post(payload).ok, true);
   assert.equal(state.rows.length, 2);
   assert.equal(state.files.length, 3);
-  assert.match(String(state.rows[1][26]), /drive.google.com\/file\/d\/private-cv-1\/view/);
-  assert.match(String(state.rows[1][30]), /drive.google.com\/file\/d\/private-cv-2\/view/);
+  assert.match(String(state.rows[1][22]), /drive.google.com\/file\/d\/private-cv-1\/view/);
+  assert.match(String(state.rows[1][26]), /drive.google.com\/file\/d\/private-cv-2\/view/);
   assert.equal(post(payload).duplicate, true);
   assert.equal(state.files.length, 3);
   assert.equal(state.rows.length, 2);
   const invalid = { ...payload, documents: [payload.documents[0], { ...payload.documents[1], category: "diploma" }] };
   assert.equal(post(invalid).code, "INVALID_DOCUMENT");
+});
+
+test("receiver migration removes only retired status columns and preserves existing applicant details and document links", () => {
+  const { state, context } = fixture();
+  const currentHeaders = [...state.rows[0]];
+  state.rows[0].splice(17, 0, "NC2 status", "Diploma status", "NBI/apostille status", "Form 18a status");
+  const originalRow = currentHeaders.map((_, index) => "existing-cell-" + index);
+  state.rows.push([...originalRow]);
+  state.rows[1].splice(17, 0, "Ready", "Ready", "In progress", "Not yet available");
+  state.maxColumns = 31;
+  context.migrationSheet = {
+    getLastRow: () => state.rows.length, getMaxColumns: () => state.maxColumns,
+    getLastColumn: () => state.rows[0].length,
+    getRange: (_row: number, column: number, _count: number, columns: number) => ({ getValues: () => [state.rows[0].slice(column - 1, column - 1 + columns)] }),
+    deleteColumns: (column: number, count: number) => { state.rows.forEach((row) => row.splice(column - 1, count)); state.maxColumns -= count; },
+  };
+  vm.runInContext("chapterRemoveLegacyStatusColumns_(migrationSheet)", context);
+  assert.deepEqual(state.rows[0], currentHeaders);
+  assert.deepEqual(state.rows[1], originalRow);
+  assert.equal(state.maxColumns, 27);
+  vm.runInContext("chapterRemoveLegacyStatusColumns_(migrationSheet)", context);
+  assert.deepEqual(state.rows[1], originalRow);
+  state.rows[0].splice(17, 0, "NC2 status", "Diploma status", "NBI/apostille status", "Form 18a status");
+  state.rows[0][30] = "Unrelated column"; state.maxColumns = 31;
+  assert.throws(() => vm.runInContext("chapterRemoveLegacyStatusColumns_(migrationSheet)", context), /HEADER_MISMATCH/);
+  assert.equal(state.maxColumns, 31);
 });

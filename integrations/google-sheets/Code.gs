@@ -1,10 +1,9 @@
-/* Chapter application receiver. See docs/GOOGLE_SHEETS_SETUP.md before deployment. */
+/* Job Fair 2026 application receiver. See docs/GOOGLE_SHEETS_SETUP.md before deployment. */
 const CHAPTER_HEADERS = Object.freeze([
   'Application ID', 'Reference', 'Full name', 'Email', 'Contact number',
   'Job position', 'Preferred employer', 'Submitted at (UTC)', 'CV link',
   'CV file', 'Application status', 'Country', 'Experience (years)',
-  'Recent role', 'Skills', 'NC2 certificate', 'Expected NC2', 'NC2 status',
-  'Diploma status', 'NBI/apostille status', 'Form 18a status', 'Education',
+  'Recent role', 'Skills', 'NC2 certificate', 'Expected NC2', 'Education',
   'Professional summary', 'Cover letter', 'Employer allocations', 'Consent',
   'Diploma / education document', 'NC2 document', 'NBI / apostille document', 'Form 18a document', 'Other document'
 ]);
@@ -16,7 +15,7 @@ const CHAPTER_FILE_FIELDS = 'id,name,mimeType,size,trashed,parents,appProperties
 
 /** Public health response intentionally exposes no configuration or applicant data. */
 function doGet() {
-  return chapterJson_({ ok: true, service: 'chapter-applications', version: 1 });
+  return chapterJson_({ ok: true, service: 'chapter-applications', version: 1, schemaVersion: 2, columns: CHAPTER_HEADERS.length });
 }
 
 function doPost(event) {
@@ -66,7 +65,7 @@ function doPost(event) {
       const file = chapterDriveGet_(match[1]);
       chapterVerifyCv_(file, config.folderId, application, payload.resume);
       chapterPrivatePermissions_(file.id);
-      const existingDocuments = sheet.getRange(existing, 27, 1, 5).getValues()[0];
+      const existingDocuments = sheet.getRange(existing, 23, 1, 5).getValues()[0];
       chapterAssert_(existingDocuments.every(function (value, index) { return value === documentColumns[index]; }), 'EXISTING_DOCUMENT_MISMATCH');
       return chapterJson_({ ok: true, applicationId: application.id,
         reference: application.reference, row: existing, duplicate: true, cvUrl: cvLink });
@@ -78,7 +77,7 @@ function doPost(event) {
     // The script lock serializes writers and the ID/reference check makes retries safe.
     const rowNumber = sheet.getLastRow() + 1;
     if (rowNumber > sheet.getMaxRows()) sheet.insertRowsAfter(sheet.getMaxRows(), 100);
-    const targetRange = chapterSheetRange_(config.sheetName, 'A' + rowNumber + ':AE' + rowNumber);
+    const targetRange = chapterSheetRange_(config.sheetName, 'A' + rowNumber + ':AA' + rowNumber);
     const result = chapterGoogleJson_(
       'https://sheets.googleapis.com/v4/spreadsheets/' + config.sheetId + '/values/' +
       encodeURIComponent(targetRange) + '?valueInputOption=RAW',
@@ -86,7 +85,7 @@ function doPost(event) {
         payload: JSON.stringify({ majorDimension: 'ROWS', values: [row] }) }, 'SHEET_WRITE_FAILED'
     );
     const range = result.updatedRange;
-    const rowMatch = typeof range === 'string' && /!A(\d+):AE(\d+)$/.exec(range);
+    const rowMatch = typeof range === 'string' && /!A(\d+):AA(\d+)$/.exec(range);
     chapterAssert_(rowMatch && Number(rowMatch[1]) === rowNumber && Number(rowMatch[2]) === rowNumber &&
       result.updatedRows === 1 && result.updatedColumns === CHAPTER_HEADERS.length, 'SHEET_WRITE_UNCONFIRMED');
     return chapterJson_({ ok: true, applicationId: application.id,
@@ -107,11 +106,12 @@ function setupChapterSync() {
   chapterAssert_(lock.tryLock(25000), 'BUSY_RETRY');
   try {
     const sheet = chapterGetSheet_(config, true);
+    chapterRemoveLegacyStatusColumns_(sheet);
     if (sheet.getMaxColumns() < CHAPTER_HEADERS.length) sheet.insertColumnsAfter(sheet.getMaxColumns(), CHAPTER_HEADERS.length - sheet.getMaxColumns());
     if (sheet.getLastRow() > 0) {
       const current = sheet.getRange(1, 1, 1, CHAPTER_HEADERS.length).getValues()[0];
-      chapterAssert_(current.every(function (value, index) { return value === CHAPTER_HEADERS[index] || index >= 26 && !value; }), 'HEADER_MISMATCH');
-      sheet.getRange(1, 27, 1, 5).setValues([CHAPTER_HEADERS.slice(26)]);
+      chapterAssert_(current.every(function (value, index) { return value === CHAPTER_HEADERS[index] || index >= 22 && !value; }), 'HEADER_MISMATCH');
+      sheet.getRange(1, 23, 1, 5).setValues([CHAPTER_HEADERS.slice(22)]);
     }
     if (sheet.getLastRow() === 0) {
       sheet.getRange(1, 1, 1, CHAPTER_HEADERS.length).setValues([CHAPTER_HEADERS.slice()]);
@@ -139,6 +139,24 @@ function setupChapterSync() {
   } finally {
     lock.releaseLock();
   }
+}
+
+/** Owner-only setup migration: remove exactly the four retired status columns. */
+function chapterRemoveLegacyStatusColumns_(sheet) {
+  if (sheet.getLastRow() === 0 || sheet.getMaxColumns() < 26) return;
+  const legacyBase = CHAPTER_HEADERS.slice(0, 17).concat([
+    'NC2 status', 'Diploma status', 'NBI/apostille status', 'Form 18a status'
+  ], CHAPTER_HEADERS.slice(17, 22));
+  const current = sheet.getRange(1, 1, 1, 26).getValues()[0];
+  if (!current.every(function (value, index) { return value === legacyBase[index]; })) return;
+  chapterAssert_(sheet.getLastColumn() <= 31, 'HEADER_MISMATCH');
+  if (sheet.getLastColumn() > 26) {
+    const documents = sheet.getRange(1, 27, 1, 5).getValues()[0];
+    chapterAssert_(documents.every(function (value, index) {
+      return !value || value === CHAPTER_HEADERS[index + 22];
+    }), 'HEADER_MISMATCH');
+  }
+  sheet.deleteColumns(18, 4);
 }
 
 function chapterConfig_(allowMissingFolder) {
@@ -332,14 +350,11 @@ function chapterPrivatePermissions_(id) {
 }
 
 function chapterRow_(application, file) {
-  const readiness = application.documentReadiness;
-  const labels = { ready: 'Ready', 'in-progress': 'In progress', 'not-yet': 'Not yet available' };
   return [application.id, application.reference, application.fullName, application.email, application.phone,
     application.jobTitle, application.preferredEmployer, new Date(application.submittedAt).toISOString(),
     'https://drive.google.com/file/d/' + file.id + '/view', file.name, application.status, application.country,
     application.experienceYears, application.recentJobTitle, application.skills, application.nc2Certificate,
-    application.expectedNc2, labels[readiness.nc2], labels[readiness.diploma], labels[readiness.nbi],
-    labels[readiness.form18a], application.education, application.summary, application.coverLetter,
+    application.expectedNc2, application.education, application.summary, application.coverLetter,
     application.employers.map(function (employer) { return employer.name + ': ' + employer.workers; }).join('; '), 'Yes'];
 }
 

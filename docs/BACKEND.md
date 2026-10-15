@@ -32,7 +32,7 @@ Resumes are capped at 5 MB and restricted to PDF, DOC and DOCX. The server check
 
 Staff API endpoints:
 
-Supporting files accept PDF, DOC, DOCX, JPG and PNG up to 3 MiB each, with a combined 15 MiB limit including the CV. Images are decoded, rotated, stripped of metadata and re-encoded as JPEG. Document downloads use the same staff authentication, audit and private attachment headers as CV downloads. The Google queue sends file bytes in a signed version-2 payload and records private Drive links in columns AA:AE; CV-only submissions retain version-1 compatibility. Immediate delivery is bounded to 20 seconds, while the background worker allows up to 120 seconds per request.
+Supporting files accept PDF, DOC, DOCX, JPG and PNG up to 3 MiB each, with a combined 15 MiB limit including the CV. Images are decoded, rotated, stripped of metadata and re-encoded as JPEG. Document downloads use the same staff authentication, audit and private attachment headers as CV downloads. The Google queue sends file bytes in a signed version-2 payload and records private Drive links in columns W:AA of the Job Fair 2026 spreadsheet; CV-only submissions retain version-1 compatibility. Document-readiness statuses are no longer collected by the form or written into the spreadsheet. Immediate delivery is bounded to 20 seconds, while the background worker allows up to 120 seconds per request.
 
 | Endpoint | Request | Result |
 | --- | --- | --- |
