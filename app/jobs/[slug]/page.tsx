@@ -2,7 +2,9 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { JobDetails } from "@/components/jobs/JobDetails";
 import { PageMotion } from "@/components/animations/PageMotion";
-import { getJobBySlug, getJobs } from "@/lib/repository";
+import { getPublicJobBySlug, getPublicJobs } from "@/lib/public-jobs";
+import { JsonLd } from "@/components/seo/JsonLd";
+import { breadcrumbData, jobPageMetadata, webPageData } from "@/lib/seo";
 
 export const dynamic = "force-dynamic";
 
@@ -12,19 +14,9 @@ export async function generateMetadata({
   params: Promise<{ slug: string }>;
 }): Promise<Metadata> {
   const { slug } = await params;
-  const job = await getJobBySlug(slug);
-  if (!job) return { title: "Opportunity not found" };
-  return {
-    title: `${job.title}${job.salaryStatus === "proposed-net" ? " — Proposed role" : job.isExample ? " — Example vacancy" : ""}`,
-    description: job.summary,
-    alternates: { canonical: `/jobs/${job.slug}` },
-    ...(job.isExample || job.salaryStatus === "proposed-net" ? { robots: { index: false, follow: true } } : {}),
-    openGraph: {
-      title: `${job.title} | Jobs in Croatia`,
-      description: job.summary,
-      images: [{ url: job.image, alt: job.imageAlt }],
-    },
-  };
+  const job = await getPublicJobBySlug(slug);
+  if (!job) return { title: "Opportunity not found", robots: { index: false, follow: true } };
+  return jobPageMetadata(job);
 }
 
 export default async function JobDetailPage({
@@ -33,9 +25,9 @@ export default async function JobDetailPage({
   params: Promise<{ slug: string }>;
 }) {
   const { slug } = await params;
-  const job = await getJobBySlug(slug);
+  const job = await getPublicJobBySlug(slug);
   if (!job) notFound();
-  const jobs = await getJobs();
+  const jobs = await getPublicJobs();
   const relatedJobs = jobs
     .filter((item) => item.id !== job.id)
     .sort(
@@ -44,9 +36,11 @@ export default async function JobDetailPage({
         Number(a.category === job.category),
     )
     .slice(0, 3);
-  // Example vacancies intentionally omit JobPosting structured data.
+  // These role guides use WebPage markup. JobPosting requires confirmed employer facts.
   return (
     <>
+      <JsonLd data={breadcrumbData([{ name: "Home", path: "/" }, { name: "Jobs abroad", path: "/jobs" }, { name: job.title, path: `/jobs/${encodeURIComponent(job.slug)}` }])} />
+      <JsonLd data={webPageData(job.title, job.summary, `/jobs/${encodeURIComponent(job.slug)}`)} />
       <JobDetails job={job} relatedJobs={relatedJobs} />
       <PageMotion />
     </>

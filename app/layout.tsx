@@ -2,6 +2,9 @@ import type { Metadata, Viewport } from "next";
 import localFont from "next/font/local";
 import { Navbar } from "@/components/layout/Navbar";
 import { Footer } from "@/components/layout/Footer";
+import { JsonLd } from "@/components/seo/JsonLd";
+import { site } from "@/data/site";
+import { pageMetadata, websiteData } from "@/lib/seo";
 import "./globals.css";
 import "../styles/typography.css";
 import "../styles/job-pay.css";
@@ -38,33 +41,13 @@ const thicccboi = localFont({
   display: "swap",
 });
 export const metadata: Metadata = {
-  metadataBase: new URL(
-    process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000",
-  ),
+  ...pageMetadata({ title: "Job Fair Philippines 2026", description: site.description, path: "/" }),
+  metadataBase: new URL(site.url),
   title: {
-    default: "Jobs in Croatia — Your next opportunity starts here",
+    default: site.title,
     template: "%s | Jobs in Croatia",
   },
-  description:
-    "Explore jobs in Croatia with clear role information, salary details, and simple online applications for skilled professionals.",
-  openGraph: {
-    title: "Jobs in Croatia — Good work. A better future.",
-    siteName: "Jobs in Croatia",
-    description: "Find opportunities that match your skills and take the next step in your career.",
-    type: "website",
-    images: [
-      {
-        url: "/images/hero.jpg",
-        width: 1600,
-        height: 1000,
-        alt: "Skilled professionals at work",
-      },
-    ],
-  },
-  robots:
-    process.env.INDEX_SITE === "true"
-      ? { index: true, follow: true }
-      : { index: false, follow: true },
+  ...(process.env.GOOGLE_SITE_VERIFICATION ? { verification: { google: process.env.GOOGLE_SITE_VERIFICATION.trim() } } : {}),
 };
 export const viewport: Viewport = { themeColor: "#f7f7f3" };
 export default function RootLayout({
@@ -79,6 +62,7 @@ export default function RootLayout({
       data-scroll-behavior="smooth"
     >
       <body>
+        <JsonLd data={websiteData()} />
         <a className="skip-link" href="#main-content">
           Skip to content
         </a>

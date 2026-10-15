@@ -4,12 +4,13 @@ import Link from "next/link";
 import { Faq } from "@/components/ui/Faq";
 import { ActionLink } from "@/components/ui/ActionLink";
 import { jobFair } from "@/data/job-fair";
-export const metadata: Metadata = {
-  title: "Application help",
+import { pageMetadata } from "@/lib/seo";
+export const metadata: Metadata = pageMetadata({
+  title: "Job Fair Philippines 2026 — Application Help",
   description:
     "Get help with applying, resume uploads, and application confirmation. Find confirmed recruitment contact details when available.",
-  alternates: { canonical: "/contact" },
-};
+  path: "/contact",
+});
 export default function Contact() {
   const email = process.env.NEXT_PUBLIC_CONTACT_EMAIL;
   return (

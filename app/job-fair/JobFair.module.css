@@ -560,6 +560,14 @@
   opacity: .13;
   z-index: -1;
 }
+.faqSection {
+  padding: clamp(64px, 8vw, 112px) 0;
+  border-top: 1px solid var(--line);
+}
+.faqSection > div > p {
+  margin-top: 20px;
+  margin-bottom: 24px;
+}
 .pageSource {
   max-width: 950px;
   margin-top: 24px;

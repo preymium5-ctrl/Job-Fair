@@ -2,6 +2,7 @@ import { notFound } from "next/navigation";
 import type { Metadata } from "next";
 import ApplicationForm from "@/components/applications/ApplicationForm";
 import { getJobBySlug } from "@/lib/repository";
+import { siteUrl } from "@/lib/seo";
 
 export const dynamic = "force-dynamic";
 
@@ -14,6 +15,7 @@ export async function generateMetadata({
   const job = await getJobBySlug(slug);
   return {
     title: job ? `Apply for ${job.title}` : "Application",
+    alternates: { canonical: siteUrl(`/jobs/${encodeURIComponent(slug)}/apply`) },
     robots: { index: false, follow: false },
   };
 }

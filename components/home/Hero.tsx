@@ -52,9 +52,9 @@ export function Hero({
         <div className="hero-intro" data-enter>
           <span className="eyebrow">Your skills. New opportunities.</span>
           <p>
-            There’s more to your future.
-            <br /> Discover work that fits your skills.
-            <br /> And take the next step with confidence.
+            Explore skilled work abroad in Croatia.
+            <br /> Job Fair Philippines 2026.
+            <br /> Find the role that matches your skills.
           </p>
           <Link href="/jobs" className="button button-primary magnetic">
             Explore jobs <ArrowUpRight size={20} />

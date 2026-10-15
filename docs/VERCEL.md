@@ -1,6 +1,6 @@
 # Deploying Jobs in Croatia to Vercel
 
-The repository can be imported as a Next.js project. The current complete application flow runs locally or on a persistent Node.js server. A GitHub import alone does not connect the production database, private uploads, or Google Sheets.
+The repository can be imported as a Next.js project. Public pages and the sitemap use the built-in fair catalog when no production database is configured. The current complete application flow runs locally or on a persistent Node.js server. A GitHub import alone does not connect the live application backend, private uploads, or Google Sheets.
 
 ## Import settings
 
@@ -29,11 +29,14 @@ Provision an external PostgreSQL database and a private S3-compatible bucket. Th
 | `S3_ENDPOINT` | Required for providers with a custom S3-compatible endpoint |
 | `S3_FORCE_PATH_STYLE` | `true` only if required by the storage provider |
 | `SEED_PROPOSED_JOBS` | `true` to populate the current 17 roles / 248 workers once per catalogue version |
-| `INDEX_SITE` | Keep `false` until content and publication details are confirmed |
+| `INDEX_SITE` | `true` for the public production site; `false` explicitly pauses indexing. Local mode and Vercel previews always remain noindex. |
+| `GOOGLE_SITE_VERIFICATION` | Optional Search Console HTML-tag content value; see [SEO.md](SEO.md) |
 | `GOOGLE_SHEETS_WEBHOOK_URL` | Existing authorized Apps Script deployment URL ending in `/exec` |
 | `GOOGLE_SHEETS_WEBHOOK_SECRET` | Existing matching receiver secret, kept server-only |
 
 Keep `TRUST_PROXY=false` unless the deployment's proxy behavior has been verified against the backend's IP-header handling. Set `NEXT_PUBLIC_CONTACT_EMAIL` once a public recruitment contact is confirmed. Preview deployments need their own matching origin, database, bucket, and test receiver to avoid sending test applications to production.
+
+The primary public origin is `https://www.jobsincroatiaa.com`; use it for both origin variables. `jobstreetcroatia.com` redirects to this domain. See [SEO.md](SEO.md) for canonical URLs, search visibility and Search Console setup.
 
 The legacy `CHAPTER_` setting names are internal compatibility identifiers. The displayed website name is Jobs in Croatia.
 

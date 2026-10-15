@@ -104,6 +104,14 @@ export const fairDocumentTiming =
 export const nc2ElectricalNote =
   "The plan accepts NC2 Electrical categories related to electricians, including industrial electrician, building wiring installation and maintenance, power distribution, lineman, electrical installer and electrical assembler. Vertiv's work profile specifically calls for industrial electricians.";
 
+export const jobFairFaqs: [string, string][] = [
+  ["What is Job Fair Philippines 2026?", "It is a recruitment and skills-assessment plan for Filipino applicants exploring work abroad in Croatia. The plan lists 248 workers across 17 role types and six employer groups."],
+  ["When are the online interviews and skills testing?", `Online interviews are scheduled for ${jobFair.interviewDateLabel}. Five full days of skills testing are planned for ${jobFair.testingDateLabel}, Monday to Friday. Confirm your appointment with the recruitment team.`],
+  ["Which jobs abroad can I explore?", "The listed roles cover welding, fabrication, pipe fitting, electrical installation and assembly, CNC operation, industrial painting, motor and generator work, robotic welding, and grinding. Open a role to review its salary, experience and certificate guidance."],
+  ["Where in the Philippines will the job fair testing take place?", "Testing is planned in the Philippines. The testing-centre address and individual attendance arrangements are to be confirmed by BEI Manpower."],
+  ["How do I apply for the Croatia job fair from the Philippines?", "Choose a role, select Apply now, fill in your contact details and experience, and upload your CV. You can also attach supporting documents and provide NC2 details. A driver's license is a plus; the license details and copy are optional. Save the reference shown after submitting your application."],
+];
+
 const knownRoles: { slug: string; nc2: string; testing?: string[]; focus?: string }[] = [
   { slug: "fabricator", nc2: "NC2 Fabricator" },
   {

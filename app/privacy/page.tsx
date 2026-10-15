@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 export const metadata: Metadata = {
   title: "Privacy notice",
+  alternates: { canonical: "/privacy" },
   robots: { index: false, follow: true },
 };
 export default function Privacy() {

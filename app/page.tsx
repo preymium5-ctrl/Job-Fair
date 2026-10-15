@@ -1,7 +1,13 @@
-import { getJobs } from "@/lib/repository";
+import { getPublicJobs } from "@/lib/public-jobs";
 import { PageMotion } from "@/components/animations/PageMotion";
 import { Hero } from "@/components/home/Hero";
 import { JobFairBanner } from "@/components/job-fair/JobFairBanner";
+import { site } from "@/data/site";
+import { pageMetadata } from "@/lib/seo";
+export const metadata = {
+  ...pageMetadata({ title: "Job Fair Philippines 2026", description: site.description, path: "/" }),
+  title: { absolute: site.title },
+};
 import {
   Introduction,
   FeaturedJobs,
@@ -14,7 +20,7 @@ import {
 } from "@/components/home/HomeSections";
 export const dynamic = "force-dynamic";
 export default async function Home() {
-  const jobs = await getJobs();
+  const jobs = await getPublicJobs();
   return (
     <>
       <Hero

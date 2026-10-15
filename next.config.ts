@@ -1,4 +1,5 @@
 import type { NextConfig } from "next";
+import { site } from "./data/site";
 const config: NextConfig = {
   outputFileTracingRoot: process.cwd(),
   images: {
@@ -6,6 +7,14 @@ const config: NextConfig = {
     remotePatterns: [{ protocol: "https", hostname: "images.unsplash.com" }],
   },
   serverExternalPackages: ["@electric-sql/pglite", "postgres"],
+  async redirects() {
+    return site.alternateHosts.map((host) => ({
+      source: "/:path*",
+      has: [{ type: "host" as const, value: host.replace(/\./g, "\\.") }],
+      destination: `${site.url}/:path*`,
+      permanent: true,
+    }));
+  },
   async headers() {
     return [
       {

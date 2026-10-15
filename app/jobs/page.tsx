@@ -4,23 +4,27 @@ import { Suspense } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { ArrowDownRight } from "lucide-react";
-import { getJobs } from "@/lib/repository";
+import { getPublicJobs } from "@/lib/public-jobs";
 import { JobDirectory } from "@/components/jobs/JobDirectory";
 import { ProposedTermsNotice } from "@/components/jobs/JobSalary";
 import { JobFairBanner } from "@/components/job-fair/JobFairBanner";
+import { JsonLd } from "@/components/seo/JsonLd";
+import { breadcrumbData, jobDirectoryData, pageMetadata } from "@/lib/seo";
 export const dynamic = "force-dynamic";
-export const metadata: Metadata = {
-  title: "Find your next opportunity",
+export const metadata: Metadata = pageMetadata({
+  title: "Jobs Abroad for Filipinos — Croatia Job Fair 2026",
   description:
-    "Explore jobs by industry, location, and employment type. Read complete role details and start your online application.",
-  alternates: { canonical: "/jobs" },
-};
+    "Browse skilled roles for the Philippines job fair 2026: welding, electrical work, fabrication, CNC and more. Review Croatia role details and apply online.",
+  path: "/jobs",
+});
 export default async function JobsPage() {
-  const jobs = await getJobs();
+  const jobs = await getPublicJobs();
   const proposedJobs = jobs.filter((job) => job.salaryStatus === "proposed-net");
   const workers = proposedJobs.reduce((total, job) => total + (job.openings || 0), 0);
   return (
     <>
+      <JsonLd data={jobDirectoryData(jobs)} />
+      <JsonLd data={breadcrumbData([{ name: "Home", path: "/" }, { name: "Jobs abroad", path: "/jobs" }])} />
       <section className="container jobs-hero">
         <div className="breadcrumb" data-enter>
           <Link href="/">Home</Link>
@@ -38,9 +42,9 @@ export default async function JobsPage() {
               <span className="subtle-text">opportunity.</span>
             </h1>
             <p data-enter>
-              New possibilities. Different directions.
+              Skilled roles for the Philippines job fair 2026.
               <br />
-              Find work that matches your skills and ambitions.
+              Explore work abroad in Croatia that matches your experience.
             </p>
           </div>
           <div className="jobs-hero-photo" data-enter>

@@ -5,21 +5,27 @@ import { ArrowDown, ArrowUpRight, CalendarDays, Check, MapPin } from "lucide-rea
 import { PageMotion } from "@/components/animations/PageMotion";
 import { ActionLink } from "@/components/ui/ActionLink";
 import { BrandMark } from "@/components/ui/Brand";
+import { Faq } from "@/components/ui/Faq";
+import { JsonLd } from "@/components/seo/JsonLd";
+import { breadcrumbData, pageMetadata, webPageData } from "@/lib/seo";
 import {
   fairDocuments,
   fairDocumentTiming,
   fairOptionalDocument,
   jobFair,
+  jobFairFaqs,
   nc2ElectricalNote,
 } from "@/data/job-fair";
 import styles from "./JobFair.module.css";
 
-export const metadata: Metadata = {
-  title: "Job Fair Philippines 2026",
+export const metadata: Metadata = pageMetadata({
+  title: "Philippines Job Fair 2026 — Dates & Requirements",
   description:
-    `Explore the Job Fair Philippines 2026 plan: 248 positions across six employers, planned testing on ${jobFair.testingDateLabel}, and candidate preparation guidance.`,
-  alternates: { canonical: "/job-fair" },
-};
+    `Explore jobs abroad in Croatia through Job Fair Philippines 2026. Skills testing: ${jobFair.testingDateLabel}. See roles, interviews and requirements.`,
+  path: "/job-fair",
+  image: "/images/jobs/proposed/fabricator.webp",
+  imageAlt: "AI-generated illustration of a fabricator — Job Fair Philippines 2026",
+});
 
 const nc2Requirements = [
   ["Fabricators", "NC2 Fabricator"],
@@ -80,6 +86,8 @@ export default function JobFairPage() {
 
   return (
     <div className={styles.page}>
+      <JsonLd data={breadcrumbData([{ name: "Home", path: "/" }, { name: "Job Fair Philippines 2026", path: "/job-fair" }])} />
+      <JsonLd data={webPageData(jobFair.title, `A guide to jobs abroad in Croatia, online interviews on ${jobFair.interviewDateLabel}, and planned skills testing in the Philippines on ${jobFair.testingDateLabel}.`, "/job-fair")} />
       <div className="container">
         <div className={`breadcrumb ${styles.breadcrumb}`} data-enter>
           <Link href="/">Home</Link><span>/</span><span>Job Fair 2026</span>
@@ -90,7 +98,7 @@ export default function JobFairPage() {
             <p className="eyebrow" data-enter>Humble Hunters × BEI Manpower</p>
             <h1 className={styles.title} data-enter>Job Fair<br />Philippines<span className={styles.year}>2026.</span></h1>
             <p className={styles.intro} data-enter>A place for your skills.<br />A plan for your future in Croatia.</p>
-            <p className={styles.heroDescription} data-enter>Explore the employer groups, prepare for assessment, and find the role that matches your experience.</p>
+            <p className={styles.heroDescription} data-enter>A 2026 overseas job fair in the Philippines for skilled Filipinos exploring work in Croatia. Review the roles, interview dates, and application requirements.</p>
             <div className={styles.heroActions} data-enter>
               <ActionLink href="/jobs">Explore the roles</ActionLink>
               <Link className={styles.anchorLink} href="#event-details">Event details <ArrowDown size={17} aria-hidden="true" /></Link>
@@ -201,7 +209,7 @@ export default function JobFairPage() {
             </ul>
             <p className={styles.optionalDocument}>{fairOptionalDocument}</p>
             <div className={styles.documentCallout}><strong>Testing day ≠ permit filing</strong><p>{fairDocumentTiming}</p></div>
-            <p className={styles.privacyCopy}>Upload your CV when applying. You can also attach your diploma or education certificate, NC2 certificate, NBI clearance, Form 18a, and another relevant supporting document. Supporting uploads are optional and kept private.</p>
+            <p className={styles.privacyCopy}>Upload your CV when applying. You can also attach your diploma or education certificate, NC2 certificate, NBI clearance, Form 18a, an optional driver’s license copy, and another relevant supporting document. Supporting uploads are optional and kept private.</p>
           </div>
           <div className={styles.certificatePanel} data-reveal>
             <h3>Which NC2 certificate?</h3>
@@ -227,6 +235,16 @@ export default function JobFairPage() {
             {welderStages.map((stage, index) => <li key={stage.title} data-reveal><span>{String(index + 1).padStart(2, "0")}</span><h3>{stage.title}</h3><p>{stage.copy}</p></li>)}
           </ol>
           <p className={styles.sourceNote}>This outline applies to that employer and role. Other welding tests and the remaining role assessments should be confirmed with BEI Manpower.</p>
+        </section>
+
+        <section className={`${styles.faqSection} faq-layout`} aria-labelledby="fair-faq-title">
+          <div data-reveal>
+            <p className="eyebrow">06 / Before you apply</p>
+            <h2 id="fair-faq-title" className={styles.heading}>Your job fair<br /><span className="subtle-text">questions.</span></h2>
+            <p className={styles.sectionIntro}>Dates, roles and preparation for Filipino applicants exploring jobs abroad in Croatia.</p>
+            <Link href="/jobs" className="text-link">Explore the job-fair roles <ArrowUpRight size={16} aria-hidden="true" /></Link>
+          </div>
+          <div data-reveal><Faq items={jobFairFaqs} /></div>
         </section>
 
         <section className={styles.finalCta} data-reveal aria-labelledby="fair-cta-title">

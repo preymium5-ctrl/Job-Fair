@@ -5,12 +5,13 @@ import Link from "next/link";
 import { ArrowUpRight } from "lucide-react";
 import { ActionLink } from "@/components/ui/ActionLink";
 import { jobFair } from "@/data/job-fair";
-export const metadata: Metadata = {
-  title: "A new perspective on work",
+import { pageMetadata } from "@/lib/seo";
+export const metadata: Metadata = pageMetadata({
+  title: "About the Philippines Job Fair & Croatia Roles",
   description:
-    "Jobs in Croatia makes opportunities clearer with detailed role information, simple applications, and thoughtful next steps.",
-  alternates: { canonical: "/about" },
-};
+    "Learn about Jobs in Croatia and the Job Fair Philippines 2026 guide, with role information, online applications and preparation for work abroad.",
+  path: "/about",
+});
 export default function About() {
   return (
     <div className="container information-page">
