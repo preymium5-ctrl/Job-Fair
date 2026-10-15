@@ -32,7 +32,7 @@ const steps = [
 const fields: (keyof ApplicationInput)[][] = [
   ["fullName", "email", "phone", "country"],
   ["recentJobTitle", "experienceYears", "skills", "education", "summary"],
-  ["coverLetter", "nc2Certificate", "preferredEmployer"],
+  ["coverLetter", "nc2Certificate", "driverLicenseDetails", "preferredEmployer"],
   ["consent"],
 ];
 const maxResumeBytes = 5 * 1024 * 1024;
@@ -70,6 +70,8 @@ function validate(
   if (step === 2) {
     if ((values.nc2Certificate || "").trim().length > 200)
       errors.nc2Certificate = "Keep your certificate details within 200 characters.";
+    if ((values.driverLicenseDetails || "").trim().length > 200)
+      errors.driverLicenseDetails = "Keep your license details within 200 characters.";
     if (!resume) errors.resume = "Please upload your resume or CV.";
     else if (resume.size > maxResumeBytes)
       errors.resume = "Your file must be 5 MB or smaller.";
@@ -97,6 +99,7 @@ export default function ApplicationForm({ job }: { job: Job }) {
     summary: "",
     coverLetter: "",
     nc2Certificate: "",
+    ...(fairRole?.drivingLicenseIsPlus ? { driverLicenseDetails: "" } : {}),
     preferredEmployer: "",
     consent: false,
   });
@@ -330,6 +333,7 @@ export default function ApplicationForm({ job }: { job: Job }) {
       summary: 4000,
       coverLetter: 6000,
       nc2Certificate: 200,
+      driverLicenseDetails: 200,
     };
     return (
       <div className={`${styles.field} ${options.wide ? styles.full : ""}`}>
@@ -665,7 +669,7 @@ export default function ApplicationForm({ job }: { job: Job }) {
                         <section className={styles.requirements} aria-labelledby="supporting-documents-heading">
                           <h3 id="supporting-documents-heading">Supporting documents</h3>
                           <p className={styles.documentNote}>Attach the documents you have available. These uploads are optional. Keep your CV and all attachments together within 15 MB.</p>
-                          {supportingDocumentTypes.map(({ id }) => supportingUpload(id))}
+                          {supportingDocumentTypes.filter(({ id }) => id !== "driver-license").map(({ id }) => supportingUpload(id))}
                           {errors.documents && <p className={styles.fieldError} id="supporting-documents-error" role="alert">{errors.documents}</p>}
                         </section>
                         <section
@@ -707,6 +711,20 @@ export default function ApplicationForm({ job }: { job: Job }) {
                               Certificate numbers are not needed.
                             </p>
                           </div>
+                          {fairRole?.drivingLicenseIsPlus && (
+                            <div className={styles.certificate}>
+                              {input("driverLicenseDetails", "Driver’s license details", {
+                                optional: true,
+                                placeholder: "License type / category and issuing country",
+                                wide: true,
+                              })}
+                              <p className={styles.documentNote}>
+                                A driver’s license is a plus. You can apply without one.
+                                A license number is not needed.
+                              </p>
+                              {supportingUpload("driver-license")}
+                            </div>
+                          )}
                           {Boolean(fairRole?.employers.length) && (
                             <div className={styles.field}>
                               <label htmlFor="preferredEmployer">
@@ -797,8 +815,9 @@ export default function ApplicationForm({ job }: { job: Job }) {
                           onEdit={() => goTo(2)}
                           items={[
                             ["Resume", resume?.name || "Not selected"],
-                            ...supportingDocumentTypes.map(({ id, label }): [string, string] => [label, supportingFiles[id]?.name || "Not attached"]),
+                            ...supportingDocumentTypes.filter(({ id }) => id !== "driver-license" || fairRole?.drivingLicenseIsPlus).map(({ id, label }): [string, string] => [label, supportingFiles[id]?.name || "Not attached"]),
                             ["NC2 certificate", values.nc2Certificate || "Not provided"],
+                            ...(fairRole?.drivingLicenseIsPlus ? [["Driver’s license details", values.driverLicenseDetails || "Not provided"] as [string, string]] : []),
                             ...(fairRole
                               ? [[
                                   "Preferred employer",

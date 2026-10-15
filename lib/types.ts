@@ -57,6 +57,7 @@ export interface ApplicationInput {
   coverLetter: string;
   consent: boolean;
   nc2Certificate?: string;
+  driverLicenseDetails?: string;
   documentReadiness?: DocumentReadiness;
   preferredEmployer?: string;
 }

@@ -31,6 +31,7 @@ export const applicationSchema = z
     summary: z.string().trim().max(4000).default(""),
     coverLetter: z.string().trim().max(6000).default(""),
     nc2Certificate: z.string().trim().max(200).default(""),
+    driverLicenseDetails: z.string().trim().max(200).optional(),
     preferredEmployer: z.string().trim().max(160).default(""),
     documentReadiness: z.object({
       nc2: z.enum(documentStatuses),

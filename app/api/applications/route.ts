@@ -125,6 +125,10 @@ export async function POST(request: NextRequest) {
     if (!job || job.status !== "published")
       return failure("This position is no longer accepting applications.", 409);
     const fairRole = getJobFairRole(job);
+    if ((result.data.driverLicenseDetails || documents.some(({ category }) => category === "driver-license")) && !fairRole?.drivingLicenseIsPlus)
+      return failure("Driver’s license details are not collected for this position.", 422, {
+        fieldErrors: { driverLicenseDetails: "Remove the license details and attachment for this position." },
+      });
     if (result.data.preferredEmployer && !fairRole?.employers.some((employer) => employer.name === result.data.preferredEmployer))
       return failure("Choose an employer listed for this position.", 422, {
         fieldErrors: { preferredEmployer: "Choose an employer listed for this position, or no preference." },

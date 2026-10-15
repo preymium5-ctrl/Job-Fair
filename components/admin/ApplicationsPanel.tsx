@@ -16,6 +16,7 @@ import {
   type Job,
 } from "@/lib/types";
 import { AdminApiError, adminRequest, errorMessage } from "./api";
+import { documentLabel } from "@/lib/document-uploads";
 import styles from "./Admin.module.css";
 
 export default function ApplicationsPanel({
@@ -253,6 +254,7 @@ export default function ApplicationsPanel({
                 items={[
                   ["Preferred employer", selected.preferredEmployer || "Not provided / open to allocations"],
                   ["NC2 certificate details", selected.nc2Certificate || "Not provided"],
+                  ["Driver’s license details", selected.driverLicenseDetails || "Not provided"],
                   ["NC2 certificate", documentStatus(selected.documentReadiness?.nc2)],
                   ["High school diploma", documentStatus(selected.documentReadiness?.diploma)],
                   ["NBI clearance with apostille", documentStatus(selected.documentReadiness?.nbi)],
@@ -311,7 +313,7 @@ export default function ApplicationsPanel({
               {selected.documents?.map((document) => (
                 <div className={styles.resumeBox} key={document.id}>
                   <FileText size={22} />
-                  <h4>{document.category === "diploma" ? "Diploma / education certificate" : document.category === "nc2" ? "NC2 certificate" : document.category === "nbi" ? "NBI clearance / apostille" : document.category === "form18a" ? "Form 18a" : "Other supporting document"}</h4>
+                  <h4>{documentLabel(document.category)}</h4>
                   <p>{document.name}</p>
                   <a className={styles.resumeLink} href={`/api/admin/applications/${encodeURIComponent(selected.id)}/documents/${encodeURIComponent(document.id)}`}>
                     Download private document <ArrowDownToLine size={16} />

@@ -30,9 +30,10 @@ export default function Privacy() {
         <p>
           The application form collects your name, email address, telephone
           number, country of residence, professional background, resume,
-          employer preference, NC2 certificate details, document-readiness
-          status, optional diploma or education certificates and other supporting
-          documents, and optional cover letter. Please do not include bank
+          employer preference, NC2 certificate details, optional driver’s license
+          details and a license copy for the listed job-fair roles, optional diploma
+          or education certificates and other supporting documents, and optional
+          cover letter. A license number is not needed. Please do not include bank
           information, medical records, or other unnecessary sensitive
           information.
         </p>
@@ -48,7 +49,7 @@ export default function Privacy() {
         </p>
         <h2>Recruitment records in Google</h2>
         <p>
-          Application details and document-readiness information may be copied
+          Application details, including optional driver’s license information, may be copied
           to the recruiting team’s Google Sheets tracker. A private copy of your
           CV and supporting documents may be stored in the team’s Google Drive, with links in that
           tracker. The website sends this information through its authorized
@@ -57,8 +58,9 @@ export default function Privacy() {
         </p>
         <p>
           Supporting documents are optional. You can attach an NC2 certificate,
-          diploma or education certificate, NBI clearance, Form 18a, and another
-          document relevant to your application. Requests for correction
+          diploma or education certificate, NBI clearance, Form 18a, a driver’s
+          license copy for the listed job-fair roles, and another document relevant
+          to your application. Requests for correction
           or deletion should include your reference so staff can locate both
           website and Google records.
         </p>

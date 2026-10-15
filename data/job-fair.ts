@@ -12,6 +12,7 @@ export interface JobFairRole {
   nc2: string;
   testing: string[];
   focus?: string;
+  drivingLicenseIsPlus: boolean;
 }
 
 // Applicant-facing facts from Job_Fair_Philippines_2026_EN.pdf, dated 29 Sep 2026.
@@ -156,6 +157,8 @@ export function getJobFairRole(job: Pick<Job, "id" | "slug">): JobFairRole | und
   return {
     employers,
     nc2: role.nc2,
+    // Page 5 explicitly places this optional advantage under "All positions".
+    drivingLicenseIsPlus: true,
     testing: role.testing ?? [...new Set(employers.map((employer) => `${employer.name}: ${employer.testing}`))],
     ...(role.focus ? { focus: role.focus } : {}),
   };

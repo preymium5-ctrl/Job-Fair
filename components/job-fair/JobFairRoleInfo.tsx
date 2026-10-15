@@ -19,6 +19,7 @@ export function JobFairRoleInfo({ job, compact = false }: { job: Job; compact?: 
         ))}
       </ul>
       <p className={styles.credential}><strong>NC2 guidance</strong>{role.nc2}</p>
+      {role.drivingLicenseIsPlus && <p className={styles.credential}><strong>Additional advantage</strong>A driver’s license is a plus. Optional for this application.</p>}
       {role.focus && <p className={styles.note}>{role.focus}</p>}
       {!compact && (
         <>

@@ -4,6 +4,7 @@ export const supportingDocumentTypes = [
   { id: "nbi", label: "NBI clearance / apostille" },
   { id: "form18a", label: "Form 18a" },
   { id: "other", label: "Other supporting document" },
+  { id: "driver-license", label: "Driver’s license copy" },
 ] as const;
 export type SupportingDocumentCategory = (typeof supportingDocumentTypes)[number]["id"];
 export const MAX_SUPPORTING_DOCUMENT_BYTES = 3 * 1024 * 1024;

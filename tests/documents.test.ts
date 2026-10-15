@@ -7,7 +7,7 @@ import { randomUUID } from "node:crypto";
 import sharp from "sharp";
 import { NextRequest } from "next/server";
 import { closeDatabase, getDatabase } from "../lib/db";
-import { getApplications, getJobs } from "../lib/repository";
+import { getApplications, getJobs, saveJob } from "../lib/repository";
 import { administrators, audits } from "../lib/schema";
 import { hashPassword } from "../lib/auth";
 import { readObject, validateSupportingDocument } from "../lib/storage";
@@ -46,12 +46,13 @@ test("supporting uploads validate real bytes and sanitize scans", async () => {
 
 test("applications retain diploma and other files, reject changed retries, authorize downloads and queue private Google delivery", async () => {
   const job = (await getJobs())[0];
-  const input = { jobId: job.id, fullName: "Document Test Applicant", email: "documents@example.test", phone: "+639171234567", country: "Philippines", recentJobTitle: "Fabricator", experienceYears: 2, skills: "Fabrication", education: "School diploma", summary: "", coverLetter: "", consent: true };
+  const input = { jobId: job.id, fullName: "Document Test Applicant", email: "documents@example.test", phone: "+639171234567", country: "Philippines", recentJobTitle: "Fabricator", experienceYears: 2, skills: "Fabrication", education: "School diploma", summary: "", coverLetter: "", driverLicenseDetails: "Non-professional license, Philippines", consent: true };
   const key = randomUUID();
   function request(changed = false, duplicate = false) {
     const form = new FormData(); form.set("payload", JSON.stringify(input)); form.set("idempotencyKey", key); form.set("resume", new File([pdf], "cv.pdf"));
     form.append("document:diploma", new File([pdf], "diploma.pdf"));
-    form.append("document:other", new File([changed ? Buffer.from("%PDF-1.4\nchanged\n%%EOF") : pdf], "training.pdf"));
+    form.append("document:other", new File([pdf], "training.pdf"));
+    form.append("document:driver-license", new File([changed ? Buffer.from("%PDF-1.4\nchanged\n%%EOF") : pdf], "driver-license.pdf"));
     if (duplicate) form.append("document:other", new File([pdf], "extra.pdf"));
     return new NextRequest(`${origin}/api/applications`, { method: "POST", headers: { origin }, body: form });
   }
@@ -63,7 +64,8 @@ test("applications retain diploma and other files, reject changed retries, autho
   assert.equal((await submit(request(true))).status, 409);
   const records = await getApplications(); assert.equal(records.length, 1);
   const application = records[0]; assert.equal(application.reference, receipt.reference);
-  assert.equal(application.documents?.length, 2);
+  assert.equal(application.documents?.length, 3);
+  assert.equal(application.driverLicenseDetails, input.driverLicenseDetails);
   const diploma = application.documents![0]; assert.equal(diploma.category, "diploma");
   assert.deepEqual(await readObject(diploma.key), pdf);
   const url = `${origin}/api/admin/applications/${application.id}/documents/${diploma.id}`;
@@ -77,14 +79,39 @@ test("applications retain diploma and other files, reject changed retries, autho
   const response = await download(new NextRequest(url, { headers: { cookie } }), params);
   assert.equal(response.status, 200); assert.match(response.headers.get("cache-control")!, /no-store/);
   assert.deepEqual(Buffer.from(await response.arrayBuffer()), pdf);
+  const license = application.documents!.find((document) => document.category === "driver-license")!;
+  const licenseParams = { params: Promise.resolve({ id: application.id, documentId: license.id }) };
+  assert.equal((await download(new NextRequest(url), licenseParams)).status, 401);
+  const licenseDownload = await download(new NextRequest(url, { headers: { cookie } }), licenseParams);
+  assert.equal(licenseDownload.status, 200);
+  assert.deepEqual(Buffer.from(await licenseDownload.arrayBuffer()), pdf);
   assert.equal((await download(new NextRequest(url, { headers: { cookie } }), { params: Promise.resolve({ id: application.id, documentId: randomUUID() }) })).status, 404);
   assert.ok((await (await getDatabase()).select().from(audits)).some((row) => row.action === "document.downloaded" && row.details.documentId === diploma.id));
   const delivered = await drainSheetsQueue({ applicationId: application.id }, { transport: async (payload) => {
-    assert.equal(payload.version, 2); assert.equal(payload.documents?.length, 2);
+    assert.equal(payload.version, 2); assert.equal(payload.documents?.length, 3);
+    assert.equal(payload.application.driverLicenseDetails, input.driverLicenseDetails);
+    assert.ok(payload.documents?.some((document) => document.category === "driver-license"));
     assert.equal("documents" in payload.application, false);
     assert.ok(!JSON.stringify(payload).includes(diploma.key));
     assert.equal(payload.documents![0].base64, pdf.toString("base64"));
     return { ok: true, applicationId: application.id, reference: application.reference, row: 2, duplicate: false };
   } });
   assert.equal(delivered.delivered, 1);
+});
+
+test("driver license collection is restricted to the PDF roles, including attachment-only requests", async () => {
+  const originalJob = (await getJobs())[0];
+  const id = randomUUID();
+  await saveJob({ ...originalJob, id, slug: `custom-${id}`, title: "Custom vacancy" }, "test-staff", true);
+  const count = (await getApplications()).length;
+  for (const attachment of [false, true]) {
+    const form = new FormData();
+    form.set("payload", JSON.stringify({ jobId: id, fullName: "License Scope Test", email: "license-scope@example.test", phone: "+639171234567", country: "Philippines", recentJobTitle: "Fabricator", experienceYears: 2, skills: "Fabrication", consent: true, ...(!attachment ? { driverLicenseDetails: "License, Philippines" } : {}) }));
+    form.set("resume", new File([pdf], "cv.pdf")); form.set("idempotencyKey", randomUUID());
+    if (attachment) form.set("document:driver-license", new File([pdf], "license.pdf"));
+    const response = await submit(new NextRequest(`${origin}/api/applications`, { method: "POST", headers: { origin }, body: form }));
+    assert.equal(response.status, 422);
+    assert.match((await response.json()).fieldErrors.driverLicenseDetails, /this position/);
+  }
+  assert.equal((await getApplications()).length, count);
 });

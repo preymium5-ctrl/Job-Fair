@@ -5,17 +5,18 @@ const CHAPTER_HEADERS = Object.freeze([
   'CV file', 'Application status', 'Country', 'Experience (years)',
   'Recent role', 'Skills', 'NC2 certificate', 'Expected NC2', 'Education',
   'Professional summary', 'Cover letter', 'Employer allocations', 'Consent',
-  'Diploma / education document', 'NC2 document', 'NBI / apostille document', 'Form 18a document', 'Other document'
+  'Diploma / education document', 'NC2 document', 'NBI / apostille document', 'Form 18a document', 'Other document',
+  'Driver license details', 'Driver license document'
 ]);
 const CHAPTER_SHEET_ID = '1v9-lAvpJPUCxCqr03EkVwKKAfedEDtckHir4ro6cyeU';
 const CHAPTER_MAX_CV_BYTES = 5 * 1024 * 1024;
 const CHAPTER_MAX_BODY_CHARS = 23000000;
-const CHAPTER_DOCUMENT_CATEGORIES = ['diploma', 'nc2', 'nbi', 'form18a', 'other'];
+const CHAPTER_DOCUMENT_CATEGORIES = ['diploma', 'nc2', 'nbi', 'form18a', 'other', 'driver-license'];
 const CHAPTER_FILE_FIELDS = 'id,name,mimeType,size,trashed,parents,appProperties,driveId';
 
 /** Public health response intentionally exposes no configuration or applicant data. */
 function doGet() {
-  return chapterJson_({ ok: true, service: 'chapter-applications', version: 1, schemaVersion: 2, columns: CHAPTER_HEADERS.length });
+  return chapterJson_({ ok: true, service: 'chapter-applications', version: 1, schemaVersion: 3, columns: CHAPTER_HEADERS.length });
 }
 
 function doPost(event) {
@@ -67,17 +68,19 @@ function doPost(event) {
       chapterPrivatePermissions_(file.id);
       const existingDocuments = sheet.getRange(existing, 23, 1, 5).getValues()[0];
       chapterAssert_(existingDocuments.every(function (value, index) { return value === documentColumns[index]; }), 'EXISTING_DOCUMENT_MISMATCH');
+      chapterAssert_(sheet.getRange(existing, 28).getValue() === (application.driverLicenseDetails || '') &&
+        sheet.getRange(existing, 29).getValue() === documentColumns[5], 'EXISTING_DOCUMENT_MISMATCH');
       return chapterJson_({ ok: true, applicationId: application.id,
         reference: application.reference, row: existing, duplicate: true, cvUrl: cvLink });
     }
 
     const file = chapterGetOrCreateCv_(config, application, payload.resume, payload.bytes);
-    const row = chapterRow_(application, file).concat(documentColumns);
+    const row = chapterRow_(application, file).concat(documentColumns.slice(0, 5), [application.driverLicenseDetails || '', documentColumns[5]]);
     // Use an explicit range: append's table detection can skip a hidden first column.
     // The script lock serializes writers and the ID/reference check makes retries safe.
     const rowNumber = sheet.getLastRow() + 1;
     if (rowNumber > sheet.getMaxRows()) sheet.insertRowsAfter(sheet.getMaxRows(), 100);
-    const targetRange = chapterSheetRange_(config.sheetName, 'A' + rowNumber + ':AA' + rowNumber);
+    const targetRange = chapterSheetRange_(config.sheetName, 'A' + rowNumber + ':AC' + rowNumber);
     const result = chapterGoogleJson_(
       'https://sheets.googleapis.com/v4/spreadsheets/' + config.sheetId + '/values/' +
       encodeURIComponent(targetRange) + '?valueInputOption=RAW',
@@ -85,7 +88,7 @@ function doPost(event) {
         payload: JSON.stringify({ majorDimension: 'ROWS', values: [row] }) }, 'SHEET_WRITE_FAILED'
     );
     const range = result.updatedRange;
-    const rowMatch = typeof range === 'string' && /!A(\d+):AA(\d+)$/.exec(range);
+    const rowMatch = typeof range === 'string' && /!A(\d+):AC(\d+)$/.exec(range);
     chapterAssert_(rowMatch && Number(rowMatch[1]) === rowNumber && Number(rowMatch[2]) === rowNumber &&
       result.updatedRows === 1 && result.updatedColumns === CHAPTER_HEADERS.length, 'SHEET_WRITE_UNCONFIRMED');
     return chapterJson_({ ok: true, applicationId: application.id,
@@ -111,7 +114,7 @@ function setupChapterSync() {
     if (sheet.getLastRow() > 0) {
       const current = sheet.getRange(1, 1, 1, CHAPTER_HEADERS.length).getValues()[0];
       chapterAssert_(current.every(function (value, index) { return value === CHAPTER_HEADERS[index] || index >= 22 && !value; }), 'HEADER_MISMATCH');
-      sheet.getRange(1, 23, 1, 5).setValues([CHAPTER_HEADERS.slice(22)]);
+      sheet.getRange(1, 23, 1, CHAPTER_HEADERS.length - 22).setValues([CHAPTER_HEADERS.slice(22)]);
     }
     if (sheet.getLastRow() === 0) {
       sheet.getRange(1, 1, 1, CHAPTER_HEADERS.length).setValues([CHAPTER_HEADERS.slice()]);
@@ -206,12 +209,15 @@ function chapterValidatePayload_(payload) {
   chapterKeys_(payload, payload && payload.version === 2 ? ['version', 'application', 'resume', 'documents'] : ['version', 'application', 'resume']);
   chapterAssert_(payload.version === 1 || payload.version === 2, 'INVALID_VERSION');
   const application = payload.application;
-  chapterKeys_(application, [
+  const applicationKeys = [
     'id', 'reference', 'submittedAt', 'jobTitle', 'jobId', 'status', 'fullName', 'email',
     'phone', 'country', 'recentJobTitle', 'experienceYears', 'skills', 'education', 'summary',
     'coverLetter', 'consent', 'nc2Certificate', 'documentReadiness', 'preferredEmployer',
     'expectedNc2', 'employers'
-  ]);
+  ];
+  if (application && Object.prototype.hasOwnProperty.call(application, 'driverLicenseDetails')) applicationKeys.push('driverLicenseDetails');
+  chapterKeys_(application, applicationKeys);
+  if (Object.prototype.hasOwnProperty.call(application, 'driverLicenseDetails')) chapterText_(application.driverLicenseDetails, 200, 0);
   [ ['id', 100, 1], ['reference', 80, 1], ['jobId', 100, 1], ['jobTitle', 160, 2],
     ['fullName', 120, 2], ['email', 254, 3], ['phone', 30, 7], ['country', 80, 2],
     ['recentJobTitle', 160, 2], ['skills', 2000, 2], ['education', 2000, 0],
@@ -245,7 +251,7 @@ function chapterValidatePayload_(payload) {
   chapterKeys_(resume, ['name', 'mime', 'base64']);
   const bytes = chapterValidateFile_(resume, CHAPTER_MAX_CV_BYTES, false);
   const documents = payload.version === 2 ? payload.documents : [];
-  chapterAssert_(Array.isArray(documents) && documents.length <= 5, 'INVALID_DOCUMENT');
+  chapterAssert_(Array.isArray(documents) && documents.length <= CHAPTER_DOCUMENT_CATEGORIES.length, 'INVALID_DOCUMENT');
   const categories = {};
   const identifiers = {};
   let totalBytes = bytes.length;
@@ -293,8 +299,8 @@ function chapterGetOrCreateCv_(config, application, resume, bytes, documentId) {
   // bounded application files locally, including legacy CVs without a document ID.
   const query = "trashed = false and '" + config.folderId + "' in parents and appProperties has { key='chapterApplicationId' and value='" + application.id + "' }";
   const search = chapterGoogleJson_('https://www.googleapis.com/drive/v3/files?q=' + encodeURIComponent(query) +
-    '&pageSize=7&fields=' + encodeURIComponent('files(' + CHAPTER_FILE_FIELDS + '),nextPageToken'), {}, 'CV_LOOKUP_FAILED');
-  chapterAssert_(Array.isArray(search.files) && search.files.length <= 6 && !search.nextPageToken, 'DUPLICATE_CV_CONFLICT');
+    '&pageSize=' + (CHAPTER_DOCUMENT_CATEGORIES.length + 2) + '&fields=' + encodeURIComponent('files(' + CHAPTER_FILE_FIELDS + '),nextPageToken'), {}, 'CV_LOOKUP_FAILED');
+  chapterAssert_(Array.isArray(search.files) && search.files.length <= CHAPTER_DOCUMENT_CATEGORIES.length + 1 && !search.nextPageToken, 'DUPLICATE_CV_CONFLICT');
   const matches = search.files.filter(function (file) {
     const identifier = file.appProperties && file.appProperties.chapterDocumentId;
     return documentId ? identifier === documentId : !identifier;

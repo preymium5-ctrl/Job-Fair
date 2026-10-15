@@ -293,6 +293,7 @@ export function JobDetails({
               {job.requirements.map((item) => (
                 <li key={item}>{item}</li>
               ))}
+              {fairRole?.drivingLicenseIsPlus && <li>A driver’s license is a plus (optional).</li>}
             </ul>
             <div className={styles.smallNote}>
               Relevant experience: {job.experience}.

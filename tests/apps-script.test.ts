@@ -17,7 +17,7 @@ function fixture() {
   ]);
   const state = {
     rows: [] as unknown[][], files: [] as DriveFile[], calls: [] as { url: string; options: Record<string, unknown> }[],
-    writeFailures: 0, maxRows: 1000, maxColumns: 27, folderPublic: false, filePublic: false, locks: 0, releases: 0,
+    writeFailures: 0, maxRows: 1000, maxColumns: 29, folderPublic: false, filePublic: false, locks: 0, releases: 0,
     stagedFile: undefined as Omit<DriveFile, "id" | "size" | "trashed"> | undefined,
   };
   const response = (data: unknown, status = 200, headers = {}) => ({
@@ -90,12 +90,12 @@ function fixture() {
       }
       if (url.includes("/values/")) {
         assert.equal(options.method, "put");
-        assert.match(decodeURIComponent(url), new RegExp("/values/'Applications'!A" + (state.rows.length + 1) + ":AA" + (state.rows.length + 1) + "\\?valueInputOption=RAW$"));
+        assert.match(decodeURIComponent(url), new RegExp("/values/'Applications'!A" + (state.rows.length + 1) + ":AC" + (state.rows.length + 1) + "\\?valueInputOption=RAW$"));
         if (state.writeFailures-- > 0) return response({ error: "Private Google failure detail" }, 503);
         const row = JSON.parse(options.payload as string).values[0];
-        assert.equal(row.length, 27);
+        assert.equal(row.length, 29);
         state.rows.push(row);
-        return response({ updatedRows: 1, updatedColumns: 27, updatedRange: "'Applications'!A" + state.rows.length + ":AA" + state.rows.length });
+        return response({ updatedRows: 1, updatedColumns: 29, updatedRange: "'Applications'!A" + state.rows.length + ":AC" + state.rows.length });
       }
       const file = state.files.find((item) => url.includes("/files/" + item.id + "?"));
       if (file) return response(file);
@@ -104,7 +104,7 @@ function fixture() {
   });
   vm.runInContext(source, context);
   state.rows.push([...vm.runInContext("CHAPTER_HEADERS", context)]);
-  function post(payload = application(), overrides: Record<string, unknown> = {}) {
+  function post(payload: unknown = application(), overrides: Record<string, unknown> = {}) {
     const timestamp = Date.now();
     const serialized = JSON.stringify(payload);
     const signature = createHmac("sha256", secret).update(`${timestamp}.${serialized}`).digest("hex");
@@ -191,7 +191,7 @@ test("Apps Script reuses uploaded CV after failed sheet write and returns saniti
   assert.equal(state.rows.length, 2);
 });
 
-test("Apps Script writes fixed A:AA coordinates without append table detection and expands a full sheet", () => {
+test("Apps Script writes fixed A:AC coordinates without append table detection and expands a full sheet", () => {
   const { state, post } = fixture();
   state.maxRows = 1;
   assert.equal(post().ok, true);
@@ -200,7 +200,7 @@ test("Apps Script writes fixed A:AA coordinates without append table detection a
   assert.equal(state.rows[1][21], "Yes");
   const write = state.calls.find(({ url }) => url.includes("/values/"));
   assert.ok(write);
-  assert.match(decodeURIComponent(write.url), /'Applications'!A2:AA2\?valueInputOption=RAW$/);
+  assert.match(decodeURIComponent(write.url), /'Applications'!A2:AC2\?valueInputOption=RAW$/);
   assert.ok(!write.url.includes(":append"));
 });
 
@@ -226,7 +226,7 @@ test("Apps Script stops on changed headers, conflicting references, or public CV
 test("Apps Script health endpoint has no applicant data or secret", () => {
   const { context, properties } = fixture();
   properties.clear();
-  assert.deepEqual(vm.runInContext("doGet()", context), { ok: true, service: "chapter-applications", version: 1, schemaVersion: 2, columns: 27 });
+  assert.deepEqual(vm.runInContext("doGet()", context), { ok: true, service: "chapter-applications", version: 1, schemaVersion: 3, columns: 29 });
 });
 
 test("Apps Script delivers diploma and other supporting files privately and retries without duplicates", () => {
@@ -254,7 +254,8 @@ test("Apps Script delivers diploma and other supporting files privately and retr
 
 test("receiver migration removes only retired status columns and preserves existing applicant details and document links", () => {
   const { state, context } = fixture();
-  const currentHeaders = [...state.rows[0]];
+  const currentHeaders = state.rows[0].slice(0, 27);
+  state.rows[0] = [...currentHeaders];
   state.rows[0].splice(17, 0, "NC2 status", "Diploma status", "NBI/apostille status", "Form 18a status");
   const originalRow = currentHeaders.map((_, index) => "existing-cell-" + index);
   state.rows.push([...originalRow]);
@@ -276,4 +277,24 @@ test("receiver migration removes only retired status columns and preserves exist
   state.rows[0][30] = "Unrelated column"; state.maxColumns = 31;
   assert.throws(() => vm.runInContext("chapterRemoveLegacyStatusColumns_(migrationSheet)", context), /HEADER_MISMATCH/);
   assert.equal(state.maxColumns, 31);
+});
+
+test("driver license details and all six optional documents align, remain private and deduplicate seven files", () => {
+  const { state, post } = fixture();
+  const original = application();
+  const payload = { ...original, version: 2,
+    application: { ...original.application, driverLicenseDetails: "Professional license, Philippines" },
+    documents: ["diploma", "nc2", "nbi", "form18a", "other", "driver-license"].map((category) => ({
+      ...original.resume, id: `test-${category}`, category, name: `${category}.pdf`,
+    })),
+  };
+  assert.equal(post(payload).ok, true);
+  assert.equal(state.files.length, 7);
+  assert.equal(state.rows[1][27], payload.application.driverLicenseDetails);
+  assert.match(String(state.rows[1][28]), /drive.google.com\/file\/d\/private-cv-6\/view/);
+  assert.equal(post(payload).duplicate, true);
+  assert.equal(state.files.length, 7);
+  assert.equal(state.rows.length, 2);
+  assert.equal(post({ ...payload, application: { ...payload.application, driverLicenseDetails: "Different category" } }).code, "EXISTING_DOCUMENT_MISMATCH");
+  assert.equal(post({ ...payload, application: { ...payload.application, driverLicenseDetails: "x".repeat(201) } }).code, "INVALID_APPLICATION");
 });

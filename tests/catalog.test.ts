@@ -93,6 +93,7 @@ test("the dated fair allocations reconcile six employers and exactly 248 workers
   for (const job of proposedJobs) {
     const role = getJobFairRole(job)!;
     assert.ok(role, job.slug);
+    assert.equal(role.drivingLicenseIsPlus, true, `Page 5 says all positions: ${job.slug}`);
     assert.equal(role.employers.reduce((total, employer) => total + employer.workers, 0), job.openings, job.title);
     assert.ok(role.testing.length > 0);
     assert.ok(job.description.includes("29 September 2026"));
