@@ -1,0 +1,57 @@
+.brand-lockup {
+  display: inline-flex;
+  align-items: center;
+  gap: 11px;
+  color: #142d4e;
+  flex-shrink: 0;
+}
+.brand-mark {
+  display: block;
+  width: 43px;
+  height: 43px;
+}
+.brand-name {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  line-height: 1;
+  letter-spacing: -0.025em;
+}
+.brand-name-prefix {
+  color: #526173;
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.015em;
+}
+.brand-name-country {
+  font-size: 24px;
+  font-weight: 800;
+}
+.wordmark {
+  flex-shrink: 0;
+}
+.site-footer .brand-mark {
+  width: 49px;
+  height: 49px;
+}
+.site-footer .brand-name-country {
+  font-size: 27px;
+}
+.hero-title > span:nth-child(2) {
+  color: #142d4e;
+}
+.hero-title .accent-dot {
+  color: #cc3544;
+}
+@media (max-width: 700px) {
+  .brand-mark {
+    width: 39px;
+    height: 39px;
+  }
+  .brand-name-prefix {
+    font-size: 12px;
+  }
+  .brand-name-country {
+    font-size: 22px;
+  }
+}
