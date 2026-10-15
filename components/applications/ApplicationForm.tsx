@@ -32,32 +32,10 @@ const steps = [
 const fields: (keyof ApplicationInput)[][] = [
   ["fullName", "email", "phone", "country"],
   ["recentJobTitle", "experienceYears", "skills", "education", "summary"],
-  ["coverLetter", "nc2Certificate", "documentReadiness", "preferredEmployer"],
+  ["coverLetter", "nc2Certificate", "preferredEmployer"],
   ["consent"],
 ];
 const maxResumeBytes = 5 * 1024 * 1024;
-const readinessOptions = [
-  ["not-yet", "Not yet available"],
-  ["in-progress", "In progress"],
-  ["ready", "Ready"],
-] as const;
-const readinessDocuments = [
-  ["nc2", "Valid NC2 certificate"],
-  ["diploma", "High school diploma"],
-  ["nbi", "NBI clearance with apostille"],
-  ["form18a", "Form 18a"],
-] as const;
-const defaultReadiness = {
-  nc2: "not-yet",
-  diploma: "not-yet",
-  nbi: "not-yet",
-  form18a: "not-yet",
-} as const;
-
-function readinessLabel(value?: string) {
-  return readinessOptions.find(([key]) => key === value)?.[1] || "Not provided";
-}
-
 function validate(
   values: ApplicationInput,
   step: number,
@@ -90,11 +68,6 @@ function validate(
       errors.skills = "Tell us about your relevant skills.";
   }
   if (step === 2) {
-    if (
-      values.documentReadiness?.nc2 === "ready" &&
-      (values.nc2Certificate || "").trim().length < 2
-    )
-      errors.nc2Certificate = "Enter the NC2 certificate category you hold.";
     if ((values.nc2Certificate || "").trim().length > 200)
       errors.nc2Certificate = "Keep your certificate details within 200 characters.";
     if (!resume) errors.resume = "Please upload your resume or CV.";
@@ -124,7 +97,6 @@ export default function ApplicationForm({ job }: { job: Job }) {
     summary: "",
     coverLetter: "",
     nc2Certificate: "",
-    documentReadiness: { ...defaultReadiness },
     preferredEmployer: "",
     consent: false,
   });
@@ -526,7 +498,7 @@ export default function ApplicationForm({ job }: { job: Job }) {
                       [
                         "Let’s get acquainted.",
                         "Bring your experience.",
-                        "Your documents, your progress.",
+                        "Share your documents.",
                         "Ready for your next step?",
                       ][step]
                     }
@@ -536,7 +508,7 @@ export default function ApplicationForm({ job }: { job: Job }) {
                       [
                         "Start with the details we’ll use to contact you.",
                         "Show us the skills and experience you bring to this role.",
-                        "Upload your CV, attach any supporting documents, and tell us which documents you have ready.",
+                        "Upload your CV and attach any supporting documents you would like to include.",
                         "Take a moment to check your details before sending.",
                       ][step]
                     }
@@ -713,68 +685,19 @@ export default function ApplicationForm({ job }: { job: Job }) {
                                   {fairRole.focus}
                                 </p>
                               )}
-                              <p className={styles.documentNote} id="document-readiness-help">
-                                {fairDocumentTiming} Tell us your current progress;
-                                documents that are not ready will not prevent you
-                                from submitting.
+                              <p className={styles.documentNote}>
+                                {fairDocumentTiming}
                               </p>
                             </>
                           ) : (
-                            <p className={styles.documentNote} id="document-readiness-help">
-                              Tell us your current document status. The recruitment
-                              team will confirm which documents this role needs.
-                              You can apply while documents are in progress.
-                            </p>
-                          )}
-                          <fieldset
-                            className={styles.readiness}
-                            disabled={busy}
-                            aria-describedby={
-                              errors.documentReadiness
-                                ? "document-readiness-help documentReadiness-error"
-                                : "document-readiness-help"
-                            }
-                          >
-                            <legend>Document readiness</legend>
-                            <div className={styles.grid}>
-                              {readinessDocuments.map(([key, label]) => (
-                                <div className={styles.field} key={key}>
-                                  <label htmlFor={`document-${key}`}>{label}</label>
-                                  <select
-                                    id={`document-${key}`}
-                                    name={`documentReadiness.${key}`}
-                                    value={values.documentReadiness?.[key] || "not-yet"}
-                                    aria-invalid={Boolean(errors.documentReadiness)}
-                                    aria-describedby={errors.documentReadiness ? "documentReadiness-error" : undefined}
-                                    onChange={(event) => {
-                                      update("documentReadiness", {
-                                        ...(values.documentReadiness || defaultReadiness),
-                                        [key]: event.target.value as "ready" | "in-progress" | "not-yet",
-                                      });
-                                      if (key === "nc2") {
-                                        setErrors((current) => ({
-                                          ...current,
-                                          nc2Certificate: undefined,
-                                        }));
-                                      }
-                                    }}
-                                  >
-                                    {readinessOptions.map(([value, label]) => (
-                                      <option key={value} value={value}>{label}</option>
-                                    ))}
-                                  </select>
-                                </div>
-                              ))}
-                            </div>
-                          </fieldset>
-                          {errors.documentReadiness && (
-                            <p id="documentReadiness-error" className={styles.fieldError}>
-                              {errors.documentReadiness}
+                            <p className={styles.documentNote}>
+                              The recruitment team will confirm which documents
+                              this role needs.
                             </p>
                           )}
                           <div className={styles.certificate}>
                             {input("nc2Certificate", "NC2 certificate category / details", {
-                              optional: values.documentReadiness?.nc2 !== "ready",
+                              optional: true,
                               placeholder: fairRole?.nc2 || "e.g. Electrical Installation and Maintenance NC II",
                               wide: true,
                             })}
@@ -876,10 +799,6 @@ export default function ApplicationForm({ job }: { job: Job }) {
                             ["Resume", resume?.name || "Not selected"],
                             ...supportingDocumentTypes.map(({ id, label }): [string, string] => [label, supportingFiles[id]?.name || "Not attached"]),
                             ["NC2 certificate", values.nc2Certificate || "Not provided"],
-                            ...readinessDocuments.map(([key, label]): [string, string] => [
-                              label,
-                              readinessLabel(values.documentReadiness?.[key]),
-                            ]),
                             ...(fairRole
                               ? [[
                                   "Preferred employer",
