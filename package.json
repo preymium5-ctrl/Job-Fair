@@ -8,6 +8,7 @@
     "start": "next start",
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
+    "icons:generate": "node scripts/generate-icons.mjs",
     "test": "tsx --test tests/*.test.ts",
     "admin:setup": "tsx scripts/setup-admin.ts",
     "applications:sync": "tsx scripts/sync-applications.ts",

@@ -20,6 +20,8 @@ The site targets **Job Fair Philippines 2026**, **jobs abroad for Filipinos**, a
 
 ## Structured data and content
 
+The brand favicon is available as a six-size `/favicon.ico` (16–256px), a 192px PNG, the original SVG, and a 180px Apple touch icon. Next.js adds the icon links to every page. Run `npm run icons:generate` after editing `app/icon.svg` to regenerate the raster versions. The ICO URL is stable and crawlable for Google Search; Google controls when its search-result icon refreshes.
+
 The site uses WebSite, publisher Organization, WebPage, CollectionPage/ItemList and BreadcrumbList JSON-LD. Structured data reflects the visible content. The public guide includes interview dates, planned testing dates, role groups, document guidance and applicant questions. It does not invent an event venue, contact details, recruitment accreditation, employer offers or salaries.
 
 Event rich-result markup is deferred until the required specific physical venue is confirmed. JobPosting rich-result markup is deferred until actual employer vacancy details, hiring organization, work location and other required facts are available; proposed net salary ranges are not marked as employer-provided baseSalary. Normal search indexing of useful role guides does not require JobPosting markup. Application pages carry noindex; robots.txt allows Google to crawl them to read that directive. Admin and API routes remain excluded from crawling.
