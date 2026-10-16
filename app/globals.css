@@ -1147,27 +1147,28 @@ svg {
   max-width: 550px;
 }
 .final-cta {
+  scroll-margin-top: 90px;
   background: var(--accent);
   color: var(--paper);
-  padding: 54px 0 51px;
+  padding: 46px 0 42px;
   overflow: hidden;
 }
 .final-cta-top {
   display: flex;
   justify-content: space-between;
-  padding-bottom: 45px;
+  padding-bottom: 32px;
 }
 .final-cta-top .eyebrow {
   font-size: 9px;
 }
 .final-cta-link {
-  display: flex;
+  display: grid;
+  grid-template-columns: minmax(0, 1.15fr) minmax(0, 0.9fr);
   align-items: center;
-  justify-content: space-between;
-  gap: 25px;
+  gap: clamp(28px, 4vw, 64px);
 }
 .final-cta h2 {
-  font-size: clamp(65px, 9.5vw, 148px);
+  font-size: clamp(58px, 7.6vw, 116px);
   font-weight: 700;
   line-height: 0.99;
   letter-spacing: var(--font-heading-tracking);
@@ -1175,11 +1176,43 @@ svg {
 .final-cta h2 span {
   color: #FDE8EA;
 }
+.final-cta-visual {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  min-width: 0;
+  margin: 0;
+  aspect-ratio: 4 / 3;
+  background: var(--brand-blue);
+}
+.final-cta-visual::after {
+  position: absolute;
+  inset: 55% 0 0;
+  content: "";
+  background: linear-gradient(transparent, rgba(14, 33, 51, .72));
+  pointer-events: none;
+}
+.final-cta-photo { object-fit: cover; object-position: center; }
+.final-cta-visual figcaption {
+  position: absolute;
+  z-index: 1;
+  bottom: 22px;
+  left: 20px;
+  max-width: calc(100% - 130px);
+  color: #fff;
+  font-size: 9px;
+  line-height: 1.6;
+  letter-spacing: .03em;
+}
 .final-cta-arrow {
+  position: absolute;
+  z-index: 1;
+  right: 20px;
+  bottom: 20px;
   background: var(--paper);
   color: var(--accent);
-  width: 148px;
-  height: 148px;
+  width: 80px;
+  height: 80px;
   border-radius: 50%;
   display: flex;
   align-items: center;
@@ -1190,8 +1223,8 @@ svg {
     background 0.3s;
 }
 .final-cta-arrow svg {
-  width: 83px;
-  height: 83px;
+  width: 44px;
+  height: 44px;
   stroke-width: 1.25;
 }
 .final-cta-link:hover .final-cta-arrow {
@@ -1202,9 +1235,9 @@ svg {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-top: 53px;
+  margin-top: 32px;
   border-top: 1px solid #ffffff44;
-  padding-top: 27px;
+  padding-top: 22px;
 }
 .final-cta-bottom p {
   font-size: 12px;
@@ -1965,12 +1998,12 @@ svg {
     margin-right: 30px;
   }
   .final-cta-arrow {
-    width: 110px;
-    height: 110px;
+    width: 72px;
+    height: 72px;
   }
   .final-cta-arrow svg {
-    width: 60px;
-    height: 60px;
+    width: 40px;
+    height: 40px;
   }
   .footer-links {
     gap: 55px;
@@ -2471,9 +2504,23 @@ svg {
     font-size: clamp(58px, 12vw, 80px);
   }
   .final-cta-link {
-    gap: 12px;
+    grid-template-columns: 1fr;
+    gap: 28px;
+  }
+  .final-cta-visual {
+    width: 100%;
+    max-width: 540px;
+    justify-self: center;
+    aspect-ratio: 4 / 3;
+  }
+  .final-cta-visual figcaption {
+    left: 16px;
+    bottom: 18px;
+    max-width: calc(100% - 110px);
   }
   .final-cta-arrow {
+    right: 16px;
+    bottom: 16px;
     width: 65px;
     height: 65px;
   }

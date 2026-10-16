@@ -353,21 +353,29 @@ export function HomeFaq() {
 }
 export function FinalCta() {
   return (
-    <section className="final-cta">
+    <section id="your-future" className="final-cta" aria-labelledby="future-heading">
       <div className="container">
         <div className="final-cta-top" data-reveal>
           <span className="eyebrow">This is your moment</span>
           <span className="eyebrow">Make the next move ↘</span>
         </div>
-        <Link href="/jobs" className="final-cta-link" data-reveal>
-          <h2>
+        <Link href="/jobs" className="final-cta-link" aria-label="Explore jobs in Croatia" data-reveal>
+          <h2 id="future-heading">
             Your future
             <br />
             is waiting<span>.</span>
           </h2>
-          <span className="final-cta-arrow">
-            <ArrowUpRight />
-          </span>
+          <figure className="final-cta-visual">
+            <Image
+              src="/images/filipino-future-cta-v1.webp"
+              alt="AI-generated illustration of Filipino tradespeople reviewing a technical drawing in a workshop"
+              fill
+              sizes="(max-width: 700px) calc(100vw - 48px), 40vw"
+              className="final-cta-photo"
+            />
+            <span className="final-cta-arrow" aria-hidden="true"><ArrowUpRight /></span>
+            <figcaption>AI-generated illustration</figcaption>
+          </figure>
         </Link>
         <div className="final-cta-bottom" data-reveal>
           <p>Let’s see where your skills can take you.</p>
