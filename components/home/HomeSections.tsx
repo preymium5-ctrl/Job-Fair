@@ -354,6 +354,15 @@ export function HomeFaq() {
 export function FinalCta() {
   return (
     <section id="your-future" className="final-cta" aria-labelledby="future-heading">
+      <div className="final-cta-background" aria-hidden="true">
+        <Image
+          src="/images/filipino-future-cta-v1.webp"
+          alt=""
+          fill
+          sizes="100vw"
+          className="final-cta-photo"
+        />
+      </div>
       <div className="container">
         <div className="final-cta-top" data-reveal>
           <span className="eyebrow">This is your moment</span>
@@ -365,17 +374,7 @@ export function FinalCta() {
             <br />
             is waiting<span>.</span>
           </h2>
-          <figure className="final-cta-visual">
-            <Image
-              src="/images/filipino-future-cta-v1.webp"
-              alt="AI-generated illustration of Filipino tradespeople reviewing a technical drawing in a workshop"
-              fill
-              sizes="(max-width: 700px) calc(100vw - 48px), 40vw"
-              className="final-cta-photo"
-            />
-            <span className="final-cta-arrow" aria-hidden="true"><ArrowUpRight /></span>
-            <figcaption>AI-generated illustration</figcaption>
-          </figure>
+          <span className="final-cta-arrow" aria-hidden="true"><ArrowUpRight /></span>
         </Link>
         <div className="final-cta-bottom" data-reveal>
           <p>Let’s see where your skills can take you.</p>
@@ -383,6 +382,7 @@ export function FinalCta() {
             Explore open positions
           </ActionLink>
         </div>
+        <p className="final-cta-caption">AI-generated illustration</p>
       </div>
     </section>
   );

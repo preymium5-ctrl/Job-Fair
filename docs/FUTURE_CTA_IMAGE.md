@@ -5,7 +5,7 @@ Created for the homepage “Your future is waiting” section on 16 October 2026
 - Mode: built-in imagegen, new image generation.
 - Original selected image: `design/images/filipino-future-cta-v1.png`.
 - Optimized website asset: `public/images/filipino-future-cta-v1.webp`.
-- Placement: a responsive image beside the CTA headline, with a visible AI-generated illustration caption.
+- Placement: a full-width background covering the entire CTA banner, with a dark overlay behind the headline and buttons and a visible AI-generated illustration caption.
 - The scene illustrates Filipino tradespeople and does not depict a named employer or actual applicants.
 
 ## Final prompt

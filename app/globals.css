@@ -1147,11 +1147,31 @@ svg {
   max-width: 550px;
 }
 .final-cta {
+  position: relative;
+  isolation: isolate;
   scroll-margin-top: 90px;
-  background: var(--accent);
-  color: var(--paper);
-  padding: 46px 0 42px;
+  background: var(--brand-blue);
+  color: #fff;
+  padding: 46px 0 24px;
   overflow: hidden;
+}
+.final-cta-background {
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+}
+.final-cta-background::after {
+  position: absolute;
+  inset: 0;
+  content: "";
+  background:
+    linear-gradient(90deg, rgba(10, 26, 44, .82), rgba(10, 26, 44, .35) 65%, rgba(10, 26, 44, .2)),
+    linear-gradient(0deg, rgba(10, 26, 44, .7), transparent 60%);
+}
+.final-cta-photo {
+  object-fit: cover;
+  object-position: center 8%;
 }
 .final-cta-top {
   display: flex;
@@ -1162,13 +1182,14 @@ svg {
   font-size: 9px;
 }
 .final-cta-link {
-  display: grid;
-  grid-template-columns: minmax(0, 1.15fr) minmax(0, 0.9fr);
+  display: flex;
+  justify-content: space-between;
   align-items: center;
+  min-height: clamp(260px, 27vw, 380px);
   gap: clamp(28px, 4vw, 64px);
 }
 .final-cta h2 {
-  font-size: clamp(58px, 7.6vw, 116px);
+  font-size: clamp(58px, 8.7vw, 132px);
   font-weight: 700;
   line-height: 0.99;
   letter-spacing: var(--font-heading-tracking);
@@ -1176,43 +1197,18 @@ svg {
 .final-cta h2 span {
   color: #FDE8EA;
 }
-.final-cta-visual {
-  position: relative;
-  isolation: isolate;
-  overflow: hidden;
-  min-width: 0;
-  margin: 0;
-  aspect-ratio: 4 / 3;
-  background: var(--brand-blue);
-}
-.final-cta-visual::after {
-  position: absolute;
-  inset: 55% 0 0;
-  content: "";
-  background: linear-gradient(transparent, rgba(14, 33, 51, .72));
-  pointer-events: none;
-}
-.final-cta-photo { object-fit: cover; object-position: center; }
-.final-cta-visual figcaption {
-  position: absolute;
-  z-index: 1;
-  bottom: 22px;
-  left: 20px;
-  max-width: calc(100% - 130px);
-  color: #fff;
+.final-cta-caption {
+  margin-top: 20px;
+  color: #e1e8f0;
   font-size: 9px;
   line-height: 1.6;
   letter-spacing: .03em;
 }
 .final-cta-arrow {
-  position: absolute;
-  z-index: 1;
-  right: 20px;
-  bottom: 20px;
   background: var(--paper);
   color: var(--accent);
-  width: 80px;
-  height: 80px;
+  width: 120px;
+  height: 120px;
   border-radius: 50%;
   display: flex;
   align-items: center;
@@ -1223,8 +1219,8 @@ svg {
     background 0.3s;
 }
 .final-cta-arrow svg {
-  width: 44px;
-  height: 44px;
+  width: 60px;
+  height: 60px;
   stroke-width: 1.25;
 }
 .final-cta-link:hover .final-cta-arrow {
@@ -2491,7 +2487,7 @@ svg {
     margin-left: 32px;
   }
   .final-cta {
-    padding-block: 35px 34px;
+    padding-block: 35px 24px;
   }
   .final-cta-top {
     padding-bottom: 34px;
@@ -2501,26 +2497,19 @@ svg {
     letter-spacing: 1px;
   }
   .final-cta h2 {
-    font-size: clamp(58px, 12vw, 80px);
+    font-size: clamp(44px, 10.5vw, 72px);
   }
   .final-cta-link {
-    grid-template-columns: 1fr;
-    gap: 28px;
+    min-height: 230px;
+    gap: 16px;
   }
-  .final-cta-visual {
-    width: 100%;
-    max-width: 540px;
-    justify-self: center;
-    aspect-ratio: 4 / 3;
+  .final-cta-photo {
+    object-position: 52% top;
   }
-  .final-cta-visual figcaption {
-    left: 16px;
-    bottom: 18px;
-    max-width: calc(100% - 110px);
+  .final-cta-background::after {
+    background: rgba(10, 26, 44, .64);
   }
   .final-cta-arrow {
-    right: 16px;
-    bottom: 16px;
     width: 65px;
     height: 65px;
   }
