@@ -3,17 +3,16 @@ import Image from "next/image";
 import Link from "next/link";
 import { ArrowDown, ArrowUpRight } from "lucide-react";
 import { useRef } from "react";
+import { hiringWorkerRange } from "@/data/employment";
 
 export function Hero({
   count,
   exampleCount,
   proposedCount,
-  workers,
 }: {
   count: number;
   exampleCount: number;
   proposedCount: number;
-  workers: number;
 }) {
   const imageRef = useRef<HTMLDivElement>(null);
   function move(event: React.PointerEvent<HTMLDivElement>) {
@@ -102,13 +101,11 @@ export function Hero({
           </span>
           <small>
             <span>
-              {count}{" "}
               {proposedCount === count && count > 0
-                ? `roles · ${workers} positions`
+                ? <>{count} roles to explore<br />Hiring {hiringWorkerRange} workers per role</>
                 : exampleCount === count && count > 0
-                ? "example opportunities"
-                : "opportunities"}{" "}
-              to explore
+                ? `${count} example opportunities to explore`
+                : `${count} opportunities to explore`}
             </span>
             <ArrowUpRight size={15} />
           </small>

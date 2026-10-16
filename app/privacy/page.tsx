@@ -38,6 +38,12 @@ export default function Privacy() {
           information, medical records, or other unnecessary sensitive
           information.
         </p>
+        <p>
+          A successful application also records your agreement to the application
+          terms, the terms version and the acceptance date and time. This is kept
+          with the application record. Agreement to the terms is separate from
+          the privacy consent requested in the form.
+        </p>
         <h2>How applications are used</h2>
         <p>
           The information is associated with the position you select and made

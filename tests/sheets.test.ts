@@ -11,6 +11,7 @@ import { sheetDeliveries } from "../lib/schema";
 import { drainSheetsQueue, sheetsQueueStatus } from "../lib/sheets-queue";
 import { buildSheetsPayload, sendApplicationToSheets, sheetsConfiguration, SheetsDeliveryError, type SheetsPayload } from "../lib/sheets-transport";
 import { applicationSchema } from "../lib/validation";
+import { applicationTermsVersion } from "../data/application-terms";
 import type { Application, Job } from "../lib/types";
 import { getJobFairRole } from "../data/job-fair";
 import { NextRequest } from "next/server";
@@ -41,7 +42,7 @@ function applicant(): Application {
   return {
     id, reference: `CH-TEST-${id}`, jobId: job.id, jobTitle: job.title,
     fullName: "Integration Test Applicant", email: `${id}@example.test`, phone: "+63 917 123 4567", country: "Philippines",
-    recentJobTitle: "Fabricator", experienceYears: 3, skills: "Workshop fabrication", education: "High school", summary: "", coverLetter: "", consent: true,
+    recentJobTitle: "Fabricator", experienceYears: 3, skills: "Workshop fabrication", education: "High school", summary: "", coverLetter: "", consent: true, termsAccepted: true, termsVersion: applicationTermsVersion,
     nc2Certificate: "NC2 Fabricator", documentReadiness: { nc2: "ready", diploma: "ready", nbi: "in-progress", form18a: "not-yet" },
     preferredEmployer: "", status: "New", submittedAt: new Date().toISOString(), resumeName: "resume.pdf", resumeMime: "application/pdf", resumeKey: `resumes/${randomUUID()}.pdf`, isExample: false,
   };

@@ -16,6 +16,7 @@ import {
 } from "../lib/repository";
 import { administrators, audits } from "../lib/schema";
 import { applicationSchema } from "../lib/validation";
+import { applicationTermsVersion } from "../data/application-terms";
 import {
   decodeSession,
   hashPassword,
@@ -100,6 +101,8 @@ function applicant(jobId: string) {
     summary: "",
     coverLetter: "",
     consent: true,
+    termsAccepted: true,
+    termsVersion: applicationTermsVersion,
   };
 }
 function applicationRequest(
@@ -184,6 +187,20 @@ test("server validation rejects invalid contact details and missing consent", ()
     assert.equal(applicationSchema.safeParse({ ...applicant("test"), experienceYears }).success, false);
   assert.equal(applicationSchema.safeParse({ ...applicant("test"), experienceYears: 3 }).success, true);
 });
+test("new applications require explicit agreement to the current terms, separately from privacy consent", () => {
+  for (const termsAccepted of [undefined, false, "true", 1]) {
+    const parsed = applicationSchema.safeParse({ ...applicant("test"), termsAccepted });
+    assert.equal(parsed.success, false);
+    if (!parsed.success) assert.ok(parsed.error.issues.some((issue) => issue.path[0] === "termsAccepted"));
+  }
+  for (const termsVersion of [undefined, "old-version"]) {
+    const parsed = applicationSchema.safeParse({ ...applicant("test"), termsVersion });
+    assert.equal(parsed.success, false);
+    if (!parsed.success) assert.ok(parsed.error.issues.some((issue) => issue.path[0] === "termsVersion"));
+  }
+  assert.equal(applicationSchema.safeParse({ ...applicant("test"), termsAcceptedAt: "2000-01-01T00:00:00Z" }).success, false);
+});
+
 test("resume validation checks actual bytes, size, archives and filenames", async () => {
   assert.throws(
     () =>
@@ -311,6 +328,13 @@ test("applications persist once; invalid uploads, bots and closed jobs never ret
   const [job] = await getJobs();
   const payload = applicant(job.id);
   const key = randomUUID();
+  for (const override of [{ termsAccepted: false }, { termsAccepted: undefined }, { termsVersion: "old-version" }]) {
+    const rejected = await submit(applicationRequest({ ...payload, ...override }));
+    assert.equal(rejected.status, 422);
+    const body = await rejected.json();
+    assert.ok(body.fieldErrors.termsAccepted || body.fieldErrors.termsVersion);
+  }
+  assert.equal((await getApplications()).length, 0);
   const first = await submit(applicationRequest(payload, key));
   assert.equal(first.status, 201, JSON.stringify(await first.clone().json()));
   const accepted = await first.json();
@@ -349,6 +373,10 @@ test("applications persist once; invalid uploads, bots and closed jobs never ret
   await closeDatabase();
   assert.equal((await getApplications())[0].reference, accepted.reference);
   const existing = (await getApplications())[0];
+  assert.equal(existing.termsAccepted, true);
+  assert.equal(existing.termsVersion, applicationTermsVersion);
+  assert.equal(existing.termsAcceptedAt, existing.submittedAt);
+  assert.ok(Number.isFinite(Date.parse(existing.termsAcceptedAt!)));
   await assert.rejects(
     createApplication(
       { ...existing, id: randomUUID() },

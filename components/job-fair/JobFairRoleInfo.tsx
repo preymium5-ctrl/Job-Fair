@@ -14,7 +14,7 @@ export function JobFairRoleInfo({ job, compact = false }: { job: Job; compact?: 
       <p className={styles.label}>Employer options for this role</p>
       <ul className={styles.employers}>
         {role.employers.map((employer) => (
-          <li key={employer.name}><span>{employer.name}</span><strong>{employer.workers} {employer.workers === 1 ? "worker" : "workers"}</strong></li>
+          <li key={employer.name}><span>{employer.name}</span></li>
         ))}
       </ul>
       <p className={styles.credential}><strong>NC2 guidance</strong>{role.nc2}</p>

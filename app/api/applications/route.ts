@@ -150,6 +150,7 @@ export async function POST(request: NextRequest) {
       jobTitle: job.title,
       status: "New",
       submittedAt: date.toISOString(),
+      termsAcceptedAt: date.toISOString(),
       resumeName: resume.name,
       resumeKey,
       resumeMime: resume.mime,

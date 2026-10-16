@@ -1,6 +1,9 @@
 export const noPlacementFee = "NO PLACEMENT FEE";
 export const minimumExperienceYears = 3;
 export const minimumExperienceRequirement = "Minimum 3 years of relevant work experience.";
+// Current hiring range supplied by the site owner, displayed per role.
+// Historical employer allocations stay in the source data for existing records.
+export const hiringWorkerRange = "100–1,200";
 
 // Employer package supplied by the site operator.
 export const recruitmentBenefits = [
