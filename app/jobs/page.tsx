@@ -10,7 +10,6 @@ import { ProposedTermsNotice } from "@/components/jobs/JobSalary";
 import { RecruitmentSummary } from "@/components/jobs/EmploymentBenefits";
 import { JsonLd } from "@/components/seo/JsonLd";
 import { breadcrumbData, jobDirectoryData, pageMetadata } from "@/lib/seo";
-import { hiringWorkerRange } from "@/data/employment";
 export const dynamic = "force-dynamic";
 export const metadata: Metadata = pageMetadata({
   title: "Jobs in Croatia — Hiring in the Philippines",
@@ -21,6 +20,7 @@ export const metadata: Metadata = pageMetadata({
 export default async function JobsPage() {
   const jobs = await getPublicJobs();
   const proposedJobs = jobs.filter((job) => job.salaryStatus === "proposed-net");
+  const workers = proposedJobs.reduce((total, job) => total + (job.openings || 0), 0);
   return (
     <>
       <JsonLd data={jobDirectoryData(jobs)} />
@@ -62,7 +62,7 @@ export default async function JobsPage() {
                 {proposedJobs.length === jobs.length ? "Available roles" : "Published opportunities"}
                 <br />
                 {proposedJobs.length > 0
-                  ? `Hiring ${hiringWorkerRange} workers per role`
+                  ? `${workers} positions available`
                   : jobs.every((j) => j.isExample)
                   ? "Example vacancies"
                   : "Explore what’s next"}

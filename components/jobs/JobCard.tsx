@@ -5,7 +5,6 @@ import type { Job } from "@/lib/types";
 import { JobSalary } from "./JobSalary";
 import { NoPlacementFee } from "./EmploymentBenefits";
 import { getJobFairRole } from "@/data/job-fair";
-import { hiringWorkerRange } from "@/data/employment";
 export function JobCard({
   job,
   index = 0,
@@ -19,6 +18,7 @@ export function JobCard({
 }) {
   const fairRole = getJobFairRole(job);
   const allocation = employer ? fairRole?.employers.find((item) => item.name === employer) : undefined;
+  const workers = allocation?.workers ?? job.openings;
   return (
     <article
       className={`job-card ${featured ? "job-card-featured" : "job-card-row"}`}
@@ -69,16 +69,20 @@ export function JobCard({
             <MapPin size={14} />
             {job.location}
           </span>
-          <span>For Filipino applicants</span>
+          <span>{fairRole ? "For Filipino applicants" : job.employmentType}</span>
         </div>
         {fairRole && (
           <p className="job-fair-context">
             {allocation ? allocation.name : fairRole.employers.length === 1 ? fairRole.employers[0].name : `${fairRole.employers.length} employer options`}
           </p>
         )}
-        <p className="job-workers">
-          Hiring <strong>{hiringWorkerRange}</strong> workers
-        </p>
+        {typeof workers === "number" && (
+          <p className="job-workers">
+            <strong>{workers}</strong>{" "}
+            {workers === 1 ? "worker" : "workers"}
+             available
+          </p>
+        )}
         <p className="job-summary">{job.summary}</p>
         {!featured && (
           <div className="job-extra">

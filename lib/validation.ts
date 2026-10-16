@@ -1,7 +1,6 @@
 import { z } from "zod";
 import { applicationStatuses, documentStatuses } from "./types";
 import { minimumExperienceYears } from "../data/employment";
-import { applicationTermsVersion } from "../data/application-terms";
 
 const shortText = (maximum = 160) =>
   z.string().trim().min(2, "Enter at least 2 characters.").max(maximum);
@@ -43,12 +42,6 @@ export const applicationSchema = z
     }).strict().optional(),
     consent: z.literal(true, {
       error: "Acknowledge the privacy notice to submit.",
-    }),
-    termsAccepted: z.literal(true, {
-      error: "Read and agree to the application terms to submit.",
-    }),
-    termsVersion: z.literal(applicationTermsVersion, {
-      error: "The application terms have changed. Refresh this page and review the current terms.",
     }),
   })
   .strict()

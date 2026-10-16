@@ -56,9 +56,6 @@ export interface ApplicationInput {
   summary: string;
   coverLetter: string;
   consent: boolean;
-  // Optional on historical records created before application terms were added.
-  termsAccepted?: boolean;
-  termsVersion?: string;
   nc2Certificate?: string;
   driverLicenseDetails?: string;
   documentReadiness?: DocumentReadiness;
@@ -73,7 +70,6 @@ export interface ApplicationDocument {
   size: number;
 }
 export interface Application extends ApplicationInput {
-  termsAcceptedAt?: string;
   id: string;
   reference: string;
   jobTitle: string;

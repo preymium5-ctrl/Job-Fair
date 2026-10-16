@@ -4,6 +4,7 @@ import {
   ArrowDown,
   ArrowRight,
   ArrowUpRight,
+  BriefcaseBusiness,
   CalendarDays,
   MapPin,
   Plus,
@@ -15,7 +16,6 @@ import { EmploymentBenefits, NoPlacementFee } from "./EmploymentBenefits";
 import styles from "./JobDetails.module.css";
 import { getJobFairRole } from "@/data/job-fair";
 import { JobFairRoleInfo } from "@/components/job-fair/JobFairRoleInfo";
-import { hiringWorkerRange } from "@/data/employment";
 
 const roleQuestions: Record<string, { question: string; answer: string }> = {
   "warehouse-worker": {
@@ -118,6 +118,13 @@ function ApplyPanel({ job }: { job: Job }) {
             <dd>{job.location}</dd>
           </div>
           <div>
+            <dt>
+              <BriefcaseBusiness size={15} />
+              Employment
+            </dt>
+            <dd>{job.employmentType}</dd>
+          </div>
+          <div>
             <dt>Experience</dt>
             <dd>{job.experience}</dd>
           </div>
@@ -125,10 +132,12 @@ function ApplyPanel({ job }: { job: Job }) {
             <dt>Compensation</dt>
             <dd>{job.salary ? <JobSalary job={job} compact /> : "To be confirmed"}</dd>
           </div>
-          <div>
-            <dt>Workers hiring</dt>
-            <dd>{hiringWorkerRange}</dd>
-          </div>
+          {typeof job.openings === "number" && (
+            <div>
+              <dt>{job.salaryStatus === "proposed-net" ? "Available positions" : "Openings"}</dt>
+              <dd>{job.openings}</dd>
+            </div>
+          )}
         </dl>
         <Link
           href={`/jobs/${job.slug}/apply`}
@@ -215,10 +224,16 @@ export function JobDetails({
                   <MapPin size={16} />
                   {job.location}
                 </span>
+                <span>
+                  <BriefcaseBusiness size={16} />
+                  {job.employmentType}
+                </span>
               </div>
-              <p className={styles.workerCount} data-enter>
-                Hiring <strong>{hiringWorkerRange}</strong> workers
-              </p>
+              {typeof job.openings === "number" && (
+                <p className={styles.workerCount} data-enter>
+                  <strong>{job.openings}</strong> positions available
+                </p>
+              )}
               <div className={styles.salary} data-enter><JobSalary job={job} /></div>
               <div className={styles.heroActions} data-enter>
                 <Link
@@ -297,6 +312,13 @@ export function JobDetails({
           <NumberedSection number="04" title="Compensation & employment">
             <dl className={styles.employment}>
               <div>
+                <dt>Employment arrangement</dt>
+                <dd>
+                  {job.employmentType}
+                  {job.isExample ? " (example)" : ""}
+                </dd>
+              </div>
+              <div>
                 <dt>Salary range</dt>
                 <dd>{job.salary ? <JobSalary job={job} compact /> : "No verified salary has been provided."}</dd>
               </div>
@@ -308,14 +330,12 @@ export function JobDetails({
                 <dt>Contract duration</dt>
                 <dd>{job.contract || "To be confirmed by the employer."}</dd>
               </div>
-              <div>
-                <dt>Workers hiring</dt>
-                <dd>{hiringWorkerRange}</dd>
-              </div>
-              <div>
-                <dt>Application terms</dt>
-                <dd><Link href="/terms" target="_blank" rel="noopener noreferrer">Read the application terms</Link></dd>
-              </div>
+              {typeof job.openings === "number" && (
+                <div>
+                  <dt>Available positions</dt>
+                  <dd>{job.openings}</dd>
+                </div>
+              )}
             </dl>
             {!job.salary && (
               <p className={styles.smallNote}>
@@ -454,7 +474,9 @@ export function JobDetails({
                     <Link href={`/jobs/${item.slug}`}>{item.title}</Link>
                   </h3>
                   <p className={styles.relatedLocation}>{item.location}</p>
-                  <p className={styles.relatedLocation}>Hiring {hiringWorkerRange} workers</p>
+                  {typeof item.openings === "number" && (
+                    <p className={styles.relatedLocation}>{item.openings} workers{item.salaryStatus === "proposed-net" ? " proposed" : " sought"}</p>
+                  )}
                   <JobSalary job={item} compact />
                   <div className={styles.relatedActions}>
                     <Link href={`/jobs/${item.slug}`}>

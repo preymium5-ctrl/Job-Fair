@@ -1,5 +1,4 @@
 import assert from "node:assert/strict";
-import { applicationTermsVersion } from "../data/application-terms";
 import { after, before, test } from "node:test";
 import { mkdtemp, rm } from "node:fs/promises";
 import path from "node:path";
@@ -47,7 +46,7 @@ test("supporting uploads validate real bytes and sanitize scans", async () => {
 
 test("applications retain diploma and other files, reject changed retries, authorize downloads and queue private Google delivery", async () => {
   const job = (await getJobs())[0];
-  const input = { jobId: job.id, fullName: "Document Test Applicant", email: "documents@example.test", phone: "+639171234567", country: "Philippines", recentJobTitle: "Fabricator", experienceYears: 3, skills: "Fabrication", education: "School diploma", summary: "", coverLetter: "", driverLicenseDetails: "Non-professional license, Philippines", consent: true, termsAccepted: true, termsVersion: applicationTermsVersion };
+  const input = { jobId: job.id, fullName: "Document Test Applicant", email: "documents@example.test", phone: "+639171234567", country: "Philippines", recentJobTitle: "Fabricator", experienceYears: 3, skills: "Fabrication", education: "School diploma", summary: "", coverLetter: "", driverLicenseDetails: "Non-professional license, Philippines", consent: true };
   const key = randomUUID();
   function request(changed = false, duplicate = false) {
     const form = new FormData(); form.set("payload", JSON.stringify(input)); form.set("idempotencyKey", key); form.set("resume", new File([pdf], "cv.pdf"));
@@ -107,7 +106,7 @@ test("driver license collection is restricted to the PDF roles, including attach
   const count = (await getApplications()).length;
   for (const attachment of [false, true]) {
     const form = new FormData();
-    form.set("payload", JSON.stringify({ jobId: id, fullName: "License Scope Test", email: "license-scope@example.test", phone: "+639171234567", country: "Philippines", recentJobTitle: "Fabricator", experienceYears: 3, skills: "Fabrication", consent: true, termsAccepted: true, termsVersion: applicationTermsVersion, ...(!attachment ? { driverLicenseDetails: "License, Philippines" } : {}) }));
+    form.set("payload", JSON.stringify({ jobId: id, fullName: "License Scope Test", email: "license-scope@example.test", phone: "+639171234567", country: "Philippines", recentJobTitle: "Fabricator", experienceYears: 3, skills: "Fabrication", consent: true, ...(!attachment ? { driverLicenseDetails: "License, Philippines" } : {}) }));
     form.set("resume", new File([pdf], "cv.pdf")); form.set("idempotencyKey", randomUUID());
     if (attachment) form.set("document:driver-license", new File([pdf], "license.pdf"));
     const response = await submit(new NextRequest(`${origin}/api/applications`, { method: "POST", headers: { origin }, body: form }));

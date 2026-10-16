@@ -41,7 +41,7 @@ export function Footer() {
         </span>
         <span>
           <Link href="/privacy">Privacy</Link>
-          <Link href="/terms">Application terms</Link>
+          <Link href="/terms">Terms of use</Link>
         </span>
         <span className="footer-location">
           <i /> Built for new beginnings.

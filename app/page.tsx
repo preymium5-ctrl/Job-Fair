@@ -28,6 +28,7 @@ export default async function Home() {
         count={jobs.length}
         exampleCount={jobs.filter((job) => job.isExample).length}
         proposedCount={jobs.filter((job) => job.salaryStatus === "proposed-net").length}
+        workers={jobs.filter((job) => job.salaryStatus === "proposed-net").reduce((total, job) => total + (job.openings || 0), 0)}
       />
       <RecruitmentSummary />
       <Introduction />

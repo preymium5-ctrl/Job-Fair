@@ -17,8 +17,7 @@ import {
 } from "lucide-react";
 import type { ApplicationInput, Job } from "@/lib/types";
 import { JobSalary } from "@/components/jobs/JobSalary";
-import { hiringWorkerRange, minimumExperienceYears } from "@/data/employment";
-import { applicationTermsSummary, applicationTermsVersion } from "@/data/application-terms";
+import { minimumExperienceYears } from "@/data/employment";
 import { NoPlacementFee } from "@/components/jobs/EmploymentBenefits";
 import { MAX_APPLICATION_UPLOAD_BYTES, MAX_SUPPORTING_DOCUMENT_BYTES, SUPPORTING_DOCUMENT_ACCEPT, supportingDocumentTypes, type SupportingDocumentCategory } from "@/lib/document-uploads";
 import { JobFairRoleInfo } from "@/components/job-fair/JobFairRoleInfo";
@@ -36,7 +35,7 @@ const fields: (keyof ApplicationInput)[][] = [
   ["fullName", "email", "phone", "country"],
   ["recentJobTitle", "experienceYears", "skills", "education", "summary"],
   ["coverLetter", "nc2Certificate", "driverLicenseDetails", "preferredEmployer"],
-  ["consent", "termsAccepted", "termsVersion"],
+  ["consent"],
 ];
 const maxResumeBytes = 5 * 1024 * 1024;
 function validate(
@@ -83,8 +82,6 @@ function validate(
   }
   if (step === 3 && !values.consent)
     errors.consent = "Please acknowledge the privacy notice to submit.";
-  if (step === 3 && !values.termsAccepted)
-    errors.termsAccepted = "Read and agree to the application terms to submit.";
   return errors;
 }
 
@@ -107,8 +104,6 @@ export default function ApplicationForm({ job }: { job: Job }) {
     ...(fairRole?.drivingLicenseIsPlus ? { driverLicenseDetails: "" } : {}),
     preferredEmployer: "",
     consent: false,
-    termsAccepted: false,
-    termsVersion: applicationTermsVersion,
   });
   const [resume, setResume] = useState<File | null>(null);
   const [supportingFiles, setSupportingFiles] = useState<Partial<Record<SupportingDocumentCategory, File>>>({});
@@ -411,14 +406,18 @@ export default function ApplicationForm({ job }: { job: Job }) {
               <p>
                 <MapPin size={15} />
                 {job.location}
+                <span> / </span>
+                {job.employmentType}
               </p>
             </div>
             <JobSalary job={job} />
             <NoPlacementFee />
             <JobFairRoleInfo job={job} compact />
-            <div className={styles.example}>
-              <strong>Hiring {hiringWorkerRange} workers</strong>
-            </div>
+            {job.salaryStatus === "proposed-net" && (
+              <div className={styles.example}>
+                <strong>{job.openings} positions available</strong>
+              </div>
+            )}
             {job.isExample && (
               <div className={styles.example}>
                 <strong>Development example vacancy</strong>
@@ -788,10 +787,10 @@ export default function ApplicationForm({ job }: { job: Job }) {
                           <span>Applying for</span>
                           <h3>{job.title}</h3>
                           <p>
-                            {job.location}
+                            {job.location} · {job.employmentType}
                           </p>
                           <JobSalary job={job} compact />
-                          <p>Hiring {hiringWorkerRange} workers.</p>
+                          {job.salaryStatus === "proposed-net" && <p>{job.openings} positions available.</p>}
                         </div>
                         <ReviewSection
                           title="Personal details"
@@ -820,7 +819,7 @@ export default function ApplicationForm({ job }: { job: Job }) {
                           items={[
                             ["Resume", resume?.name || "Not selected"],
                             ...supportingDocumentTypes.filter(({ id }) => id !== "driver-license" || fairRole?.drivingLicenseIsPlus).map(({ id, label }): [string, string] => [label, supportingFiles[id]?.name || "Not attached"]),
-                            ["NC2 certificate details", values.nc2Certificate || "Not provided"],
+                            ["NC2 certificate", values.nc2Certificate || "Not provided"],
                             ...(fairRole?.drivingLicenseIsPlus ? [["Driver’s license details", values.driverLicenseDetails || "Not provided"] as [string, string]] : []),
                             ...(fairRole
                               ? [[
@@ -834,21 +833,6 @@ export default function ApplicationForm({ job }: { job: Job }) {
                             ],
                           ]}
                         />
-                        <section className={styles.applicationTerms} aria-labelledby="application-terms-heading">
-                          <h3 id="application-terms-heading">Application terms</h3>
-                          <ul>{applicationTermsSummary.map((term) => <li key={term}>{term}</li>)}</ul>
-                          <p><Link href="/terms" target="_blank" rel="noopener noreferrer">Read the full application terms (opens in a new tab)</Link></p>
-                          <label className={styles.consent}>
-                            <input id="termsAccepted" type="checkbox" required
-                              checked={Boolean(values.termsAccepted)}
-                              onChange={(event) => update("termsAccepted", event.target.checked)}
-                              aria-invalid={Boolean(errors.termsAccepted || errors.termsVersion)}
-                              aria-describedby={errors.termsAccepted || errors.termsVersion ? "terms-error" : undefined}
-                              disabled={busy} />
-                            <span>I have read and agree to the application terms. <span aria-hidden="true">*</span></span>
-                          </label>
-                          {(errors.termsAccepted || errors.termsVersion) && <p id="terms-error" className={styles.fieldError}>{errors.termsAccepted || errors.termsVersion}</p>}
-                        </section>
                         <div className={styles.privacyNotice}>
                           <LockKeyhole size={20} />
                           <p>
