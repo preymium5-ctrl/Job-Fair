@@ -13,7 +13,7 @@ export function Footer() {
           <p>
             Good work. A better future.
             <br />
-            Your career in Croatia starts here.
+            For Filipino workers taking their next step in Croatia.
           </p>
         </div>
         <div className="footer-links">

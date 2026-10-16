@@ -139,6 +139,9 @@ function ApplyPanel({ job }: { job: Job }) {
         </dl>
         <Link
           href={`/jobs/${job.slug}/apply`}
+          target="_blank"
+          rel="noopener noreferrer"
+          aria-label={`Apply now for ${job.title} (opens in a new tab)`}
           className={`button button-primary ${styles.panelButton}`}
         >
           APPLY NOW <ArrowUpRight size={19} />
@@ -206,6 +209,13 @@ export function JobDetails({
               <p className={styles.summary} data-enter>
                 {job.summary}
               </p>
+              {fairRole && (
+                <p className={styles.applicantNote} data-enter>
+                  <strong>Filipino workers wanted.</strong>
+                  This role is for Filipino applicants with the relevant skills,
+                  experience and qualifications listed below.
+                </p>
+              )}
               <div className={styles.metadata} data-enter>
                 <span>
                   <MapPin size={16} />
@@ -225,6 +235,9 @@ export function JobDetails({
               <div className={styles.heroActions} data-enter>
                 <Link
                   href={`/jobs/${job.slug}/apply`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  aria-label={`Apply now for ${job.title} (opens in a new tab)`}
                   className="button button-primary"
                 >
                   APPLY NOW <ArrowUpRight size={19} />
@@ -484,7 +497,12 @@ export function JobDetails({
                     <Link href={`/jobs/${item.slug}`}>
                       VIEW DETAILS <ArrowRight size={15} />
                     </Link>
-                    <Link href={`/jobs/${item.slug}/apply`}>
+                    <Link
+                      href={`/jobs/${item.slug}/apply`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      aria-label={`Apply now for ${item.title} (opens in a new tab)`}
+                    >
                       APPLY NOW <ArrowUpRight size={15} />
                     </Link>
                   </div>

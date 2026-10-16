@@ -47,9 +47,11 @@ export default function About() {
         <div data-reveal>
           <h2>A clearer way forward.</h2>
           <p>
-            Jobs in Croatia brings job information and online applications into one
-            place. Discover different industries, understand what a role
-            involves, and decide whether it matches your experience and goals.
+            Jobs in Croatia is built for Filipino workers exploring skilled roles
+            in Croatia. We’re looking for Filipino tradespeople and production
+            workers whose experience matches the positions in Job Fair Philippines
+            2026. Review each role’s qualifications and apply with your CV and
+            relevant documents.
           </p>
           <h3>Built around your skills</h3>
           <p>

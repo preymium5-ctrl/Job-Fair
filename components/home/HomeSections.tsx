@@ -29,9 +29,9 @@ export function Introduction() {
             and the life you make along the way.
           </p>
           <p className="muted">
-            Jobs in Croatia brings opportunities into focus. Explore roles across
-            essential industries, understand what’s expected, and apply with a
-            clear next step.
+            We’re looking for skilled Filipino workers for the roles in Job Fair
+            Philippines 2026. Explore work in Croatia, check the experience and
+            qualifications for your trade, and apply with your CV.
           </p>
           <Link href="/about" className="text-link">
             About Jobs in Croatia <ArrowUpRight size={18} />
@@ -41,13 +41,13 @@ export function Introduction() {
       <div className="intro-visual-row">
         <div className="intro-image" data-reveal>
           <Image
-            src="/images/intro.jpg"
-            alt="Skilled work and the people behind it"
+            src="/images/filipino-intro.webp"
+            alt="AI-generated illustration of Filipino technicians collaborating on a motor assembly"
             fill
             sizes="(max-width: 700px) 100vw, 60vw"
             data-parallax
           />
-          <span className="image-note">Made of ambition. Built on skill.</span>
+          <span className="image-note">Filipino skills. AI-generated illustration.</span>
         </div>
         <div className="intro-manifesto" data-reveal>
           <BrandMark className="brand-spark" />

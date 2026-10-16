@@ -14,7 +14,7 @@ export const dynamic = "force-dynamic";
 export const metadata: Metadata = pageMetadata({
   title: "Jobs Abroad for Filipinos — Croatia Job Fair 2026",
   description:
-    "Browse skilled roles for the Philippines job fair 2026: welding, electrical work, fabrication, CNC and more. Review Croatia role details and apply online.",
+    "Filipino workers wanted for skilled roles in Croatia. Browse welding, electrical, fabrication and CNC jobs for Job Fair Philippines 2026 and apply online.",
   path: "/jobs",
 });
 export default async function JobsPage() {
@@ -34,7 +34,7 @@ export default async function JobsPage() {
         <div className="jobs-hero-layout">
           <div>
             <span className="eyebrow" data-enter>
-              Your skills deserve the right place
+              Filipino workers wanted
             </span>
             <h1 className="page-heading" data-enter>
               Find your next
@@ -42,15 +42,15 @@ export default async function JobsPage() {
               <span className="subtle-text">opportunity.</span>
             </h1>
             <p data-enter>
-              Skilled roles for the Philippines job fair 2026.
+              Skilled roles in Croatia for Filipino applicants.
               <br />
-              Explore work abroad in Croatia that matches your experience.
+              Find your trade, check the qualifications, and apply with your CV.
             </p>
           </div>
           <div className="jobs-hero-photo" data-enter>
             <Image
-              src="/images/intro.jpg"
-              alt="A professional work environment"
+              src="/images/filipino-intro.webp"
+              alt="AI-generated illustration of Filipino industrial workers collaborating in a workshop"
               fill
               loading="eager"
               fetchPriority="high"

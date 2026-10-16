@@ -50,9 +50,9 @@ export function Hero({
           </span>
         </h1>
         <div className="hero-intro" data-enter>
-          <span className="eyebrow">Your skills. New opportunities.</span>
+          <span className="eyebrow">Skilled Filipino workers wanted</span>
           <p>
-            Explore skilled work abroad in Croatia.
+            Opportunities in Croatia for Filipino tradespeople and production workers.
             <br /> Job Fair Philippines 2026.
             <br /> Find the role that matches your skills.
           </p>
@@ -72,8 +72,8 @@ export function Hero({
       >
         <div className="hero-image-wrap" ref={imageRef}>
           <Image
-            src="/images/hero.jpg"
-            alt="A skilled professional working in a modern industrial environment"
+            src="/images/filipino-hero.webp"
+            alt="AI-generated illustration of Filipino technicians reviewing a technical drawing in a workshop"
             fill
             loading="eager"
             fetchPriority="high"
@@ -83,7 +83,7 @@ export function Hero({
         </div>
         <div className="hero-image-shade" />
         <div className="hero-photo-caption">
-          <span className="eyebrow">Built by people like you</span>
+          <span className="eyebrow">Filipino skills. New possibilities.</span>
           <p>
             Real skills.
             <br />
@@ -117,7 +117,7 @@ export function Hero({
           Scroll to discover <ArrowDown size={16} />
         </Link>
         <div className="hero-image-tag">
-          <span className="tag-line" /> A new perspective on work / 01
+          <span className="tag-line" /> AI-generated illustration / 01
         </div>
       </div>
       <div className="hero-bottom">

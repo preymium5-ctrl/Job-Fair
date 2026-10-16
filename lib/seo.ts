@@ -29,7 +29,7 @@ export function searchRobots(indexable = true, env: SeoEnvironment = process.env
   };
 }
 
-export function pageMetadata({ title, description, path, image = "/images/hero.jpg", imageAlt = "Jobs in Croatia — Job Fair Philippines 2026", indexable = true }: {
+export function pageMetadata({ title, description, path, image = "/images/filipino-hero.webp", imageAlt = "Filipino workers — Jobs in Croatia, Job Fair Philippines 2026", indexable = true }: {
   title: string;
   description: string;
   path: string;

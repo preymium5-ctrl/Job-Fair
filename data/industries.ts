@@ -1,27 +1,27 @@
 export const industries = [
   {
     name: "Metal Fabrication & Welding",
-    image: "/images/jobs/proposed/fabricator.webp",
-    imageAlt: "AI-generated illustration of metal fabrication work",
+    image: "/images/jobs/filipino/fabricator.webp",
+    imageAlt: "AI-generated illustration of a Filipino metal fabricator",
   },
   {
     name: "Motor & Generator Production",
-    image: "/images/jobs/proposed/mg-assembly-fitter.webp",
-    imageAlt: "AI-generated illustration of motor and generator assembly",
+    image: "/images/jobs/filipino/mg-assembly-fitter.webp",
+    imageAlt: "AI-generated illustration of a Filipino motor and generator assembly fitter",
   },
   {
     name: "Electrical",
-    image: "/images/jobs/proposed/electrical-installer.webp",
-    imageAlt: "AI-generated illustration of electrical installation work",
+    image: "/images/jobs/filipino/electrical-installer.webp",
+    imageAlt: "AI-generated illustration of a Filipino electrical installer",
   },
   {
     name: "CNC & Machining",
-    image: "/images/jobs/proposed/cnc-operator.webp",
-    imageAlt: "AI-generated illustration of a CNC operator at a machining centre",
+    image: "/images/jobs/filipino/cnc-operator.webp",
+    imageAlt: "AI-generated illustration of a Filipino CNC operator at a machining centre",
   },
   {
     name: "Industrial Finishing",
-    image: "/images/jobs/proposed/industrial-spray-painter.webp",
-    imageAlt: "AI-generated illustration of industrial spray painting",
+    image: "/images/jobs/filipino/industrial-spray-painter.webp",
+    imageAlt: "AI-generated illustration of a Filipino industrial spray painter",
   },
 ] as const;

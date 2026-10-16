@@ -67,7 +67,7 @@ export function JobCard({
             <MapPin size={14} />
             {job.location}
           </span>
-          <span>{job.employmentType}</span>
+          <span>{fairRole ? "For Filipino applicants" : job.employmentType}</span>
         </div>
         {fairRole && (
           <p className="job-fair-context">
@@ -106,6 +106,9 @@ export function JobCard({
           </Link>
           <Link
             href={`/jobs/${job.slug}/apply`}
+            target="_blank"
+            rel="noopener noreferrer"
+            aria-label={`Apply now for ${job.title} (opens in a new tab)`}
             className="button button-outline"
           >
             Apply now <ArrowUpRight size={17} />

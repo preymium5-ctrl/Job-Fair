@@ -12,6 +12,8 @@ import {
   proposalCatalogVersion,
   migrateJobFairCatalog,
   jobFairCatalogVersion,
+  migrateFilipinoWorkerImages,
+  filipinoWorkerImageVersion,
 } from "../lib/catalog-migration";
 import { closeDatabase, getDatabase } from "../lib/db";
 import { applications, audits, jobs, settings } from "../lib/schema";
@@ -29,6 +31,7 @@ before(async () => {
   });
   delete process.env.DATABASE_URL;
 });
+
 after(async () => {
   await closeDatabase();
   const safeRoot = path.resolve(tmpdir()) + path.sep;
@@ -235,4 +238,43 @@ test("fair enrichment only replaces original seed content and preserves staff ed
   assert.deepEqual((await db.select().from(jobs).where(eq(jobs.id, protectedJob.id)))[0].data, laterEdit);
   assert.equal((await db.select().from(settings).where(eq(settings.key, jobFairCatalogVersion))).length, 1);
   assert.equal((await db.select().from(audits).where(eq(audits.targetId, jobFairCatalogVersion))).length, 1);
+});
+
+test("Filipino imagery refresh preserves staff photos, closed roles, custom jobs and linked applications", async () => {
+  const db = await getDatabase();
+  await db.delete(settings).where(eq(settings.key, filipinoWorkerImageVersion));
+  await db.delete(audits).where(eq(audits.targetId, filipinoWorkerImageVersion));
+  for (const baseline of proposalV1Jobs) {
+    const replacement = proposedJobs.find((job) => job.id === baseline.id)!;
+    const previous = { ...replacement, image: baseline.image, imageAlt: baseline.imageAlt };
+    await db.update(jobs).set({ slug: previous.slug, status: previous.status, data: previous }).where(eq(jobs.id, previous.id));
+  }
+  const closed = { ...proposalV1Jobs[0], title: "Reviewed fabricator", status: "closed" as const, salary: "€999–€1,111" };
+  const staffPhoto = { ...proposalV1Jobs[1], image: "/images/staff-approved.webp", imageAlt: "Staff approved photo" };
+  const renamed = { ...proposalV1Jobs[2], slug: "staff-renamed-pipe-role" };
+  for (const job of [closed, staffPhoto, renamed])
+    await db.update(jobs).set({ slug: job.slug, status: job.status, data: job }).where(eq(jobs.id, job.id));
+  const custom = { ...proposalV1Jobs[3], id: "image-refresh-custom", slug: "image-refresh-custom" };
+  await db.insert(jobs).values({ id: custom.id, slug: custom.slug, status: custom.status, data: custom });
+  const applicationsBefore = await db.select().from(applications);
+
+  await migrateFilipinoWorkerImages(db);
+  const result = await db.select().from(jobs);
+  const closedRow = result.find((row) => row.id === closed.id)!;
+  assert.equal(closedRow.status, "closed");
+  assert.deepEqual(closedRow.data, { ...closed, image: proposedJobs[0].image, imageAlt: proposedJobs[0].imageAlt });
+  assert.deepEqual(result.find((row) => row.id === staffPhoto.id)?.data, staffPhoto);
+  assert.deepEqual(result.find((row) => row.id === renamed.id)?.data, renamed);
+  assert.deepEqual(result.find((row) => row.id === custom.id)?.data, custom);
+  assert.deepEqual(await db.select().from(applications), applicationsBefore);
+  const normal = proposedJobs[4];
+  assert.equal(result.find((row) => row.id === normal.id)?.data.image, normal.image);
+  assert.match(normal.image, /\/filipino\//);
+  assert.match(normal.imageAlt, /Filipino/);
+
+  const reviewedAfterRefresh = { ...closedRow.data, image: "/images/new-staff-photo.webp" };
+  await db.update(jobs).set({ data: reviewedAfterRefresh }).where(eq(jobs.id, closed.id));
+  await migrateFilipinoWorkerImages(db);
+  assert.deepEqual((await db.select().from(jobs).where(eq(jobs.id, closed.id)))[0].data, reviewedAfterRefresh);
+  assert.equal((await db.select().from(audits).where(eq(audits.targetId, filipinoWorkerImageVersion))).length, 1);
 });

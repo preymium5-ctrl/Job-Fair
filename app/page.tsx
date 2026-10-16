@@ -1,6 +1,7 @@
 import { getPublicJobs } from "@/lib/public-jobs";
 import { PageMotion } from "@/components/animations/PageMotion";
 import { Hero } from "@/components/home/Hero";
+import { CommunityMarquees } from "@/components/home/CommunityMarquees";
 import { JobFairBanner } from "@/components/job-fair/JobFairBanner";
 import { site } from "@/data/site";
 import { pageMetadata } from "@/lib/seo";
@@ -31,6 +32,7 @@ export default async function Home() {
       />
       <div className="container job-fair-banner-wrap"><JobFairBanner /></div>
       <Introduction />
+      <CommunityMarquees />
       <FeaturedJobs jobs={jobs.filter((job) => job.featured)} />
       <Industries jobs={jobs} />
       <Process />

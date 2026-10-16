@@ -23,8 +23,8 @@ export const metadata: Metadata = pageMetadata({
   description:
     `Explore jobs abroad in Croatia through Job Fair Philippines 2026. Skills testing: ${jobFair.testingDateLabel}. See roles, interviews and requirements.`,
   path: "/job-fair",
-  image: "/images/jobs/proposed/fabricator.webp",
-  imageAlt: "AI-generated illustration of a fabricator — Job Fair Philippines 2026",
+  image: "/images/jobs/filipino/fabricator.webp",
+  imageAlt: "AI-generated illustration of a Filipino fabricator — Job Fair Philippines 2026",
 });
 
 const nc2Requirements = [
@@ -98,7 +98,7 @@ export default function JobFairPage() {
             <p className="eyebrow" data-enter>Humble Hunters × BEI Manpower</p>
             <h1 className={styles.title} data-enter>Job Fair<br />Philippines<span className={styles.year}>2026.</span></h1>
             <p className={styles.intro} data-enter>A place for your skills.<br />A plan for your future in Croatia.</p>
-            <p className={styles.heroDescription} data-enter>A 2026 overseas job fair in the Philippines for skilled Filipinos exploring work in Croatia. Review the roles, interview dates, and application requirements.</p>
+            <p className={styles.heroDescription} data-enter>Skilled Filipino workers wanted for roles in Croatia through Job Fair Philippines 2026. Find the position that matches your trade, review the interview dates, and prepare your application.</p>
             <div className={styles.heroActions} data-enter>
               <ActionLink href="/jobs">Explore the roles</ActionLink>
               <Link className={styles.anchorLink} href="#event-details">Event details <ArrowDown size={17} aria-hidden="true" /></Link>
@@ -107,7 +107,7 @@ export default function JobFairPage() {
 
           <div className={styles.heroVisual} data-enter>
             <div className={styles.imageWrap}>
-              <Image src="/images/jobs/proposed/fabricator.webp" alt="AI-generated illustration of a skilled metal fabricator at work" fill sizes="(max-width: 700px) 90vw, 43vw" className={styles.heroImage} />
+              <Image src="/images/jobs/filipino/fabricator.webp" alt="AI-generated illustration of a Filipino metal fabricator at work" fill sizes="(max-width: 700px) 90vw, 43vw" className={styles.heroImage} />
               <span className={styles.imageLabel}>AI-generated role illustration</span>
               <BrandMark className={styles.imageSpark} />
             </div>

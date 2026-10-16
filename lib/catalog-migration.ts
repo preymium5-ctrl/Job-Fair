@@ -7,6 +7,7 @@ import { audits, jobs, settings } from "./schema";
 
 export const proposalCatalogVersion = "proposed-net-jobs-v1";
 export const jobFairCatalogVersion = "job-fair-pdf-2026-09-29-v2";
+export const filipinoWorkerImageVersion = "filipino-worker-images-2026-10-16-v1";
 export const legacyExampleJobIds = [
   "example-warehouse-01",
   "example-bus-02",
@@ -74,6 +75,33 @@ export async function migrateProposedJobCatalog(db: Database) {
     });
   });
   await migrateJobFairCatalog(db);
+  await migrateFilipinoWorkerImages(db);
+}
+
+/** Refresh original role imagery without changing staff photos or recruitment data. */
+export async function migrateFilipinoWorkerImages(db: Database) {
+  await db.transaction(async (tx) => {
+    if (process.env.DATABASE_URL)
+      await tx.execute(sql`SELECT pg_advisory_xact_lock(621349133)`);
+    const [applied] = await tx.select().from(settings).where(eq(settings.key, filipinoWorkerImageVersion));
+    if (applied) return;
+    const updatedIds: string[] = [];
+    for (const replacement of proposedJobs) {
+      const [row] = await tx.select().from(jobs).where(eq(jobs.id, replacement.id)).for("update");
+      const originalImage = `/images/jobs/proposed/${replacement.slug}.webp`;
+      if (!row || row.slug !== replacement.slug || row.data.image !== originalImage) continue;
+      await tx.update(jobs).set({ data: {
+        ...row.data, image: replacement.image, imageAlt: replacement.imageAlt,
+      } }).where(eq(jobs.id, row.id));
+      updatedIds.push(row.id);
+    }
+    await tx.insert(settings).values({ key: filipinoWorkerImageVersion, value: new Date().toISOString() });
+    await tx.insert(audits).values({
+      id: randomUUID(), actorId: "system:catalog-migration", action: "catalog.images-refreshed",
+      targetId: filipinoWorkerImageVersion,
+      details: { updatedIds, fields: ["image", "imageAlt"] },
+    });
+  });
 }
 
 /** Enrich only untouched seed fields; keep staff edits and all historical links. */

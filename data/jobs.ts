@@ -300,6 +300,8 @@ export const proposedJobs: Job[] = proposalV1Jobs.map((job) => {
   if (!fairRole) return job;
   return {
     ...job,
+    image: `/images/jobs/filipino/${job.slug}.webp`,
+    imageAlt: `AI-generated illustration of a Filipino worker performing ${job.title.toLowerCase()} work`,
     description: `${job.summary} This position is included in the Job Fair Philippines organisation plan dated 29 September 2026. Employer allocations, planned screening and candidate document guidance are listed below. Duties are indicative; the work location, schedule, contract and employer-specific terms still need confirmation. The displayed salary is a proposed NET amount in EUR per month.`,
     requirements: [
       ...job.requirements,

@@ -25,7 +25,13 @@ export function MobileApply({ job }: { job: Job }) {
         <strong>{job.title}</strong>
         <span>{job.salaryStatus === "proposed-net" ? job.salary ? `${job.salary} · EUR/mo · proposed NET` : "Proposed role · pay to be confirmed" : job.isExample ? "Example vacancy" : job.location}</span>
       </div>
-      <Link href={`/jobs/${job.slug}/apply`} className="button button-primary">
+      <Link
+        href={`/jobs/${job.slug}/apply`}
+        target="_blank"
+        rel="noopener noreferrer"
+        aria-label={`Apply now for ${job.title} (opens in a new tab)`}
+        className="button button-primary"
+      >
         Apply now <ArrowUpRight size={18} />
       </Link>
     </div>

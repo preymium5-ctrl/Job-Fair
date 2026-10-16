@@ -510,7 +510,7 @@ export default function ApplicationForm({ job }: { job: Job }) {
                   <p>
                     {
                       [
-                        `Applying for ${job.title}. Start with the details we’ll use to contact you.`,
+                        `Applying for ${job.title}${fairRole ? " as a Filipino applicant" : ""}. Start with the details we’ll use to contact you.`,
                         "Show us the skills and experience you bring to this role.",
                         "Upload your CV and attach any supporting documents you would like to include.",
                         "Take a moment to check your details before sending.",
