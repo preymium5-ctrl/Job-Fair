@@ -1,4 +1,5 @@
 import type { Job } from "../lib/types";
+import { hiringAllocations } from "./hiring-allocations";
 
 export interface JobFairEmployer {
   name: string;
@@ -19,6 +20,8 @@ export interface JobFairRole {
 // Interview and testing dates were updated by the site owner on 15 Oct 2026.
 // This historical organisation plan is not evidence of current accreditation,
 // final contract terms, an exact venue, or an approved employment destination.
+// Keep these archived counts unchanged. Current displayed counts are supplied
+// separately by hiring-allocations.ts; certificate and testing guidance stays here.
 export const jobFair = {
   title: "Job Fair Philippines 2026",
   organizers: ["Humble Hunters", "BEI Manpower"],
@@ -160,7 +163,7 @@ export function getJobFairRole(job: Pick<Job, "id" | "slug">): JobFairRole | und
       : job.slug === "pipe-fitter" ? "Written exam."
       : employer.name === "Vertiv" ? job.slug === "welder" ? "Interview with the client; welder test if needed." : "Interview with the client."
       : employer.testing;
-    return [{ name: employer.name, workers: allocation.workers, testing }];
+    return [{ name: employer.name, workers: hiringAllocations[job.slug]?.[employer.name] ?? allocation.workers, testing }];
   });
   return {
     employers,

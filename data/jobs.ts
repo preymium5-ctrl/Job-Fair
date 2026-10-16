@@ -1,6 +1,7 @@
 import type { Job } from "@/lib/types";
 import { getJobFairRole } from "./job-fair";
 import { minimumExperienceRequirement, recruitmentBenefits } from "./employment";
+import { hiringWorkerTotal } from "./hiring-allocations";
 
 type Proposal = Pick<
   Job,
@@ -314,6 +315,7 @@ export const previousRecruitmentJobs: Job[] = proposalV1Jobs.map((job) => {
 
 export const proposedJobs: Job[] = previousRecruitmentJobs.map((job) => ({
   ...job,
+  openings: hiringWorkerTotal(job.slug) ?? job.openings,
   location: "Croatia",
   experience: "Minimum 3 years of relevant work experience",
   description: `${job.summary} We are hiring skilled Filipino workers for this position in Croatia. Review the responsibilities, qualifications, salary range and benefits below, then apply with your CV and relevant supporting documents.`,

@@ -11,6 +11,7 @@ export const jobFairCatalogVersion = "job-fair-pdf-2026-09-29-v2";
 export const filipinoWorkerImageVersion = "filipino-worker-images-2026-10-16-v1";
 export const hiringContentVersion = "croatia-philippines-hiring-2026-10-16-v1";
 export const minimumExperienceVersion = "minimum-experience-three-years-2026-10-16-v1";
+export const hiringWorkerCountsVersion = "employer-worker-counts-2026-10-16-v1";
 export const legacyExampleJobIds = [
   "example-warehouse-01",
   "example-bus-02",
@@ -81,6 +82,25 @@ export async function migrateProposedJobCatalog(db: Database) {
   await migrateFilipinoWorkerImages(db);
   await migrateHiringContent(db);
   await migrateMinimumExperience(db);
+  await migrateHiringWorkerCounts(db);
+}
+
+/** Apply the owner's new counts only to matching catalog roles; retain all other fields and applicant history. */
+export async function migrateHiringWorkerCounts(db: Database) {
+  await db.transaction(async (tx) => {
+    if (process.env.DATABASE_URL) await tx.execute(sql`SELECT pg_advisory_xact_lock(621349133)`);
+    const [applied] = await tx.select().from(settings).where(eq(settings.key, hiringWorkerCountsVersion));
+    if (applied) return;
+    const updatedIds: string[] = [];
+    for (const replacement of proposedJobs) {
+      const [row] = await tx.select().from(jobs).where(eq(jobs.id, replacement.id)).for("update");
+      if (!row || row.slug !== replacement.slug || row.data.openings === replacement.openings) continue;
+      await tx.update(jobs).set({ data: { ...row.data, openings: replacement.openings } }).where(eq(jobs.id, row.id));
+      updatedIds.push(row.id);
+    }
+    await tx.insert(settings).values({ key: hiringWorkerCountsVersion, value: new Date().toISOString() });
+    await tx.insert(audits).values({ id: randomUUID(), actorId: "system:catalog-migration", action: "catalog.worker-counts-updated", targetId: hiringWorkerCountsVersion, details: { updatedIds, fields: ["openings"] } });
+  });
 }
 
 export async function migrateMinimumExperience(db: Database) {

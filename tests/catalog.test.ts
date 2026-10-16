@@ -7,6 +7,7 @@ import { eq } from "drizzle-orm";
 import { proposedJobs, proposalV1Jobs, previousRecruitmentJobs } from "../data/jobs";
 import { minimumExperienceRequirement, recruitmentBenefits } from "../data/employment";
 import { fairDocuments, getJobFairRole, jobFair, nc2ElectricalNote } from "../data/job-fair";
+import { hiringAllocations, hiringWorkerTotal } from "../data/hiring-allocations";
 import {
   legacyExampleJobIds,
   migrateProposedJobCatalog,
@@ -19,6 +20,8 @@ import {
   hiringContentVersion,
   migrateMinimumExperience,
   minimumExperienceVersion,
+  migrateHiringWorkerCounts,
+  hiringWorkerCountsVersion,
 } from "../lib/catalog-migration";
 import { closeDatabase, getDatabase } from "../lib/db";
 import { applications, audits, jobs, settings } from "../lib/schema";
@@ -49,9 +52,9 @@ after(async () => {
   Object.assign(process.env, originalEnv);
 });
 
-test("all 17 operator proposals retain exact worker counts and monthly NET ranges", () => {
+test("the archived 17 operator proposals retain original worker counts and salary ranges", () => {
   assert.deepEqual(
-    proposedJobs.map(({ title, openings, salary }) => [title, openings, salary]),
+    proposalV1Jobs.map(({ title, openings, salary }) => [title, openings, salary]),
     [
       ["Fabricator", 68, "€850–€1,100"],
       ["TIG / REL Welder", 10, "€1,000–€1,300"],
@@ -72,7 +75,7 @@ test("all 17 operator proposals retain exact worker counts and monthly NET range
       ["Grinder and Cleaner", 6, "€800–€950"],
     ],
   );
-  assert.equal(proposedJobs.reduce((sum, job) => sum + (job.openings ?? 0), 0), 248);
+  assert.equal(proposalV1Jobs.reduce((sum, job) => sum + (job.openings ?? 0), 0), 248);
   assert.equal(new Set(proposedJobs.map((job) => job.image)).size, 17);
   assert.equal(new Set(proposedJobs.map((job) => job.slug)).size, 17);
   for (const job of proposedJobs) {
@@ -83,6 +86,28 @@ test("all 17 operator proposals retain exact worker counts and monthly NET range
     assert.equal(job.employmentType, "Terms to be confirmed");
     assert.deepEqual(job.benefits, recruitmentBenefits);
   }
+});
+
+test("current employer counts vary strictly between 100 and 1200 and reconcile with every job total", () => {
+  assert.equal(Object.keys(hiringAllocations).length, proposedJobs.length);
+  const counts: number[] = [];
+  for (const job of proposedJobs) {
+    const role = getJobFairRole(job)!;
+    assert.deepEqual(role.employers.map((employer) => employer.name).sort(), Object.keys(hiringAllocations[job.slug]).sort());
+    for (const employer of role.employers) {
+      assert.ok(Number.isInteger(employer.workers) && employer.workers > 100 && employer.workers < 1200, `${job.slug}: ${employer.name}`);
+      counts.push(employer.workers);
+    }
+    assert.equal(role.employers.reduce((total, employer) => total + employer.workers, 0), job.openings);
+    assert.equal(hiringWorkerTotal(job.slug), job.openings);
+    assert.ok(job.openings! > 100 && job.openings! < 1200);
+    assert.equal(job.salary, proposalV1Jobs.find((original) => original.id === job.id)!.salary);
+  }
+  assert.ok(new Set(counts).size > 10);
+  assert.deepEqual(getJobFairRole(proposedJobs[0])!.employers.map((employer) => employer.workers), [175, 225, 300, 450]);
+  assert.equal(proposedJobs[0].openings, 1150);
+  assert.equal(proposedJobs.reduce((total, job) => total + job.openings!, 0), 11100);
+  assert.equal(hiringWorkerTotal("unrelated-staff-job"), undefined);
 });
 
 test("the dated fair allocations reconcile six employers and exactly 248 workers across the 17 roles", () => {
@@ -338,4 +363,32 @@ test("minimum experience migration preserves staff requirements, higher threshol
   assert.deepEqual(await db.select().from(applications), beforeApplications);
   await migrateMinimumExperience(db);
   assert.equal((await db.select().from(audits).where(eq(audits.targetId, minimumExperienceVersion))).length, 1);
+});
+
+test("worker count migration updates only matching role totals and preserves staff content and applicant history", async () => {
+  const db = await getDatabase();
+  await db.delete(settings).where(eq(settings.key, hiringWorkerCountsVersion));
+  await db.delete(audits).where(eq(audits.targetId, hiringWorkerCountsVersion));
+  const original: Job = { ...proposalV1Jobs[0], title: "Staff-reviewed fabricator", salary: "€999–€1,111", status: "closed", image: "/images/staff-photo.webp" };
+  const renamed = { ...proposalV1Jobs[1], slug: "staff-renamed-counts-role" };
+  const custom = { ...proposalV1Jobs[2], id: "worker-counts-custom", slug: "worker-counts-custom", openings: 77 };
+  for (const job of [original, renamed])
+    await db.update(jobs).set({ slug: job.slug, status: job.status, data: job }).where(eq(jobs.id, job.id));
+  await db.insert(jobs).values({ id: custom.id, slug: custom.slug, status: custom.status, data: custom });
+  const beforeApplications = await db.select().from(applications);
+  const beforeCount = (await db.select().from(jobs)).length;
+  await migrateHiringWorkerCounts(db);
+  const result = await db.select().from(jobs);
+  const updated = result.find((row) => row.id === original.id)!;
+  assert.equal(result.length, beforeCount);
+  assert.equal(updated.status, "closed");
+  assert.deepEqual(updated.data, { ...original, openings: 1150 });
+  assert.deepEqual(result.find((row) => row.id === renamed.id)?.data, renamed);
+  assert.deepEqual(result.find((row) => row.id === custom.id)?.data, custom);
+  assert.deepEqual(await db.select().from(applications), beforeApplications);
+  const laterEdit = { ...updated.data, openings: 1100 };
+  await db.update(jobs).set({ data: laterEdit }).where(eq(jobs.id, original.id));
+  await migrateHiringWorkerCounts(db);
+  assert.deepEqual((await db.select().from(jobs).where(eq(jobs.id, original.id)))[0].data, laterEdit);
+  assert.equal((await db.select().from(audits).where(eq(audits.targetId, hiringWorkerCountsVersion))).length, 1);
 });
