@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { applicationStatuses, documentStatuses } from "./types";
+import { minimumExperienceYears } from "../data/employment";
 
 const shortText = (maximum = 160) =>
   z.string().trim().min(2, "Enter at least 2 characters.").max(maximum);
@@ -25,7 +26,7 @@ export const applicationSchema = z
       ),
     country: shortText(80),
     recentJobTitle: shortText(160),
-    experienceYears: z.number().min(0).max(60),
+    experienceYears: z.number().min(minimumExperienceYears, "At least 3 years of relevant work experience is required.").max(60),
     skills: shortText(2000),
     education: z.string().trim().max(2000).default(""),
     summary: z.string().trim().max(4000).default(""),

@@ -5,7 +5,7 @@
   padding: 25px 30px;
   border: 1px solid var(--line);
   border-left: 3px solid var(--accent);
-  background: #efefe9;
+  background: #E6F0FA;
 }
 .identity {
   display: flex;
@@ -22,7 +22,7 @@
   flex-shrink: 0;
   border-radius: 50%;
   color: var(--accent);
-  background: #e1e2f7;
+  background: #D7E0EC;
 }
 .title {
   font-size: 17px;

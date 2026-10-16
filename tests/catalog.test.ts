@@ -5,7 +5,7 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 import { eq } from "drizzle-orm";
 import { proposedJobs, proposalV1Jobs, previousRecruitmentJobs } from "../data/jobs";
-import { recruitmentBenefits } from "../data/employment";
+import { minimumExperienceRequirement, recruitmentBenefits } from "../data/employment";
 import { fairDocuments, getJobFairRole, jobFair, nc2ElectricalNote } from "../data/job-fair";
 import {
   legacyExampleJobIds,
@@ -17,6 +17,8 @@ import {
   filipinoWorkerImageVersion,
   migrateHiringContent,
   hiringContentVersion,
+  migrateMinimumExperience,
+  minimumExperienceVersion,
 } from "../lib/catalog-migration";
 import { closeDatabase, getDatabase } from "../lib/db";
 import { applications, audits, jobs, settings } from "../lib/schema";
@@ -313,4 +315,27 @@ test("hiring copy migration removes original event copy without changing staff t
   await migrateHiringContent(db);
   assert.equal((await db.select().from(jobs).where(eq(jobs.id, original.id)))[0].data.description, "Later staff edit");
   assert.equal((await db.select().from(audits).where(eq(audits.targetId, hiringContentVersion))).length, 1);
+});
+
+test("minimum experience migration preserves staff requirements, higher thresholds and historical applicants", async () => {
+  const db = await getDatabase();
+  await db.delete(settings).where(eq(settings.key, minimumExperienceVersion));
+  await db.delete(audits).where(eq(audits.targetId, minimumExperienceVersion));
+  const original = { ...proposedJobs[0], title: "Reviewed experience role", status: "closed" as const,
+    experience: proposalV1Jobs[0].experience, image: "/images/staff-experience-photo.webp",
+    requirements: ["Staff-approved trade qualification"] };
+  const higher = { ...proposedJobs[1], experience: "Minimum 5 years of relevant experience", requirements: ["Staff welding assessment"] };
+  for (const job of [original, higher])
+    await db.update(jobs).set({ slug: job.slug, status: job.status, data: job }).where(eq(jobs.id, job.id));
+  const beforeApplications = await db.select().from(applications);
+  await migrateMinimumExperience(db);
+  const [updated] = await db.select().from(jobs).where(eq(jobs.id, original.id));
+  assert.deepEqual(updated.data, { ...original, experience: proposedJobs[0].experience, requirements: [minimumExperienceRequirement, ...original.requirements] });
+  assert.equal(updated.status, "closed");
+  const [higherAfter] = await db.select().from(jobs).where(eq(jobs.id, higher.id));
+  assert.equal(higherAfter.data.experience, higher.experience);
+  assert.deepEqual(higherAfter.data.requirements, [minimumExperienceRequirement, ...higher.requirements]);
+  assert.deepEqual(await db.select().from(applications), beforeApplications);
+  await migrateMinimumExperience(db);
+  assert.equal((await db.select().from(audits).where(eq(audits.targetId, minimumExperienceVersion))).length, 1);
 });

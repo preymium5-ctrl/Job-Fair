@@ -43,7 +43,9 @@ export function WorkingInCroatia() {
 }
 
 export function EmploymentBenefits({ benefits = [] }: { benefits?: string[] }) {
-  const items = [...new Set([...recruitmentBenefits, ...benefits])];
+  const items = [...new Set([...recruitmentBenefits, ...benefits])].filter(
+    (item) => item.trim().replace(/[.!]$/, "").toLowerCase() !== noPlacementFee.toLowerCase(),
+  );
   return (
     <div className={styles.benefits}>
       <NoPlacementFee />

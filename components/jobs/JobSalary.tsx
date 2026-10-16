@@ -1,4 +1,5 @@
 import type { Job } from "@/lib/types";
+import { SalaryConversion } from "./SalaryConversion";
 
 export function JobSalary({ job, compact = false }: { job: Job; compact?: boolean }) {
   if (!job.salary) return null;
@@ -12,6 +13,7 @@ export function JobSalary({ job, compact = false }: { job: Job; compact?: boolea
         <strong>{job.salary}</strong>
         {proposed && <span>EUR / month</span>}
       </div>
+      {proposed && <SalaryConversion salary={job.salary} />}
     </div>
   );
 }

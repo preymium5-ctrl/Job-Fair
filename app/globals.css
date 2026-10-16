@@ -1,12 +1,16 @@
 @import "tailwindcss";
 
 :root {
-  --paper: #f7f7f3;
-  --ink: #111111;
-  --accent: #4856e8;
-  --muted: #666660;
-  --line: #e4e4e0;
-  --dark: #171717;
+  --brand-red: #D91F32;
+  --brand-blue: #164B83;
+  --surface-soft: #E6F0FA;
+  --red-soft: #FDE8EA;
+  --paper: #F3F6FA;
+  --ink: #222B39;
+  --accent: #D91F32;
+  --muted: #6B7280;
+  --line: #D7E0EC;
+  --dark: #164B83;
   --radius: 4px;
   --ease: cubic-bezier(0.22, 1, 0.36, 1);
   --space: clamp(24px, 4.4vw, 72px);
@@ -194,7 +198,7 @@ svg {
   color: white;
 }
 .button-primary:hover {
-  background: #3441cd;
+  background: #B7192A;
 }
 .button-dark {
   background: var(--ink);
@@ -204,7 +208,7 @@ svg {
   background: var(--accent);
 }
 .button-outline {
-  border-color: #c8c8c2;
+  border-color: #A7BCD3;
   color: var(--ink);
   background: transparent;
 }
@@ -218,7 +222,7 @@ svg {
   color: var(--ink);
 }
 .button-light:hover {
-  background: #d9dbff;
+  background: #FDE8EA;
 }
 .text-link {
   display: inline-flex;
@@ -272,7 +276,7 @@ svg {
   position: sticky;
   top: 0;
   z-index: 80;
-  background: rgba(247, 247, 243, 0.96);
+  background: rgba(243, 246, 250, 0.96);
   backdrop-filter: blur(10px);
   border-bottom: 1px solid var(--line);
 }
@@ -475,7 +479,7 @@ svg {
   position: relative;
   height: clamp(390px, 36vw, 570px);
   overflow: hidden;
-  background: #777871;
+  background: #6B7280;
 }
 .hero-image-wrap {
   position: absolute;
@@ -525,7 +529,7 @@ svg {
   transition: background 0.3s;
 }
 .hero-feature:hover {
-  background: #3441cd;
+  background: #B7192A;
 }
 .hero-feature-top {
   display: flex;
@@ -657,10 +661,10 @@ svg {
   color: var(--muted);
 }
 .featured-section {
-  background: #eeeee9;
+  background: #F3F6FA;
 }
 .featured-section .section-label-line {
-  background: #d6d6d0;
+  background: #D7E0EC;
 }
 .sample-notice {
   font-size: 10px;
@@ -787,7 +791,7 @@ svg {
   align-items: center;
 }
 .job-meta > span + span {
-  border-left: 1px solid #c4c4bf;
+  border-left: 1px solid #D7E0EC;
   padding-left: 16px;
 }
 .job-summary {
@@ -803,7 +807,7 @@ svg {
   justify-content: space-between;
   gap: 20px;
   padding-top: 14px;
-  border-top: 1px solid #d3d3ce;
+  border-top: 1px solid #D7E0EC;
   margin-top: 23px;
 }
 .job-actions .button {
@@ -825,7 +829,7 @@ svg {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  border-top: 1px solid #d3d3ce;
+  border-top: 1px solid #D7E0EC;
   padding-top: 27px;
   margin-top: 68px;
   font-size: 11px;
@@ -848,7 +852,7 @@ svg {
   height: 330px;
   color: white;
   overflow: hidden;
-  background: #323430;
+  background: #123F6E;
   isolation: isolate;
 }
 .industry-tile img {
@@ -937,7 +941,7 @@ svg {
   background: #ffffff24;
 }
 .process-section .section-label {
-  color: #bababa;
+  color: #E6F0FA;
 }
 .process-layout {
   display: grid;
@@ -950,17 +954,17 @@ svg {
   align-self: start;
 }
 .process-heading .subtle-text {
-  color: #9aa5ff;
+  color: #E6F0FA;
 }
 .process-heading > p {
   font-size: 14px;
-  color: #b6b6b2;
+  color: #E6F0FA;
   margin-block: 28px 29px;
 }
 .process-footnote {
   display: block;
   font-size: 10px;
-  color: #a5a59f;
+  color: #E6F0FA;
   max-width: 270px;
   margin-top: 20px;
 }
@@ -977,7 +981,7 @@ svg {
 .timeline-step .step-number {
   font-size: 53px;
   font-weight: 500;
-  color: #9e9e98;
+  color: #E6F0FA;
   line-height: 1;
   letter-spacing: var(--font-heading-tracking);
   min-width: 60px;
@@ -990,12 +994,12 @@ svg {
 }
 .timeline-step .eyebrow {
   font-size: 8px;
-  color: #9e9e98;
+  color: #E6F0FA;
   letter-spacing: 1.1px;
 }
 .timeline-step p {
   font-size: 13px;
-  color: #b6b6b2;
+  color: #E6F0FA;
   line-height: 1.8;
   max-width: 310px;
 }
@@ -1061,7 +1065,7 @@ svg {
   margin-top: 11px;
 }
 .trust-section {
-  background: #e9e9e3;
+  background: #E6F0FA;
   padding: 64px 0;
 }
 .trust-inner {
@@ -1169,7 +1173,7 @@ svg {
   letter-spacing: var(--font-heading-tracking);
 }
 .final-cta h2 span {
-  color: #b3baff;
+  color: #FDE8EA;
 }
 .final-cta-arrow {
   background: var(--paper);
@@ -1192,7 +1196,7 @@ svg {
 }
 .final-cta-link:hover .final-cta-arrow {
   transform: rotate(45deg);
-  background: #d9dbff;
+  background: #FDE8EA;
 }
 .final-cta-bottom {
   display: flex;
@@ -1359,7 +1363,7 @@ svg {
   color: var(--ink);
 }
 .directory-search input::placeholder {
-  color: #888880;
+  color: #6B7280;
 }
 .directory-search input:focus-visible {
   outline: 0;
@@ -1403,7 +1407,7 @@ svg {
 .filter-fields select,
 .sort-field select {
   background: transparent;
-  border: 1px solid #d4d4cd;
+  border: 1px solid #D7E0EC;
   padding: 12px 30px 12px 13px;
   border-radius: var(--radius);
   font-size: 11px;
@@ -1454,15 +1458,15 @@ svg {
   padding-bottom: 25px;
 }
 .active-filters button {
-  border: 1px solid #ccd0fc;
-  background: #e9ebff;
+  border: 1px solid #F4BFC6;
+  background: #FDE8EA;
   padding: 7px 12px;
   display: flex;
   gap: 15px;
   font-size: 10px;
   align-items: center;
   border-radius: var(--radius);
-  color: #3441b0;
+  color: #B7192A;
 }
 .job-card-row {
   display: grid;
@@ -1516,8 +1520,8 @@ svg {
   padding: 13px 22px;
 }
 .job-card-row:hover .job-actions .button {
-  background: #3441cd;
-  border-color: #3441cd;
+  background: #B7192A;
+  border-color: #B7192A;
 }
 .job-card-row .job-actions .text-link {
   font-size: 11px;
@@ -1623,7 +1627,7 @@ svg {
   padding-left: 20px;
 }
 .information-side {
-  background: #e9e9e3;
+  background: #E6F0FA;
   padding: 30px;
   align-self: start;
 }
@@ -1663,7 +1667,7 @@ svg {
 }
 .help-panel {
   padding: 35px;
-  background: #e9e9e3;
+  background: #E6F0FA;
   align-self: start;
 }
 .help-panel h2 {
@@ -3082,3 +3086,7 @@ svg {
     transform: none !important;
   }
 }
+
+/* Headings and navigation follow the supplied brand palette. */
+.section-heading, .page-heading, .hero-title, .trust-inner h2, .information-body h2, .information-body h3, .help-panel h2, .job-card h3, .site-header { color: var(--brand-blue); }
+.process-heading .section-heading { color: var(--paper); }

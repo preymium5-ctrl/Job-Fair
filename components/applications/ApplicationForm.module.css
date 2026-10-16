@@ -60,11 +60,11 @@
 .example {
   padding: 18px 20px;
   margin-top: 22px;
-  background: #edeee7;
-  color: #4b5042;
+  background: #E6F0FA;
+  color: #164B83;
   font-size: 12px;
   line-height: 1.7;
-  border-left: 2px solid #7f866c;
+  border-left: 2px solid #164B83;
 }
 .example strong {
   font-size: 12px;
@@ -100,7 +100,7 @@
 .steps li {
   font-size: 10px;
   line-height: 1.5;
-  color: #747474;
+  color: #6B7280;
   padding: 0 3px 20px;
   position: relative;
 }
@@ -110,7 +110,7 @@
   justify-content: center;
   width: 28px;
   height: 28px;
-  border: 1px solid #cacac5;
+  border: 1px solid #D7E0EC;
   border-radius: 50%;
   font-size: 10px;
   margin-bottom: 12px;
@@ -168,7 +168,7 @@
 .documentUpload {
   padding: 16px;
   margin-top: 14px;
-  border: 1px dashed var(--border, #d7d7d1);
+  border: 1px dashed var(--border, #D7E0EC);
   border-radius: 12px;
   min-width: 0;
 }
@@ -197,7 +197,7 @@
 .field > select {
   display: block;
   width: 100%;
-  border: 1px solid #d9d9d3;
+  border: 1px solid #D7E0EC;
   border-radius: 0;
   background: transparent;
   color: var(--ink);
@@ -217,20 +217,20 @@
 .field > textarea:focus,
 .field > select:focus {
   border-color: var(--accent);
-  outline: 2px solid #4856e81a;
+  outline: 2px solid #D91F321A;
   background: #fff;
 }
 .field > input::placeholder,
 .field > textarea::placeholder {
-  color: #8a8a86;
+  color: #6B7280;
 }
 .field > input[aria-invalid="true"],
 .field > textarea[aria-invalid="true"],
 .field > select[aria-invalid="true"] {
-  border-color: #b43535;
+  border-color: #D91F32;
 }
 .fieldError {
-  color: #a22b2b;
+  color: #A81828;
   font-size: 12px;
   line-height: 1.6;
   margin: 8px 0 0;
@@ -276,9 +276,9 @@
   justify-content: center;
   gap: 14px;
   min-height: 225px;
-  border: 1px dashed #b7b9ca;
+  border: 1px dashed #A7BCD3;
   padding: 24px;
-  background: #f0f0f6;
+  background: #E6F0FA;
   text-align: center;
 }
 .upload > svg {
@@ -306,7 +306,7 @@
   outline-offset: 3px;
 }
 .uploadError {
-  border-color: #b43535;
+  border-color: #D91F32;
 }
 .fileHint {
   font-size: 11px;
@@ -318,7 +318,7 @@
   display: flex;
   align-items: center;
   gap: 12px;
-  background: #eaece4;
+  background: #E6F0FA;
   padding: 15px;
   margin-top: 12px;
   font-size: 12px;
@@ -507,9 +507,9 @@
 .error {
   padding: 16px;
   margin-top: 24px;
-  background: #f7e9e6;
-  border-left: 2px solid #b43535;
-  color: #8f2525;
+  background: #FDE8EA;
+  border-left: 2px solid #D91F32;
+  color: #A81828;
   font-size: 12px;
   line-height: 1.7;
 }
@@ -827,3 +827,5 @@
     font-size: 13px;
   }
 }
+
+.sidebar h1, .jobMeta h2, .formHeading h2, .requirements h3, .reviewJob h3, .reviewSection h3, .success h2 { color: var(--brand-blue); }

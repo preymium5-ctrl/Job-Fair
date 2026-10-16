@@ -1,6 +1,6 @@
 .panel {
   border: 1px solid var(--line);
-  background: #eeeee8;
+  background: #E6F0FA;
   padding: 28px;
   margin-bottom: 32px;
   min-width: 0;
@@ -108,7 +108,7 @@
   margin-top: 18px;
 }
 .error {
-  color: #a22b2b;
+  color: #A81828;
   margin-top: 18px;
 }
 @media (max-width: 600px) {

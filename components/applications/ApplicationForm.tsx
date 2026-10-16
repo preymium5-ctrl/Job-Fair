@@ -17,6 +17,7 @@ import {
 } from "lucide-react";
 import type { ApplicationInput, Job } from "@/lib/types";
 import { JobSalary } from "@/components/jobs/JobSalary";
+import { minimumExperienceYears } from "@/data/employment";
 import { NoPlacementFee } from "@/components/jobs/EmploymentBenefits";
 import { MAX_APPLICATION_UPLOAD_BYTES, MAX_SUPPORTING_DOCUMENT_BYTES, SUPPORTING_DOCUMENT_ACCEPT, supportingDocumentTypes, type SupportingDocumentCategory } from "@/lib/document-uploads";
 import { JobFairRoleInfo } from "@/components/job-fair/JobFairRoleInfo";
@@ -61,10 +62,10 @@ function validate(
       errors.recentJobTitle = "Enter your most recent role, or ‘New entrant’.";
     if (
       !Number.isFinite(values.experienceYears) ||
-      values.experienceYears < 0 ||
+      values.experienceYears < minimumExperienceYears ||
       values.experienceYears > 60
     )
-      errors.experienceYears = "Enter years of experience between 0 and 60.";
+      errors.experienceYears = "At least 3 years of relevant work experience is required. Enter a value from 3 to 60.";
     if (values.skills.trim().length < 2)
       errors.skills = "Tell us about your relevant skills.";
   }
@@ -94,7 +95,7 @@ export default function ApplicationForm({ job }: { job: Job }) {
     phone: "",
     country: "",
     recentJobTitle: "",
-    experienceYears: 0,
+    experienceYears: Number.NaN,
     skills: "",
     education: "",
     summary: "",
@@ -359,7 +360,7 @@ export default function ApplicationForm({ job }: { job: Job }) {
             }
             type={options.type || "text"}
             autoComplete={options.autoComplete}
-            min={key === "experienceYears" ? 0 : undefined}
+            min={key === "experienceYears" ? minimumExperienceYears : undefined}
             max={key === "experienceYears" ? 60 : undefined}
             maxLength={limits[key]}
           />
@@ -573,7 +574,7 @@ export default function ApplicationForm({ job }: { job: Job }) {
                         })}
                         {input(
                           "experienceYears",
-                          "Years of relevant experience",
+                          "Years of relevant experience (minimum 3)",
                           { type: "number" },
                         )}
                         {input("skills", "Relevant skills", {

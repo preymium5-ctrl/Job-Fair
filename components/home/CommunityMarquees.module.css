@@ -99,8 +99,8 @@
 .socialSection {
   margin-top: 18px;
   padding-block: 26px 28px;
-  background: #eeeffa;
-  border-block: 1px solid #dfe2f5;
+  background: #E6F0FA;
+  border-block: 1px solid #D7E0EC;
 }
 
 .socialHeading {
@@ -113,7 +113,7 @@
 
 .socialHeading > span {
   font-size: 11px;
-  color: #595e81;
+  color: #6B7280;
 }
 
 .socialTrack {
@@ -145,7 +145,7 @@
   justify-content: center;
   width: 54px;
   height: 54px;
-  border: 1px solid #d9dcf1;
+  border: 1px solid #D7E0EC;
   border-radius: 50%;
   color: var(--accent);
   background: var(--paper);
@@ -208,3 +208,5 @@
   .socialItem { padding: 0; }
   .separator { display: none; }
 }
+
+.heading h2 { color: var(--brand-blue); }

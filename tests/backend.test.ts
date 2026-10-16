@@ -94,7 +94,7 @@ function applicant(jobId: string) {
     phone: "+63 917 123 4567",
     country: "Philippines",
     recentJobTitle: "Warehouse Assistant",
-    experienceYears: 2,
+    experienceYears: 3,
     skills: "Inventory and packing",
     education: "",
     summary: "",
@@ -180,6 +180,9 @@ test("server validation rejects invalid contact details and missing consent", ()
     false,
   );
   assert.equal(applicationSchema.safeParse(applicant("test")).success, true);
+  for (const experienceYears of [0, 1, 2, 2.99])
+    assert.equal(applicationSchema.safeParse({ ...applicant("test"), experienceYears }).success, false);
+  assert.equal(applicationSchema.safeParse({ ...applicant("test"), experienceYears: 3 }).success, true);
 });
 test("resume validation checks actual bytes, size, archives and filenames", async () => {
   assert.throws(

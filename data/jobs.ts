@@ -1,6 +1,6 @@
 import type { Job } from "@/lib/types";
 import { getJobFairRole } from "./job-fair";
-import { recruitmentBenefits } from "./employment";
+import { minimumExperienceRequirement, recruitmentBenefits } from "./employment";
 
 type Proposal = Pick<
   Job,
@@ -315,10 +315,11 @@ export const previousRecruitmentJobs: Job[] = proposalV1Jobs.map((job) => {
 export const proposedJobs: Job[] = previousRecruitmentJobs.map((job) => ({
   ...job,
   location: "Croatia",
+  experience: "Minimum 3 years of relevant work experience",
   description: `${job.summary} We are hiring skilled Filipino workers for this position in Croatia. Review the responsibilities, qualifications, salary range and benefits below, then apply with your CV and relevant supporting documents.`,
-  requirements: job.requirements.map((item) => item
+  requirements: [minimumExperienceRequirement, ...job.requirements.map((item) => item
     .replace("NC2 requirement in the job fair plan:", "NC2 requirement:")
-    .replace(" in the plan", "")),
+    .replace(" in the plan", ""))],
   benefits: [...recruitmentBenefits],
 }));
 

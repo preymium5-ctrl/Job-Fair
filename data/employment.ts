@@ -1,4 +1,6 @@
 export const noPlacementFee = "NO PLACEMENT FEE";
+export const minimumExperienceYears = 3;
+export const minimumExperienceRequirement = "Minimum 3 years of relevant work experience.";
 
 // Employer package supplied by the site operator.
 export const recruitmentBenefits = [
