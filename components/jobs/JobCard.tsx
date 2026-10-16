@@ -79,8 +79,7 @@ export function JobCard({
         {typeof workers === "number" && (
           <p className="job-workers">
             <strong>{workers}</strong>{" "}
-            {workers === 1 ? "worker" : "workers"}
-             available
+            <span>{workers === 1 ? "worker available" : "workers available"}</span>
           </p>
         )}
         <p className="job-summary">{job.summary}</p>
