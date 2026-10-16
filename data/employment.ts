@@ -26,7 +26,7 @@ export const workingInCroatia = [
   },
   {
     title: "Retirement & pension",
-    text: "Insured employment builds pension service. Standard old-age pension eligibility generally requires at least 15 qualifying years and the applicable retirement age; special or international rules may apply.",
+    text: "After 10 years of insured work in Croatia, your recorded pension contributions count toward future retirement benefits. Pension payments depend on the applicable retirement age and eligibility rules.",
     source: "https://www.mirovinsko.hr/hr/starosna-mirovina/166",
   },
 ];
