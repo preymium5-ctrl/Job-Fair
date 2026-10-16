@@ -5,7 +5,7 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 import { eq } from "drizzle-orm";
 import { proposedJobs, proposalV1Jobs, previousRecruitmentJobs } from "../data/jobs";
-import { minimumExperienceRequirement, recruitmentBenefits } from "../data/employment";
+import { maximumAgeRequirement, maximumApplicantAge, minimumExperienceRequirement, recruitmentBenefits } from "../data/employment";
 import { fairDocuments, getJobFairRole, jobFair, nc2ElectricalNote } from "../data/job-fair";
 import { hiringAllocations, hiringWorkerTotal } from "../data/hiring-allocations";
 import {
@@ -22,6 +22,8 @@ import {
   minimumExperienceVersion,
   migrateHiringWorkerCounts,
   hiringWorkerCountsVersion,
+  migrateMaximumAgeRequirement,
+  maximumAgeRequirementVersion,
 } from "../lib/catalog-migration";
 import { closeDatabase, getDatabase } from "../lib/db";
 import { applications, audits, jobs, settings } from "../lib/schema";
@@ -85,6 +87,8 @@ test("the archived 17 operator proposals retain original worker counts and salar
     assert.equal(job.location, "Croatia");
     assert.equal(job.employmentType, "Terms to be confirmed");
     assert.deepEqual(job.benefits, recruitmentBenefits);
+    assert.equal(maximumApplicantAge, 45);
+    assert.equal(job.requirements.filter((item) => item === maximumAgeRequirement).length, 1);
   }
 });
 
@@ -391,4 +395,30 @@ test("worker count migration updates only matching role totals and preserves sta
   await migrateHiringWorkerCounts(db);
   assert.deepEqual((await db.select().from(jobs).where(eq(jobs.id, original.id)))[0].data, laterEdit);
   assert.equal((await db.select().from(audits).where(eq(audits.targetId, hiringWorkerCountsVersion))).length, 1);
+});
+
+test("age requirement migration preserves job details and historical applications and runs once", async () => {
+  const db = await getDatabase();
+  await db.delete(settings).where(eq(settings.key, maximumAgeRequirementVersion));
+  await db.delete(audits).where(eq(audits.targetId, maximumAgeRequirementVersion));
+  const original: Job = { ...proposedJobs[0], title: "Staff-reviewed role", status: "closed", salary: "€999", requirements: ["Staff-approved certification"] };
+  const renamed = { ...proposedJobs[1], slug: "staff-renamed-age-role", requirements: ["Staff requirement"] };
+  const custom = { ...proposedJobs[2], id: "age-requirement-custom", slug: "age-requirement-custom", requirements: ["Custom requirement"] };
+  for (const job of [original, renamed])
+    await db.update(jobs).set({ slug: job.slug, status: job.status, data: job }).where(eq(jobs.id, job.id));
+  await db.insert(jobs).values({ id: custom.id, slug: custom.slug, status: custom.status, data: custom });
+  const beforeApplications = await db.select().from(applications);
+  const beforeCount = (await db.select().from(jobs)).length;
+  await migrateMaximumAgeRequirement(db);
+  const result = await db.select().from(jobs);
+  assert.equal(result.length, beforeCount);
+  const updated = result.find((row) => row.id === original.id)!;
+  assert.equal(updated.status, "closed");
+  assert.deepEqual(updated.data, { ...original, requirements: [maximumAgeRequirement, ...original.requirements] });
+  assert.deepEqual(result.find((row) => row.id === renamed.id)?.data, renamed);
+  assert.deepEqual(result.find((row) => row.id === custom.id)?.data, custom);
+  assert.deepEqual(await db.select().from(applications), beforeApplications);
+  await migrateMaximumAgeRequirement(db);
+  assert.deepEqual((await db.select().from(jobs).where(eq(jobs.id, original.id)))[0].data, updated.data);
+  assert.equal((await db.select().from(audits).where(eq(audits.targetId, maximumAgeRequirementVersion))).length, 1);
 });

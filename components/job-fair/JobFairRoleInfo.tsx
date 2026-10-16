@@ -2,6 +2,7 @@ import Link from "next/link";
 import { ArrowUpRight } from "lucide-react";
 import type { Job } from "@/lib/types";
 import { fairDocumentTiming, getJobFairRole } from "@/data/job-fair";
+import { maximumAgeRequirement } from "@/data/employment";
 import styles from "./JobFairRoleInfo.module.css";
 
 export function JobFairRoleInfo({ job, compact = false }: { job: Job; compact?: boolean }) {
@@ -18,6 +19,7 @@ export function JobFairRoleInfo({ job, compact = false }: { job: Job; compact?: 
         ))}
       </ul>
       <p className={styles.credential}><strong>NC2 guidance</strong>{role.nc2}</p>
+      <p className={styles.credential}><strong>Age requirement</strong>{maximumAgeRequirement}</p>
       {role.drivingLicenseIsPlus && <p className={styles.credential}><strong>Additional advantage</strong>A driver’s license is a plus. Optional for this application.</p>}
       {role.focus && <p className={styles.note}>{role.focus.replace(" in the plan", "")}</p>}
       {!compact && (

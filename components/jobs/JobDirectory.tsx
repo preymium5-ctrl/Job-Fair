@@ -24,7 +24,7 @@ export function JobDirectory({ jobs }: { jobs: Job[] }) {
   const sort = params.get("sort") || "newest";
   const industries = [...new Set(jobs.map((j) => j.category))].sort();
   const locations = [...new Set(jobs.map((j) => j.location))].sort();
-  const types = [...new Set(jobs.map((j) => j.employmentType))].sort();
+  const types = [...new Set(jobs.map((j) => j.employmentType).filter((type) => type !== "Terms to be confirmed"))].sort();
   const employers = [...new Set(jobs.flatMap((job) => getJobFairRole(job)?.employers.map((item) => item.name) || []))].sort();
   function update(key: string, value: string) {
     const next = new URLSearchParams(window.location.search);
@@ -115,7 +115,7 @@ export function JobDirectory({ jobs }: { jobs: Job[] }) {
               ))}
             </select>
           </label>
-          <label>
+          {types.length > 0 && <label>
             <span className="sr-only">Employment type</span>
             <select
               aria-label="Employment type"
@@ -127,7 +127,7 @@ export function JobDirectory({ jobs }: { jobs: Job[] }) {
                 <option key={v}>{v}</option>
               ))}
             </select>
-          </label>
+          </label>}
           {employers.length > 0 && (
             <label>
               <span className="sr-only">Employer</span>

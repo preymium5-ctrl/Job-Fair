@@ -4,7 +4,6 @@ import {
   ArrowDown,
   ArrowRight,
   ArrowUpRight,
-  BriefcaseBusiness,
   CalendarDays,
   MapPin,
   Plus,
@@ -118,13 +117,6 @@ function ApplyPanel({ job }: { job: Job }) {
             <dd>{job.location}</dd>
           </div>
           <div>
-            <dt>
-              <BriefcaseBusiness size={15} />
-              Employment
-            </dt>
-            <dd>{job.employmentType}</dd>
-          </div>
-          <div>
             <dt>Experience</dt>
             <dd>{job.experience}</dd>
           </div>
@@ -224,10 +216,6 @@ export function JobDetails({
                   <MapPin size={16} />
                   {job.location}
                 </span>
-                <span>
-                  <BriefcaseBusiness size={16} />
-                  {job.employmentType}
-                </span>
               </div>
               {typeof job.openings === "number" && (
                 <p className={styles.workerCount} data-enter>
@@ -312,23 +300,8 @@ export function JobDetails({
           <NumberedSection number="04" title="Compensation & employment">
             <dl className={styles.employment}>
               <div>
-                <dt>Employment arrangement</dt>
-                <dd>
-                  {job.employmentType}
-                  {job.isExample ? " (example)" : ""}
-                </dd>
-              </div>
-              <div>
                 <dt>Salary range</dt>
                 <dd>{job.salary ? <JobSalary job={job} compact /> : "No verified salary has been provided."}</dd>
-              </div>
-              <div>
-                <dt>Work schedule</dt>
-                <dd>{job.schedule || "To be confirmed by the employer."}</dd>
-              </div>
-              <div>
-                <dt>Contract duration</dt>
-                <dd>{job.contract || "To be confirmed by the employer."}</dd>
               </div>
               {typeof job.openings === "number" && (
                 <div>

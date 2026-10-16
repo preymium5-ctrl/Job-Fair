@@ -1,6 +1,8 @@
 export const noPlacementFee = "NO PLACEMENT FEE";
 export const minimumExperienceYears = 3;
 export const minimumExperienceRequirement = "Minimum 3 years of relevant work experience.";
+export const maximumApplicantAge = 45;
+export const maximumAgeRequirement = `Applicants must be ${maximumApplicantAge} years old or below.`;
 
 // Employer package supplied by the site operator.
 export const recruitmentBenefits = [

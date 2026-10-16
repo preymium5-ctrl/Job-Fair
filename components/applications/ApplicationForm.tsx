@@ -406,8 +406,6 @@ export default function ApplicationForm({ job }: { job: Job }) {
               <p>
                 <MapPin size={15} />
                 {job.location}
-                <span> / </span>
-                {job.employmentType}
               </p>
             </div>
             <JobSalary job={job} />
@@ -787,7 +785,7 @@ export default function ApplicationForm({ job }: { job: Job }) {
                           <span>Applying for</span>
                           <h3>{job.title}</h3>
                           <p>
-                            {job.location} · {job.employmentType}
+                            {job.location}
                           </p>
                           <JobSalary job={job} compact />
                           {job.salaryStatus === "proposed-net" && <p>{job.openings} positions available.</p>}
