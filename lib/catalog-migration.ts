@@ -1,6 +1,6 @@
 import { eq, sql } from "drizzle-orm";
 import { randomUUID } from "node:crypto";
-import { proposedJobs, proposalV1Jobs } from "../data/jobs";
+import { proposedJobs, proposalV1Jobs, previousRecruitmentJobs } from "../data/jobs";
 import { getJobFairRole, jobFair } from "../data/job-fair";
 import type { Database } from "./db";
 import { audits, jobs, settings } from "./schema";
@@ -8,6 +8,7 @@ import { audits, jobs, settings } from "./schema";
 export const proposalCatalogVersion = "proposed-net-jobs-v1";
 export const jobFairCatalogVersion = "job-fair-pdf-2026-09-29-v2";
 export const filipinoWorkerImageVersion = "filipino-worker-images-2026-10-16-v1";
+export const hiringContentVersion = "croatia-philippines-hiring-2026-10-16-v1";
 export const legacyExampleJobIds = [
   "example-warehouse-01",
   "example-bus-02",
@@ -76,6 +77,36 @@ export async function migrateProposedJobCatalog(db: Database) {
   });
   await migrateJobFairCatalog(db);
   await migrateFilipinoWorkerImages(db);
+  await migrateHiringContent(db);
+}
+
+/** Update original recruitment copy and benefits while retaining staff edits and applications. */
+export async function migrateHiringContent(db: Database) {
+  await db.transaction(async (tx) => {
+    if (process.env.DATABASE_URL)
+      await tx.execute(sql`SELECT pg_advisory_xact_lock(621349133)`);
+    const [applied] = await tx.select().from(settings).where(eq(settings.key, hiringContentVersion));
+    if (applied) return;
+    const updatedIds: string[] = [];
+    for (const replacement of proposedJobs) {
+      const [row] = await tx.select().from(jobs).where(eq(jobs.id, replacement.id)).for("update");
+      if (!row || row.slug !== replacement.slug) continue;
+      const baselines = [...proposalV1Jobs, ...previousRecruitmentJobs].filter((job) => job.id === row.id);
+      const data = { ...row.data };
+      if (baselines.some((job) => job.description === data.description)) data.description = replacement.description;
+      if (baselines.some((job) => JSON.stringify(job.requirements) === JSON.stringify(data.requirements))) data.requirements = replacement.requirements;
+      if (baselines.some((job) => job.location === data.location)) data.location = replacement.location;
+      data.benefits = [...new Set([...replacement.benefits, ...data.benefits])];
+      if (JSON.stringify(data) === JSON.stringify(row.data)) continue;
+      await tx.update(jobs).set({ data }).where(eq(jobs.id, row.id));
+      updatedIds.push(row.id);
+    }
+    await tx.insert(settings).values({ key: hiringContentVersion, value: new Date().toISOString() });
+    await tx.insert(audits).values({
+      id: randomUUID(), actorId: "system:catalog-migration", action: "catalog.hiring-content-refreshed",
+      targetId: hiringContentVersion, details: { updatedIds, fields: ["description", "requirements", "location", "benefits"] },
+    });
+  });
 }
 
 /** Refresh original role imagery without changing staff photos or recruitment data. */

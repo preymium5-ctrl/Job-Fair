@@ -2,11 +2,11 @@ import { getPublicJobs } from "@/lib/public-jobs";
 import { PageMotion } from "@/components/animations/PageMotion";
 import { Hero } from "@/components/home/Hero";
 import { CommunityMarquees } from "@/components/home/CommunityMarquees";
-import { JobFairBanner } from "@/components/job-fair/JobFairBanner";
+import { RecruitmentSummary } from "@/components/jobs/EmploymentBenefits";
 import { site } from "@/data/site";
 import { pageMetadata } from "@/lib/seo";
 export const metadata = {
-  ...pageMetadata({ title: "Job Fair Philippines 2026", description: site.description, path: "/" }),
+  ...pageMetadata({ title: "Hiring Skilled Workers in the Philippines", description: site.description, path: "/" }),
   title: { absolute: site.title },
 };
 import {
@@ -30,7 +30,7 @@ export default async function Home() {
         proposedCount={jobs.filter((job) => job.salaryStatus === "proposed-net").length}
         workers={jobs.filter((job) => job.salaryStatus === "proposed-net").reduce((total, job) => total + (job.openings || 0), 0)}
       />
-      <div className="container job-fair-banner-wrap"><JobFairBanner /></div>
+      <RecruitmentSummary />
       <Introduction />
       <CommunityMarquees />
       <FeaturedJobs jobs={jobs.filter((job) => job.featured)} />

@@ -148,7 +148,7 @@ export function JobDirectory({ jobs }: { jobs: Job[] }) {
             {jobs.every((j) => j.isExample) ? "examples" : "roles"}
             {result.some((j) => typeof j.openings === "number") && (
               <> · {result.reduce((total, job) => total + (employer ? getJobFairRole(job)?.employers.find((item) => item.name === employer)?.workers || 0 : job.openings || 0), 0)}{" "}
-                {result.every((j) => j.salaryStatus === "proposed-net") ? "workers proposed" : "workers listed"}
+                positions available
               </>
             )}
           </span>

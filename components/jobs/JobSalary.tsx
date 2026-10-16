@@ -6,7 +6,7 @@ export function JobSalary({ job, compact = false }: { job: Job; compact?: boolea
   return (
     <div className={`job-pay${compact ? " job-pay-compact" : ""}`}>
       <span className="job-pay-label">
-        {proposed ? "Proposed NET salary" : "Compensation"}
+        Salary range
       </span>
       <div className="job-pay-amount">
         <strong>{job.salary}</strong>
@@ -21,7 +21,7 @@ export function ProposedTermsNotice() {
     <div className="proposed-terms-notice">
       <span className="status-dot" />
       <div>
-        <strong>Proposed roles & pay</strong>
+        <strong>Salary ranges in EUR per month</strong>
       </div>
     </div>
   );

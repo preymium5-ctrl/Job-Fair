@@ -7,14 +7,14 @@ import { ArrowDownRight } from "lucide-react";
 import { getPublicJobs } from "@/lib/public-jobs";
 import { JobDirectory } from "@/components/jobs/JobDirectory";
 import { ProposedTermsNotice } from "@/components/jobs/JobSalary";
-import { JobFairBanner } from "@/components/job-fair/JobFairBanner";
+import { RecruitmentSummary } from "@/components/jobs/EmploymentBenefits";
 import { JsonLd } from "@/components/seo/JsonLd";
 import { breadcrumbData, jobDirectoryData, pageMetadata } from "@/lib/seo";
 export const dynamic = "force-dynamic";
 export const metadata: Metadata = pageMetadata({
-  title: "Jobs Abroad for Filipinos — Croatia Job Fair 2026",
+  title: "Jobs in Croatia — Hiring in the Philippines",
   description:
-    "Filipino workers wanted for skilled roles in Croatia. Browse welding, electrical, fabrication and CNC jobs for Job Fair Philippines 2026 and apply online.",
+    "Explore jobs in Croatia for Filipino workers: salary ranges, free transportation and accommodation, no placement fee, and online applications.",
   path: "/jobs",
 });
 export default async function JobsPage() {
@@ -59,10 +59,10 @@ export default async function JobsPage() {
             <div className="jobs-photo-tag">
               <span>{String(jobs.length).padStart(2, "0")}</span>
               <div>
-                {proposedJobs.length === jobs.length ? "Proposed roles" : "Published opportunities"}
+                {proposedJobs.length === jobs.length ? "Available roles" : "Published opportunities"}
                 <br />
                 {proposedJobs.length > 0
-                  ? `${workers} workers proposed`
+                  ? `${workers} positions available`
                   : jobs.every((j) => j.isExample)
                   ? "Example vacancies"
                   : "Explore what’s next"}
@@ -72,7 +72,7 @@ export default async function JobsPage() {
           </div>
         </div>
       </section>
-      <div className="container job-fair-banner-wrap"><JobFairBanner /></div>
+      <RecruitmentSummary />
       <div className="container">
         {proposedJobs.length > 0 && <ProposedTermsNotice />}
         {jobs.some((j) => j.isExample) && (

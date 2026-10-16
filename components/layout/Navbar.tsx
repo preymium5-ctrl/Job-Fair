@@ -8,7 +8,7 @@ import { ArrowUpRight, Menu, X } from "lucide-react";
 
 const links = [
   ["Find jobs", "/jobs"],
-  ["Job Fair 2026", "/job-fair"],
+  ["Working in Croatia", "/about#working-in-croatia"],
   ["Industries", "/#industries"],
   ["About", "/about"],
 ];

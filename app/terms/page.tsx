@@ -21,20 +21,18 @@ export default function Terms() {
       </h1>
       <div className="legal-content">
         <p>
-          Jobs in Croatia is currently a recruitment platform development preview. The
-          current catalogue includes the 248 positions allocated across six
-          employers in the Job Fair Philippines 2026 plan dated 29 September 2026.
-          A listing or application is not an offer of employment.
+          Jobs in Croatia presents skilled work opportunities in Croatia for
+          Filipino applicants. Review each position’s requirements, salary range
+          and employment package before applying. An application does not
+          guarantee selection or an employment outcome.
         </p>
         <h2>Opportunity information</h2>
         <p>
-          Salary ranges were supplied separately from
-          the PDF. Employer allocations, testing plans, and NC2 guidance follow
-          the dated event plan; role descriptions and experience guidance remain
-          indicative. Final salary, benefits, work
-          arrangements, and eligibility criteria must be supplied before a
-          vacancy is presented as genuine. A listing does not promise placement
-          or an employment outcome.
+          Salary ranges and recruitment benefits are supplied by the site
+          operator. Confirm the employer, work location, hours, deductions and
+          written contract before accepting employment.
+          Residence, citizenship and pension eligibility are determined under
+          the applicable rules.
         </p>
         <h2>Submitting an application</h2>
         <p>

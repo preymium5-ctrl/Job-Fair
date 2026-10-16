@@ -53,7 +53,7 @@ export function Hero({
           <span className="eyebrow">Skilled Filipino workers wanted</span>
           <p>
             Opportunities in Croatia for Filipino tradespeople and production workers.
-            <br /> Job Fair Philippines 2026.
+            <br /> Hiring in the Philippines.
             <br /> Find the role that matches your skills.
           </p>
           <Link href="/jobs" className="button button-primary magnetic">
@@ -104,7 +104,7 @@ export function Hero({
             <span>
               {count}{" "}
               {proposedCount === count && count > 0
-                ? `proposed roles · ${workers} workers`
+                ? `roles · ${workers} positions`
                 : exampleCount === count && count > 0
                 ? "example opportunities"
                 : "opportunities"}{" "}

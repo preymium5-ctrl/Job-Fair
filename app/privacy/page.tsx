@@ -32,7 +32,7 @@ export default function Privacy() {
           The application form collects your name, email address, telephone
           number, country of residence, professional background, resume,
           employer preference, NC2 certificate details, optional driver’s license
-          details and a license copy for the listed job-fair roles, optional diploma
+          details and a license copy for applicable roles, optional diploma
           or education certificates and other supporting documents, and optional
           cover letter. A license number is not needed. Please do not include bank
           information, medical records, or other unnecessary sensitive
@@ -42,8 +42,8 @@ export default function Privacy() {
         <p>
           The information is associated with the position you select and made
           available to authorized recruitment staff for reviewing that
-          application. The current catalogue uses the Job Fair Philippines 2026
-          plan and separately supplied proposed salary ranges. This local
+          application. The catalogue describes work opportunities in Croatia for Filipino
+          applicants. This local
           installation stores applications for authorized staff review and does
           not automatically forward them to employers. Submission records your
           interest and does not guarantee an interview or employment.
@@ -60,7 +60,7 @@ export default function Privacy() {
         <p>
           Supporting documents are optional. You can attach an NC2 certificate,
           diploma or education certificate, NBI clearance, Form 18a, a driver’s
-          license copy for the listed job-fair roles, and another document relevant
+          license copy for applicable roles, and another document relevant
           to your application. Requests for correction
           or deletion should include your reference so staff can locate both
           website and Google records.

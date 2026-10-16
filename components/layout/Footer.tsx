@@ -20,7 +20,7 @@ export function Footer() {
           <div>
             <span className="eyebrow">Explore</span>
             <Link href="/jobs">Find opportunities</Link>
-            <Link href="/job-fair">Job Fair Philippines 2026</Link>
+            <Link href="/about#working-in-croatia">Working in Croatia</Link>
             <Link href="/#industries">Our industries</Link>
             <Link href="/#how-it-works">How it works</Link>
           </div>

@@ -100,7 +100,7 @@ export const fairDocuments = [
 
 export const fairOptionalDocument = "A driving licence is a plus.";
 export const fairDocumentTiming =
-  "The plan says these documents do not have to be ready on testing day, but must be obtained before the work permit application can be filed. Confirm the current requirements with the organizers.";
+  "You can apply with your CV and attach the supporting documents you have available. The recruitment team will confirm which documents must be ready before a work permit application is filed.";
 export const nc2ElectricalNote =
   "The plan accepts NC2 Electrical categories related to electricians, including industrial electrician, building wiring installation and maintenance, power distribution, lineman, electrical installer and electrical assembler. Vertiv's work profile specifically calls for industrial electricians.";
 

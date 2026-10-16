@@ -1,4 +1,3 @@
-import { jobFair } from "@/data/job-fair";
 
 export const applicationFaqs = [
   [
@@ -27,11 +26,11 @@ export const applicationFaqs = [
   ],
   [
     "When are interviews and testing?",
-    `Online interviews are scheduled for ${jobFair.interviewDateLabel}, with five full testing days planned for ${jobFair.testingDateLabel} in the Philippines, Monday to Friday. The organizers will confirm your invitation, assessment time, and testing-centre address. See the Job Fair 2026 guide for employer-specific assessments.`,
+    "Shortlisted applicants are contacted by the recruitment team to arrange an interview and any skills assessment required for the role. You will receive your own schedule and preparation instructions.",
   ],
   [
     "How can I contact the recruitment team?",
-    "Visit Application help for guidance and any confirmed recruitment contact details. Keep your application reference handy. This local preview stores applications for authorized staff review; it does not automatically send them to employers.",
+    "Visit Application help for guidance and available recruitment contact details. Keep your application reference handy so the team can find your records.",
   ],
 ];
 export function Faq({ items = applicationFaqs }: { items?: string[][] }) {

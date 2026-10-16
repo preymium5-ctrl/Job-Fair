@@ -1,6 +1,5 @@
 import type { Metadata, MetadataRoute } from "next";
 import type { Job } from "./types";
-import { getJobFairRole } from "../data/job-fair";
 import { site } from "../data/site";
 
 type SeoEnvironment = Record<string, string | undefined>;
@@ -29,7 +28,7 @@ export function searchRobots(indexable = true, env: SeoEnvironment = process.env
   };
 }
 
-export function pageMetadata({ title, description, path, image = "/images/filipino-hero.webp", imageAlt = "Filipino workers — Jobs in Croatia, Job Fair Philippines 2026", indexable = true }: {
+export function pageMetadata({ title, description, path, image = "/images/filipino-hero.webp", imageAlt = "Filipino workers — Jobs in Croatia, hiring in the Philippines", indexable = true }: {
   title: string;
   description: string;
   path: string;
@@ -65,12 +64,9 @@ export function discoverableJob(job: Job) {
 }
 
 export function jobPageMetadata(job: Job): Metadata {
-  const fairRole = getJobFairRole(job);
   return pageMetadata({
-    title: fairRole ? `${job.title} — Philippines Job Fair 2026` : job.title,
-    description: fairRole
-      ? `${job.title} at Job Fair Philippines 2026. Review salary, requirements, interviews and skills testing for work abroad in Croatia. Apply with your CV.`
-      : job.summary,
+    title: `${job.title} — Hiring Filipino Workers in Croatia`,
+    description: `${job.title} in Croatia for Filipino applicants. Review the salary range, free accommodation and transportation, no placement fee, requirements and online application.`,
     path: `/jobs/${encodeURIComponent(job.slug)}`,
     image: job.image,
     imageAlt: job.imageAlt,
@@ -81,7 +77,7 @@ export function jobPageMetadata(job: Job): Metadata {
 export function buildSitemap(jobs: Job[], env: SeoEnvironment = process.env): MetadataRoute.Sitemap {
   if (!canIndexSite(env)) return [];
   return [
-    ...["/", "/job-fair", "/jobs", "/about", "/contact"].map((path) => ({ url: siteUrl(path) })),
+    ...["/", "/jobs", "/about", "/contact"].map((path) => ({ url: siteUrl(path) })),
     ...jobs.filter(discoverableJob).map((job) => ({ url: siteUrl(`/jobs/${encodeURIComponent(job.slug)}`) })),
   ];
 }
@@ -140,7 +136,7 @@ export function webPageData(title: string, description: string, path: string) {
 
 export function jobDirectoryData(jobs: Job[]) {
   return {
-    ...webPageData("Jobs Abroad — Philippines Job Fair 2026", "Explore skilled roles for work abroad in Croatia, with salaries, requirements and online applications.", "/jobs"),
+    ...webPageData("Jobs in Croatia — Hiring in the Philippines", "Explore skilled roles for work abroad in Croatia, with salaries, requirements and online applications.", "/jobs"),
     "@type": "CollectionPage",
     mainEntity: {
       "@type": "ItemList",

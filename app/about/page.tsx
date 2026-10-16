@@ -4,94 +4,45 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { ArrowUpRight } from "lucide-react";
 import { ActionLink } from "@/components/ui/ActionLink";
-import { jobFair } from "@/data/job-fair";
+import { EmploymentBenefits } from "@/components/jobs/EmploymentBenefits";
 import { pageMetadata } from "@/lib/seo";
 export const metadata: Metadata = pageMetadata({
-  title: "About the Philippines Job Fair & Croatia Roles",
-  description:
-    "Learn about Jobs in Croatia and the Job Fair Philippines 2026 guide, with role information, online applications and preparation for work abroad.",
+  title: "Hiring in the Philippines for Jobs in Croatia",
+  description: "Explore skilled careers in Croatia for Filipino workers, with no placement fee, salary ranges, free transportation and accommodation, and online applications.",
   path: "/about",
 });
 export default function About() {
   return (
     <div className="container information-page">
-      <div className="breadcrumb" data-enter>
-        <Link href="/">Home</Link>
-        <span>/</span>
-        <span>About Jobs in Croatia</span>
-      </div>
-      <span className="eyebrow" data-enter>
-        People. Possibility. Progress.
-      </span>
-      <h1 className="page-heading" data-enter>
-        Good work.
-        <br />A better <span className="subtle-text">future.</span>
-      </h1>
-      <p className="information-intro" data-enter>
-        There’s a person behind every application. A skill worth recognising. An
-        ambition worth taking seriously. Jobs in Croatia is built around that idea.
-      </p>
+      <div className="breadcrumb" data-enter><Link href="/">Home</Link><span>/</span><span>About Jobs in Croatia</span></div>
+      <span className="eyebrow" data-enter>Hiring skilled workers in the Philippines</span>
+      <h1 className="page-heading" data-enter>Filipino talent.<br />A future in <span className="subtle-text">Croatia.</span></h1>
+      <p className="information-intro" data-enter>Connect your skills with your next opportunity. Explore roles in Croatia, understand the employment package, and apply with confidence.</p>
       <div className="information-body">
         <aside className="information-side" data-reveal>
           <BrandMark className="brand-spark" />
-          <h2>
-            Every next
-            <br />
-            step matters.
-          </h2>
-          <p>
-            Clear details. Room to explore. A simple way to introduce yourself.
-          </p>
+          <h2>Every next<br />step matters.</h2>
+          <p>Clear requirements. Practical support. No placement fee.</p>
           <ActionLink href="/jobs">Explore jobs in Croatia</ActionLink>
         </aside>
-        <div data-reveal>
-          <h2>A clearer way forward.</h2>
-          <p>
-            Jobs in Croatia is built for Filipino workers exploring skilled roles
-            in Croatia. We’re looking for Filipino tradespeople and production
-            workers whose experience matches the positions in Job Fair Philippines
-            2026. Review each role’s qualifications and apply with your CV and
-            relevant documents.
-          </p>
-          <h3>Built around your skills</h3>
-          <p>
-            Explore metal fabrication and welding, motor and generator
-            production, electrical work, CNC machining, and industrial finishing.
-            Search by skill or employer to find a role that matches your background.
-          </p>
-          <h3>Job Fair Philippines 2026</h3>
-          <p>
-            The Humble Hunters × BEI Manpower event plan lists 248 positions
-            across six employers: Končar MK, Đuro Đaković Montaža, Končar GIM,
-            Vertiv, Novi Ferromont d.o.o., and Ferokotao d.o.o. Online interviews
-            are scheduled for {jobFair.interviewDateLabel}, with five days of testing planned for{" "}
-            {jobFair.testingDateLabel} in the Philippines.
-          </p>
-          <Link href="/job-fair" className="text-link">Explore the event guide <ArrowUpRight size={16} /></Link>
-          <h3>From discovery to application</h3>
-          <p>
-            Each opportunity has a dedicated page with responsibilities,
-            requirements, and employment information. A guided application form
-            lets you introduce yourself, share your background, and securely
-            upload a resume.
-          </p>
-          <h3>Honest information, useful decisions</h3>
-          <p>
-            Employer allocations, assessments, and document guidance come from
-            the event plan dated 29 September 2026.
-            The PDF does not provide salary ranges.
-            Work locations, benefits, contract terms, and final event arrangements
-            remain to be confirmed with the recruitment team.
-          </p>
-          <h3>Care for your information</h3>
-          <p>
-            Applications are stored securely, resumes are kept private, and
-            authorized recruitment staff manage the review process. The{" "}
-            <Link href="/privacy" className="text-link">
-              privacy notice <ArrowUpRight size={15} />
-            </Link>{" "}
-            explains this preview’s data handling.
-          </p>
+        <div>
+          <div data-reveal>
+            <h2>A clearer way forward.</h2>
+            <p>Jobs in Croatia is hiring skilled workers in the Philippines for roles in metal fabrication and welding, motor and generator production, electrical work, CNC machining and industrial finishing.</p>
+            <h3>Built around your skills</h3>
+            <p>Find a role that matches your experience. Review its responsibilities, qualifications, salary range and benefits, then apply with your CV and relevant documents.</p>
+          </div>
+          <section id="working-in-croatia" data-reveal>
+            <h2>Working in Croatia</h2>
+            <p>A practical employment package, with support for your next step abroad.</p>
+            <EmploymentBenefits />
+          </section>
+          <div data-reveal>
+            <h3>From application to your next step</h3>
+            <p>Complete your details, describe your skills and attach your CV. The recruitment team reviews applications and contacts shortlisted candidates about interviews, assessments and employment arrangements.</p>
+            <h3>Care for your information</h3>
+            <p>Your application and documents are handled through the recruitment process. Read the <Link href="/privacy" className="text-link">privacy notice <ArrowUpRight size={15} /></Link> for details about data handling and access.</p>
+          </div>
         </div>
       </div>
       <PageMotion />

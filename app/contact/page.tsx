@@ -3,10 +3,9 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { Faq } from "@/components/ui/Faq";
 import { ActionLink } from "@/components/ui/ActionLink";
-import { jobFair } from "@/data/job-fair";
 import { pageMetadata } from "@/lib/seo";
 export const metadata: Metadata = pageMetadata({
-  title: "Job Fair Philippines 2026 — Application Help",
+  title: "Application Help for Jobs in Croatia",
   description:
     "Get help with applying, resume uploads, and application confirmation. Find confirmed recruitment contact details when available.",
   path: "/contact",
@@ -48,7 +47,7 @@ export default function Contact() {
           </p>
           <ActionLink href="/jobs">Explore opportunities</ActionLink>
           <span className="eyebrow">Recruitment contact</span>
-          <p>Humble Hunters × BEI Manpower<br />Job Fair Philippines 2026</p>
+          <p>Jobs in Croatia · Hiring in the Philippines</p>
           {email ? (
             <>
               <p>
@@ -61,18 +60,17 @@ export default function Contact() {
             </>
           ) : (
             <p>
-              A recruitment email address or phone number is not provided in
-              the event plan. Contact details will appear here when supplied by
-              the organizers.
+              Recruitment contact details will appear here when provided by the team.
+              Keep your application reference for any enquiry.
             </p>
           )}
           <span className="eyebrow">Testing & documents</span>
           <p>
-            Testing is planned for {jobFair.testingDateLabel}. The testing-centre address
-            is to be confirmed. Start with your CV; work permit documents are
-            prepared separately for a later stage.
+            Start with your CV and relevant qualifications. If shortlisted,
+            the team will confirm your interview, any practical assessment and
+            the documents needed for the work permit process.
           </p>
-          <Link href="/job-fair#documents" className="text-link">Read the event guide ↗</Link>
+          <Link href="/jobs" className="text-link">Review role requirements ↗</Link>
         </aside>
       </div>
       <PageMotion />

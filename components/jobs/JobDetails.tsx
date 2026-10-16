@@ -12,8 +12,9 @@ import {
 import type { Job } from "@/lib/types";
 import { MobileApply } from "./MobileApply";
 import { JobSalary } from "./JobSalary";
+import { EmploymentBenefits, NoPlacementFee } from "./EmploymentBenefits";
 import styles from "./JobDetails.module.css";
-import { getJobFairRole, jobFair } from "@/data/job-fair";
+import { getJobFairRole } from "@/data/job-fair";
 import { JobFairRoleInfo } from "@/components/job-fair/JobFairRoleInfo";
 
 const roleQuestions: Record<string, { question: string; answer: string }> = {
@@ -107,6 +108,7 @@ function ApplyPanel({ job }: { job: Job }) {
           JOBS IN CROATIA
         </span>
         <h2>{job.title}</h2>
+        <NoPlacementFee compact />
         <dl>
           <div>
             <dt>
@@ -132,7 +134,7 @@ function ApplyPanel({ job }: { job: Job }) {
           </div>
           {typeof job.openings === "number" && (
             <div>
-              <dt>{job.salaryStatus === "proposed-net" ? "Workers proposed" : "Openings"}</dt>
+              <dt>{job.salaryStatus === "proposed-net" ? "Available positions" : "Openings"}</dt>
               <dd>{job.openings}</dd>
             </div>
           )}
@@ -197,7 +199,7 @@ export function JobDetails({
             <div className={styles.heroText}>
               <div className={styles.positionLabel} data-enter>
                 <span />
-                {job.salaryStatus === "proposed-net" ? "PROPOSED ROLE" : job.isExample ? "EXAMPLE VACANCY" : "OPEN POSITION"}
+                {job.isExample ? "EXAMPLE VACANCY" : "HIRING IN THE PHILIPPINES"}
               </div>
               <p className={styles.category} data-enter>
                 {job.category}
@@ -206,6 +208,7 @@ export function JobDetails({
                 {job.title}
                 <span className={styles.titleDot}>.</span>
               </h1>
+              <NoPlacementFee />
               <p className={styles.summary} data-enter>
                 {job.summary}
               </p>
@@ -228,7 +231,7 @@ export function JobDetails({
               </div>
               {typeof job.openings === "number" && (
                 <p className={styles.workerCount} data-enter>
-                  <strong>{job.openings}</strong> workers{job.salaryStatus === "proposed-net" ? " proposed" : " sought"}
+                  <strong>{job.openings}</strong> positions available
                 </p>
               )}
               <div className={styles.salary} data-enter><JobSalary job={job} /></div>
@@ -274,12 +277,6 @@ export function JobDetails({
 
       <div className={`container ${styles.contentGrid}`}>
         <article id="position-overview" className={styles.article}>
-          {job.salaryStatus === "proposed-net" && (
-            <div className={styles.exampleNotice}>
-              <span>PROPOSED ROLE & PAY</span>
-              <p>{fairRole ? "Employer allocations and document guidance are based on the 29 September 2026 job fair plan. Work locations and final employment terms remain to be confirmed." : "The worker count is proposed. Employer, location, requirements, and employment terms remain to be confirmed."} Images are AI-generated illustrations of the work.</p>
-            </div>
-          )}
           {job.isExample && (
             <div className={styles.exampleNotice}>
               <span>PLEASE NOTE</span>
@@ -322,7 +319,7 @@ export function JobDetails({
                 </dd>
               </div>
               <div>
-                <dt>{job.salaryStatus === "proposed-net" ? "Proposed NET salary" : "Compensation"}</dt>
+                <dt>Salary range</dt>
                 <dd>{job.salary ? <JobSalary job={job} compact /> : "No verified salary has been provided."}</dd>
               </div>
               <div>
@@ -335,7 +332,7 @@ export function JobDetails({
               </div>
               {typeof job.openings === "number" && (
                 <div>
-                  <dt>{job.salaryStatus === "proposed-net" ? "Workers proposed" : "Available positions"}</dt>
+                  <dt>Available positions</dt>
                   <dd>{job.openings}</dd>
                 </div>
               )}
@@ -349,19 +346,7 @@ export function JobDetails({
             )}
           </NumberedSection>
           <NumberedSection number="05" title="Benefits & support">
-            {job.benefits.length ? (
-              <ul className={styles.list}>
-                {job.benefits.map((item) => (
-                  <li key={item}>{item}</li>
-                ))}
-              </ul>
-            ) : (
-              <p>
-                No employer-confirmed benefits have been provided for this
-                position. Specific benefits and support arrangements should be
-                confirmed during the recruitment process.
-              </p>
-            )}
+            <EmploymentBenefits benefits={job.benefits} />
           </NumberedSection>
           <NumberedSection number="06" title="Recruitment process">
             <p>
@@ -385,7 +370,7 @@ export function JobDetails({
                 <div>
                   <h3>Application review</h3>
                   <p>
-                    {fairRole ? `The event plan schedules online interviews from ${jobFair.interviewDateLabel}. Interview times are arranged by the recruitment team.` : "The recruitment team reviews your information against the role requirements."}
+                    The recruitment team reviews your information against the role requirements.
                   </p>
                 </div>
               </li>
@@ -394,7 +379,7 @@ export function JobDetails({
                 <div>
                   <h3>Interview & assessment</h3>
                   <p>
-                    {fairRole ? `Testing is planned for ${jobFair.testingDateLabel} in the Philippines. The team will confirm your invitation, venue, and employer-specific assessment.` : "If invited, discuss your experience and complete any clearly explained practical assessment."}
+                    If shortlisted, discuss your experience and complete any role-specific assessment. The team will confirm your interview and assessment arrangements.
                   </p>
                 </div>
               </li>

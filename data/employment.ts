@@ -1,0 +1,28 @@
+export const noPlacementFee = "NO PLACEMENT FEE";
+
+// Employer package supplied by the site operator.
+export const recruitmentBenefits = [
+  "No placement fee.",
+  "Free transportation.",
+  "Free accommodation.",
+  "Additional 10% pay for overtime hours.",
+  "Additional 30% pay for holiday and Sunday hours.",
+];
+
+export const workingInCroatia = [
+  {
+    title: "Long-term residence",
+    text: "You may qualify to apply after five years of continuous qualifying legal residence, subject to the residence rules and other eligibility conditions.",
+    source: "https://www.gov.hr/hr/prijava-boravka-drzavljani-trecih-zemalja/1210",
+  },
+  {
+    title: "Croatian citizenship",
+    text: "Standard naturalisation generally requires eight years of continuous registered residence, permanent residence and other legal conditions. Employment alone does not grant citizenship.",
+    source: "https://mup.gov.hr/pristup-informacijama-16/najcesca-pitanja-219/drzavljanstvo-281594/281594",
+  },
+  {
+    title: "Retirement & pension",
+    text: "Insured employment builds pension service. Standard old-age pension eligibility generally requires at least 15 qualifying years and the applicable retirement age; special or international rules may apply.",
+    source: "https://www.mirovinsko.hr/hr/starosna-mirovina/166",
+  },
+];

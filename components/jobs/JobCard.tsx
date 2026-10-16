@@ -3,6 +3,7 @@ import Link from "next/link";
 import { ArrowRight, ArrowUpRight, MapPin } from "lucide-react";
 import type { Job } from "@/lib/types";
 import { JobSalary } from "./JobSalary";
+import { NoPlacementFee } from "./EmploymentBenefits";
 import { getJobFairRole } from "@/data/job-fair";
 export function JobCard({
   job,
@@ -49,7 +50,7 @@ export function JobCard({
           <span className="example-image-label">Example vacancy</span>
         )}
         {job.salaryStatus === "proposed-net" && (
-          <span className="example-image-label">Proposed role · AI-generated image</span>
+          <span className="example-image-label">AI-generated role illustration</span>
         )}
       </Link>
       <div className="job-info">
@@ -62,6 +63,7 @@ export function JobCard({
         <h3>
           <Link href={`/jobs/${job.slug}`}>{job.title}</Link>
         </h3>
+        <NoPlacementFee compact />
         <div className="job-meta">
           <span>
             <MapPin size={14} />
@@ -71,15 +73,14 @@ export function JobCard({
         </div>
         {fairRole && (
           <p className="job-fair-context">
-            {allocation ? allocation.name : fairRole.employers.length === 1 ? fairRole.employers[0].name : `${fairRole.employers.length} employer allocations`}
-            <Link href="/job-fair">Job Fair 2026 ↗</Link>
+            {allocation ? allocation.name : fairRole.employers.length === 1 ? fairRole.employers[0].name : `${fairRole.employers.length} employer options`}
           </p>
         )}
         {typeof workers === "number" && (
           <p className="job-workers">
             <strong>{workers}</strong>{" "}
             {workers === 1 ? "worker" : "workers"}
-            {job.salaryStatus === "proposed-net" ? " proposed" : " sought"}
+             available
           </p>
         )}
         <p className="job-summary">{job.summary}</p>

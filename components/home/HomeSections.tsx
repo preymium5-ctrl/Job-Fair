@@ -29,8 +29,8 @@ export function Introduction() {
             and the life you make along the way.
           </p>
           <p className="muted">
-            We’re looking for skilled Filipino workers for the roles in Job Fair
-            Philippines 2026. Explore work in Croatia, check the experience and
+            We’re hiring skilled Filipino workers for opportunities in Croatia.
+            Explore the roles, check the experience and
             qualifications for your trade, and apply with your CV.
           </p>
           <Link href="/about" className="text-link">

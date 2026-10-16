@@ -2,6 +2,6 @@ export const site = {
   name: "Jobs in Croatia",
   url: "https://www.jobsincroatiaa.com",
   alternateHosts: ["jobstreetcroatia.com", "www.jobstreetcroatia.com", "jobsincroatiaa.com"],
-  title: "Job Fair Philippines 2026 | Jobs in Croatia",
-  description: "Skilled Filipino workers wanted for roles in Croatia. Explore Job Fair Philippines 2026, salaries, interview dates, testing and application requirements.",
+  title: "Jobs in Croatia | Hiring Skilled Workers in the Philippines",
+  description: "Jobs in Croatia for skilled Filipino workers. Explore salary ranges, free accommodation and transportation, no placement fee, and apply online with your CV.",
 };

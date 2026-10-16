@@ -4,7 +4,8 @@ import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { eq } from "drizzle-orm";
-import { proposedJobs, proposalV1Jobs } from "../data/jobs";
+import { proposedJobs, proposalV1Jobs, previousRecruitmentJobs } from "../data/jobs";
+import { recruitmentBenefits } from "../data/employment";
 import { fairDocuments, getJobFairRole, jobFair, nc2ElectricalNote } from "../data/job-fair";
 import {
   legacyExampleJobIds,
@@ -14,6 +15,8 @@ import {
   jobFairCatalogVersion,
   migrateFilipinoWorkerImages,
   filipinoWorkerImageVersion,
+  migrateHiringContent,
+  hiringContentVersion,
 } from "../lib/catalog-migration";
 import { closeDatabase, getDatabase } from "../lib/db";
 import { applications, audits, jobs, settings } from "../lib/schema";
@@ -74,9 +77,9 @@ test("all 17 operator proposals retain exact worker counts and monthly NET range
     assert.equal(jobSchema.safeParse(job).success, true, job.title);
     assert.equal(job.salaryStatus, "proposed-net");
     assert.equal(job.isExample, false);
-    assert.equal(job.location, "Location to be confirmed");
+    assert.equal(job.location, "Croatia");
     assert.equal(job.employmentType, "Terms to be confirmed");
-    assert.deepEqual(job.benefits, []);
+    assert.deepEqual(job.benefits, recruitmentBenefits);
   }
 });
 
@@ -99,7 +102,7 @@ test("the dated fair allocations reconcile six employers and exactly 248 workers
     assert.equal(role.drivingLicenseIsPlus, true, `Page 5 says all positions: ${job.slug}`);
     assert.equal(role.employers.reduce((total, employer) => total + employer.workers, 0), job.openings, job.title);
     assert.ok(role.testing.length > 0);
-    assert.ok(job.description.includes("29 September 2026"));
+    assert.match(job.description, /hiring skilled Filipino workers/);
     assert.ok(!job.description.toLowerCase().includes("not a confirmed employer offer"));
     assert.equal(getJobFairRole({ ...job, id: "unrelated-staff-job" }), undefined);
     assert.equal(getJobFairRole({ ...job, slug: "staff-renamed-role" }), undefined);
@@ -277,4 +280,37 @@ test("Filipino imagery refresh preserves staff photos, closed roles, custom jobs
   await migrateFilipinoWorkerImages(db);
   assert.deepEqual((await db.select().from(jobs).where(eq(jobs.id, closed.id)))[0].data, reviewedAfterRefresh);
   assert.equal((await db.select().from(audits).where(eq(audits.targetId, filipinoWorkerImageVersion))).length, 1);
+});
+
+test("hiring copy migration removes original event copy without changing staff terms or application records", async () => {
+  const db = await getDatabase();
+  await db.delete(settings).where(eq(settings.key, hiringContentVersion));
+  await db.delete(audits).where(eq(audits.targetId, hiringContentVersion));
+  const original = { ...previousRecruitmentJobs[0], title: "Staff reviewed title", status: "closed" as const,
+    salary: "€1,234", image: "/images/staff-photo.webp", benefits: ["Staff meal allowance"] };
+  const edited = { ...previousRecruitmentJobs[1], description: "Staff-written overview", requirements: ["Staff requirement"], location: "Split, Croatia" };
+  const renamed = { ...previousRecruitmentJobs[2], slug: "staff-renamed-hiring-role" };
+  for (const job of [original, edited, renamed])
+    await db.update(jobs).set({ slug: job.slug, status: job.status, data: job }).where(eq(jobs.id, job.id));
+  const beforeApplications = await db.select().from(applications);
+  const [customBefore] = await db.select().from(jobs).where(eq(jobs.id, "staff-custom"));
+  await migrateHiringContent(db);
+  const result = await db.select().from(jobs);
+  const refreshed = result.find((row) => row.id === original.id)!;
+  assert.equal(refreshed.status, "closed");
+  assert.deepEqual(refreshed.data, { ...original, description: proposedJobs[0].description,
+    requirements: proposedJobs[0].requirements, location: "Croatia", benefits: [...proposedJobs[0].benefits, "Staff meal allowance"] });
+  assert.deepEqual(result.find((row) => row.id === edited.id)?.data, { ...edited, benefits: proposedJobs[1].benefits });
+  assert.deepEqual(result.find((row) => row.id === renamed.id)?.data, renamed);
+  assert.deepEqual(result.find((row) => row.id === "staff-custom"), customBefore);
+  assert.deepEqual(await db.select().from(applications), beforeApplications);
+  for (const job of proposedJobs) {
+    assert.doesNotMatch([job.description, ...job.requirements].join(" "), /job fair|proposed net/i);
+    assert.ok(job.benefits.includes("Free accommodation."));
+    assert.ok(job.benefits.some((item) => /30%.*holiday and Sunday/.test(item)));
+  }
+  await db.update(jobs).set({ data: { ...refreshed.data, description: "Later staff edit" } }).where(eq(jobs.id, original.id));
+  await migrateHiringContent(db);
+  assert.equal((await db.select().from(jobs).where(eq(jobs.id, original.id)))[0].data.description, "Later staff edit");
+  assert.equal((await db.select().from(audits).where(eq(audits.targetId, hiringContentVersion))).length, 1);
 });

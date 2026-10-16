@@ -391,7 +391,7 @@ export default function JobEditor({
           </label>
           {stringField("salary", "Compensation / salary range", {
             placeholder: "Currency, gross/net, amount and payment frequency",
-            help: "For proposed NET pay, enter the EUR range and select the proposed status below. Leave empty when unknown.",
+            help: "Enter the salary range in EUR per month. Leave empty when unknown.",
           })}
           <label className={styles.field}>
             Salary status
@@ -401,9 +401,9 @@ export default function JobEditor({
               disabled={busy}
             >
               <option value="">Employer-confirmed terms / no salary provided</option>
-              <option value="proposed-net">Proposed NET salary · EUR per month · unconfirmed</option>
+              <option value="proposed-net">Salary range · EUR per month</option>
             </select>
-            <span className={styles.help}>Proposed pay is labeled as not a confirmed employer offer on every public salary summary.</span>
+            <span className={styles.help}>Salary ranges are displayed consistently on job pages and application summaries.</span>
           </label>
           {stringField("schedule", "Work schedule")}
           {stringField("contract", "Contract duration / arrangement")}

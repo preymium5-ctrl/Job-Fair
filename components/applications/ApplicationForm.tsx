@@ -17,6 +17,7 @@ import {
 } from "lucide-react";
 import type { ApplicationInput, Job } from "@/lib/types";
 import { JobSalary } from "@/components/jobs/JobSalary";
+import { NoPlacementFee } from "@/components/jobs/EmploymentBenefits";
 import { MAX_APPLICATION_UPLOAD_BYTES, MAX_SUPPORTING_DOCUMENT_BYTES, SUPPORTING_DOCUMENT_ACCEPT, supportingDocumentTypes, type SupportingDocumentCategory } from "@/lib/document-uploads";
 import { JobFairRoleInfo } from "@/components/job-fair/JobFairRoleInfo";
 import { fairDocumentTiming, getJobFairRole } from "@/data/job-fair";
@@ -409,10 +410,11 @@ export default function ApplicationForm({ job }: { job: Job }) {
               </p>
             </div>
             <JobSalary job={job} />
+            <NoPlacementFee />
             <JobFairRoleInfo job={job} compact />
             {job.salaryStatus === "proposed-net" && (
               <div className={styles.example}>
-                <strong>{job.openings} workers proposed</strong>
+                <strong>{job.openings} positions available</strong>
               </div>
             )}
             {job.isExample && (
@@ -740,7 +742,7 @@ export default function ApplicationForm({ job }: { job: Job }) {
                                 aria-describedby={errors.preferredEmployer ? "employer-help preferredEmployer-error" : "employer-help"}
                                 onChange={(event) => update("preferredEmployer", event.target.value)}
                               >
-                                <option value="">Open to all employer allocations</option>
+                                <option value="">Open to all listed employers</option>
                                 {fairRole?.employers.map((employer) => (
                                   <option key={employer.name} value={employer.name}>
                                     {employer.name}
@@ -748,9 +750,8 @@ export default function ApplicationForm({ job }: { job: Job }) {
                                 ))}
                               </select>
                               <p id="employer-help" className={styles.documentNote}>
-                                Choose from the employers listed for this role in
-                                the event plan. A preference does not confirm an
-                                allocation.
+                                Choose from the employers listed for this role.
+                                Your preference will be reviewed by the recruitment team.
                               </p>
                               {errors.preferredEmployer && (
                                 <p id="preferredEmployer-error" className={styles.fieldError}>
@@ -788,7 +789,7 @@ export default function ApplicationForm({ job }: { job: Job }) {
                             {job.location} · {job.employmentType}
                           </p>
                           <JobSalary job={job} compact />
-                          {job.salaryStatus === "proposed-net" && <p>{job.openings} workers proposed.</p>}
+                          {job.salaryStatus === "proposed-net" && <p>{job.openings} positions available.</p>}
                         </div>
                         <ReviewSection
                           title="Personal details"
@@ -822,7 +823,7 @@ export default function ApplicationForm({ job }: { job: Job }) {
                             ...(fairRole
                               ? [[
                                   "Preferred employer",
-                                  values.preferredEmployer || "Open to all employer allocations",
+                                  values.preferredEmployer || "Open to all listed employers",
                                 ] as [string, string]]
                               : []),
                             [

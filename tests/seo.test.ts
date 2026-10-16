@@ -22,7 +22,7 @@ test("production indexing is enabled while local, preview and explicit pauses st
   assert.equal(privatePage.index, false);
 });
 
-test("sitemap includes all 17 public fair roles and excludes examples, closed jobs and applications", () => {
+test("sitemap includes all 17 hiring roles and excludes retired event pages, examples, closed jobs and applications", () => {
   const base = proposedJobs[0];
   const jobs = [...proposedJobs,
     { ...base, slug: "example-role", isExample: true },
@@ -30,8 +30,9 @@ test("sitemap includes all 17 public fair roles and excludes examples, closed jo
     { ...base, slug: "draft-role", status: "draft" as const },
   ];
   const sitemap = buildSitemap(jobs, { VERCEL_ENV: "production" });
-  assert.equal(sitemap.length, 22);
-  assert.equal(new Set(sitemap.map(({ url }) => url)).size, 22);
+  assert.equal(sitemap.length, 21);
+  assert.equal(new Set(sitemap.map(({ url }) => url)).size, 21);
+  assert.ok(sitemap.every(({ url }) => !url.includes("/job-fair")));
   for (const job of proposedJobs) assert.ok(sitemap.some(({ url }) => url === siteUrl(`/jobs/${job.slug}`)));
   assert.ok(sitemap.every(({ url }) => url.startsWith(site.url) && !/apply|example-role|closed-role|draft-role|localhost/.test(url)));
   assert.deepEqual(buildSitemap(jobs, { VERCEL_ENV: "preview", INDEX_SITE: "true" }), []);
@@ -44,11 +45,12 @@ test("robots advertises the canonical sitemap and permits crawlers to see applic
   assert.deepEqual(robotsRules({ VERCEL_ENV: "preview" }), { rules: { userAgent: "*", disallow: "/" } });
 });
 
-test("role metadata uses unique canonical URLs and overseas job-fair descriptions", () => {
+test("role metadata uses unique canonical URLs and Philippines hiring descriptions", () => {
   const role = proposedJobs.find(({ slug }) => slug === "electrical-installer")!;
   const metadata = jobPageMetadata(role);
-  assert.match(String(metadata.title), /Electrical Installer.*Philippines Job Fair 2026/);
-  assert.match(metadata.description!, /work abroad in Croatia/);
+  assert.match(String(metadata.title), /Electrical Installer.*Hiring Filipino Workers in Croatia/);
+  assert.match(metadata.description!, /salary range.*no placement fee/);
+  assert.doesNotMatch(JSON.stringify(metadata), /job fair|proposed net salary/i);
   assert.equal(metadata.alternates?.canonical, siteUrl("/jobs/electrical-installer"));
   assert.equal(metadata.openGraph?.url, siteUrl("/jobs/electrical-installer"));
 });

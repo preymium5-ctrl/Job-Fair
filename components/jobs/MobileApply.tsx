@@ -23,7 +23,7 @@ export function MobileApply({ job }: { job: Job }) {
     <div className={styles.mobileApply}>
       <div>
         <strong>{job.title}</strong>
-        <span>{job.salaryStatus === "proposed-net" ? job.salary ? `${job.salary} · EUR/mo · proposed NET` : "Proposed role · pay to be confirmed" : job.isExample ? "Example vacancy" : job.location}</span>
+        <span>{job.salaryStatus === "proposed-net" ? job.salary ? `${job.salary} · EUR/mo` : "Salary to be confirmed" : job.isExample ? "Example vacancy" : job.location}</span>
       </div>
       <Link
         href={`/jobs/${job.slug}/apply`}
