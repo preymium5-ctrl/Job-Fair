@@ -248,9 +248,11 @@ export function JobDetails({
                 sizes="(max-width: 800px) 100vw, 50vw"
                 style={{ objectPosition: job.imagePosition || "center" }}
               />
-              <div className={styles.imageCaption}>
-                {job.salaryStatus === "proposed-net" ? "AI-GENERATED ROLE ILLUSTRATION" : "THE PEOPLE BEHIND PROGRESS."} <span>↗</span>
-              </div>
+              {job.salaryStatus !== "proposed-net" && (
+                <div className={styles.imageCaption}>
+                  THE PEOPLE BEHIND PROGRESS. <span>↗</span>
+                </div>
+              )}
             </div>
           </div>
           <div className={styles.heroFoot}>

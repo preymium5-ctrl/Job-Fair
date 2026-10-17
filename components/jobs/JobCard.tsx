@@ -49,9 +49,6 @@ export function JobCard({
         {job.isExample && (
           <span className="example-image-label">Example vacancy</span>
         )}
-        {job.salaryStatus === "proposed-net" && (
-          <span className="example-image-label">AI-generated role illustration</span>
-        )}
       </Link>
       <div className="job-info">
         <div className="job-topline">

@@ -55,6 +55,6 @@ The 17 roles, 248 proposed workers, and salary ranges in `data/jobs.ts` were pro
 
 ## Generated role images
 
-The 17 new WebP assets in `public/images/jobs/proposed/` were created separately using the built-in image generation tool. They illustrate trades and are labeled as AI-generated; they are not photographs of actual employers or workplaces. Full generation prompts, source filenames, output mapping, and alt descriptions are recorded in [prompt set A](docs/job-image-prompts-a.md) and [prompt set B](docs/job-image-prompts-b.md).
+The 17 new WebP assets in `public/images/jobs/proposed/` were created separately using the built-in image generation tool. They illustrate trades; they are not photographs of actual employers or workplaces. Full generation prompts, source filenames, output mapping, and alt descriptions are recorded in [prompt set A](docs/job-image-prompts-a.md) and [prompt set B](docs/job-image-prompts-b.md).
 
 Each job's image and alternative text are editable through job management. The per-role mapping is explicit in `data/jobs.ts`. There are no missing photo assets in this seed set.
