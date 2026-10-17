@@ -3,6 +3,7 @@ import sharp from "sharp";
 
 const source = await readFile(new URL("../public/brand/jobs-in-croatia-mark-512.png", import.meta.url));
 const raster = (size) => sharp(source).resize(size, size).flatten({ background: "#FFFFFF" }).png().toBuffer();
+await writeFile(new URL("../public/favicon.png", import.meta.url), await raster(512));
 await writeFile(new URL("../app/icon.svg", import.meta.url), `<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512"><rect width="512" height="512" fill="#FFFFFF"/><image width="512" height="512" href="data:image/png;base64,${source.toString("base64")}"/></svg>\n`);
 
 await writeFile(new URL("../app/icon1.png", import.meta.url), await raster(192));
@@ -25,4 +26,4 @@ for (let index = 0; index < sizes.length; index++) {
   offset += images[index].length;
 }
 await writeFile(new URL("../app/favicon.ico", import.meta.url), Buffer.concat([directory, ...images]));
-console.log("Generated white-background favicon (six sizes), SVG, 192px PNG and 180px Apple icon.");
+console.log("Generated stable 512px PNG favicon, six-size ICO, SVG, 192px PNG and 180px Apple icon with white backgrounds.");

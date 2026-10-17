@@ -5,6 +5,7 @@ Created 16 October 2026 with the built-in imagegen tool, using the owner's suppl
 Saved assets:
 - `public/brand/jobs-in-croatia-mark.png`: original generated emblem.
 - `public/brand/jobs-in-croatia-mark-512.png`: optimized web emblem.
+- `public/favicon.png`: opaque 512×512 PNG favicon with a stable URL, explicitly advertised for Google Search.
 - `app/icon.svg`, `app/icon1.png`, `app/favicon.ico`, `app/apple-icon.png`: matching favicon assets, regenerated with `npm run icons:generate`.
 
 Palette:

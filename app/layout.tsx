@@ -47,6 +47,10 @@ export const metadata: Metadata = {
     default: site.title,
     template: "%s | Jobs in Croatia",
   },
+  icons: {
+    icon: [{ url: "/favicon.png", type: "image/png", sizes: "512x512" }],
+    apple: [{ url: "/apple-icon.png", type: "image/png", sizes: "180x180" }],
+  },
   ...(process.env.GOOGLE_SITE_VERIFICATION ? { verification: { google: process.env.GOOGLE_SITE_VERIFICATION.trim() } } : {}),
 };
 export const viewport: Viewport = { themeColor: "#F3F6FA" };

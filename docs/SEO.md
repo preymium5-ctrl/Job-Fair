@@ -20,7 +20,9 @@ The site targets **Job Fair Philippines 2026**, **jobs abroad for Filipinos**, a
 
 ## Structured data and content
 
-The brand favicon is available as a six-size `/favicon.ico` (16–256px), a 192px PNG, the original SVG, and a 180px Apple touch icon. Next.js adds the icon links to every page. Run `npm run icons:generate` after editing `app/icon.svg` to regenerate the raster versions. The ICO URL is stable and crawlable for Google Search; Google controls when its search-result icon refreshes.
+The root layout explicitly advertises the brand's square 512×512 PNG at the stable `/favicon.png` URL on every page, including the homepage. Next.js retains the six-size `/favicon.ico` (16–256px) fallback, and the Apple touch icon uses `/apple-icon.png` (180×180px). The original SVG and 192px PNG remain available. Run `npm run icons:generate` after editing the source `public/brand/jobs-in-croatia-mark-512.png` to regenerate all favicon assets.
+
+The homepage and favicon files must remain accessible to Googlebot and Googlebot-Image. After deploying a favicon update, request indexing of `https://www.jobsincroatiaa.com/` through Search Console's URL Inspection tool. [Google's favicon guidance](https://developers.google.com/search/docs/appearance/favicon-in-search) says recrawling and processing can take several days to several weeks; favicon display is not guaranteed even when the technical requirements are met.
 
 The site uses WebSite, publisher Organization, WebPage, CollectionPage/ItemList and BreadcrumbList JSON-LD. Structured data reflects the visible content. The public guide includes interview dates, planned testing dates, role groups, document guidance and applicant questions. It does not invent an event venue, contact details, recruitment accreditation, employer offers or salaries.
 
