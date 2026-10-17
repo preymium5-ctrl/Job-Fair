@@ -1,22 +1,54 @@
 .fee {
+  position: relative;
+  isolation: isolate;
   display: flex;
   align-items: center;
   gap: 12px;
   width: fit-content;
   max-width: 100%;
-  padding: 15px 20px;
+  min-height: 64px;
+  padding: 16px 22px;
   margin-block: 18px;
   border: 1px solid #D91F32;
-  border-radius: 4px;
+  border-radius: 8px;
   background: var(--accent);
   color: white;
   line-height: 1.25;
+  overflow: hidden;
+  box-shadow: 0 4px 14px #D91F3226;
+  animation: fee-glow 2.8s ease-in-out infinite;
 }
-.fee strong { font-size: clamp(20px, 2vw, 29px); letter-spacing: .025em; }
-.fee svg { width: 29px; height: 29px; }
-.compact { gap: 8px; padding: 10px 13px; margin-block: 14px; }
-.compact strong { font-size: 13px; letter-spacing: .055em; }
-.compact svg { width: 20px; height: 20px; }
+.fee::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  background: linear-gradient(110deg, transparent 30%, #FFFFFF1A 48%, transparent 66%);
+  transform: translateX(-130%);
+  animation: fee-shine 5.6s ease-in-out infinite;
+}
+.fee > * { position: relative; z-index: 1; }
+.fee strong { min-width: 0; font-size: clamp(22px, 2vw, 30px); letter-spacing: .025em; }
+.fee svg { flex-shrink: 0; width: 30px; height: 30px; }
+.compact { min-height: 58px; gap: 10px; padding: 14px 18px; margin-block: 16px; }
+.compact strong { font-size: clamp(18px, 1.35vw, 22px); letter-spacing: .035em; }
+.compact svg { width: 26px; height: 26px; }
+
+@keyframes fee-glow {
+  0%, 100% {
+    background-color: #D91F32;
+    box-shadow: 0 4px 14px #D91F3226, 0 0 0 0 #D91F3200;
+  }
+  50% {
+    background-color: #B91529;
+    box-shadow: 0 6px 20px #D91F3238, 0 0 0 5px #D91F3212;
+  }
+}
+@keyframes fee-shine {
+  0%, 55% { transform: translateX(-130%); }
+  85%, 100% { transform: translateX(130%); }
+}
 .summaryWrap { margin-block: 24px 4px; }
 .summary {
   display: flex;
@@ -44,10 +76,20 @@
   .summary { flex-wrap: wrap; justify-content: flex-start; padding: 20px; }
   .summary > .fee { flex-basis: 100%; }
   .summary > span { font-size: 13px; }
-  .fee { padding: 13px 16px; }
+  .fee { padding: 14px 16px; }
+  .fee strong { font-size: 22px; }
+  .compact { padding: 13px 16px; }
+  .compact strong { font-size: 19px; }
+}
+@media (max-width: 380px) {
+  .fee { gap: 10px; padding-inline: 14px; }
   .fee strong { font-size: 20px; }
-  .compact { padding: 10px 13px; }
-  .compact strong { font-size: 13px; }
+  .fee svg { width: 26px; height: 26px; }
+  .compact strong { font-size: 18px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .fee, .fee::after { animation: none; }
+  .fee::after { display: none; }
 }
 
 .future > h3, .futureItem h4 { color: var(--brand-blue); }
