@@ -119,7 +119,7 @@ test("the dated fair allocations reconcile six employers and exactly 248 workers
   assert.equal(jobFair.testingDateLabel, "16–20 November 2026");
   assert.equal(jobFair.interviewDateLabel, "26 October – 14 November 2026");
   assert.equal(jobFair.venue, "Testing centre to be confirmed");
-  assert.deepEqual(jobFair.organizers, ["Humble Hunters", "BEI Manpower"]);
+  assert.deepEqual(jobFair.organizers, ["BEI Manpower"]);
   assert.deepEqual(jobFair.employers.map(({ name, workers }) => [name, workers]), [
     ["Končar MK", 5], ["Đuro Đaković Montaža", 25], ["Končar GIM", 35],
     ["Vertiv", 75], ["Novi Ferromont d.o.o.", 30], ["Ferokotao d.o.o.", 78],

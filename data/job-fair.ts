@@ -24,7 +24,7 @@ export interface JobFairRole {
 // separately by hiring-allocations.ts; certificate and testing guidance stays here.
 export const jobFair = {
   title: "Job Fair Philippines 2026",
-  organizers: ["Humble Hunters", "BEI Manpower"],
+  organizers: ["BEI Manpower"],
   sourceDate: "2026-09-29",
   testingDateLabel: "16–20 November 2026",
   interviewDateLabel: "26 October – 14 November 2026",

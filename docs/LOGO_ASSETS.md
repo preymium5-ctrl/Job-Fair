@@ -1,28 +1,13 @@
-# Homepage logo and social strips
+# Homepage social strip
 
-The homepage includes two continuous CSS marquees in
-`components/home/CommunityMarquees.tsx`, after the introduction. The first shows
-the two organizations requested by the site owner. The second shows social
+The homepage includes a continuous CSS marquee in
+`components/home/CommunityMarquees.tsx`, after the introduction. It shows social
 platform icons; these are intentionally not links because the site has no social
 profiles yet. Instagram and IG are represented by one icon.
 
 Motion pauses on hover. The visible pause button was removed at the site owner's
 request. Reduced-motion
 preferences show a static, wrapping layout with repeated artwork hidden.
-
-## Organization artwork
-
-- **Humble Hunters**: the inline SVG wordmark from https://humble-hunters.com/,
-  retrieved 16 October 2026. The original white lettering is changed to ink for
-  this light background; the paths and orange-red mark are preserved.
-  Local asset: `public/images/organizations/humble-hunters.svg`.
-- **Philippine Institute of Welding Technology Incorporated**: seal from
-  https://www.philippineinstituteofwelding.com/images/brand/piwti-seal.webp,
-  retrieved 16 October 2026, preserved as supplied.
-  Local asset: `public/images/organizations/piwti-seal.webp`.
-
-Organization marks belong to their respective owners. The strip does not add
-accreditation or employer-offer claims.
 
 ## Social artwork
 

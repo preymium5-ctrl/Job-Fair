@@ -12,46 +12,6 @@ const socialChannels = [
   { name: "Forums", icon: null },
 ];
 
-function OrganizationLogos({ duplicate = false }: { duplicate?: boolean }) {
-  return (
-    <div className={styles.group} aria-hidden={duplicate || undefined}>
-      {[0, 1, 2].map((repeat) => (
-        <div
-          className={`${styles.organizationPair} ${repeat > 0 ? styles.repetition : ""}`}
-          key={repeat}
-          aria-hidden={repeat > 0 || undefined}
-        >
-          <div className={styles.organization}>
-            <Image
-              src="/images/organizations/humble-hunters.svg"
-              alt="Humble Hunters"
-              width={341}
-              height={82}
-              loading="eager"
-              className={styles.humbleLogo}
-            />
-          </div>
-          <div className={styles.organization}>
-            <Image
-              src="/images/organizations/piwti-seal.webp"
-              alt=""
-              width={88}
-              height={88}
-              loading="eager"
-              className={styles.weldingLogo}
-            />
-            <span className={styles.weldingName}>
-              Philippine Institute
-              <br />of Welding
-              <small>Technology Incorporated</small>
-            </span>
-          </div>
-        </div>
-      ))}
-    </div>
-  );
-}
-
 function SocialIcons({ duplicate = false }: { duplicate?: boolean }) {
   return (
     <ul className={`${styles.group} ${styles.socialGroup}`} aria-hidden={duplicate || undefined}>
@@ -74,24 +34,10 @@ function SocialIcons({ duplicate = false }: { duplicate?: boolean }) {
 
 export function CommunityMarquees() {
   return (
-    <section id="community" className={styles.section} aria-labelledby="community-heading">
-      <div className={`container ${styles.heading}`}>
-        <div>
-          <span className="eyebrow">People. Skills. Possibilities.</span>
-          <h2 id="community-heading">Connections that <span>move us forward.</span></h2>
-        </div>
-      </div>
-
-      <div className={styles.logoWindow} aria-label="Organizations">
-        <div className={`${styles.track} ${styles.organizationTrack}`}>
-          <OrganizationLogos />
-          <OrganizationLogos duplicate />
-        </div>
-      </div>
-
+    <section id="community" className={styles.section} aria-labelledby="social-heading">
       <div className={styles.socialSection}>
         <div className={`container ${styles.socialHeading}`}>
-          <h3 className="eyebrow">Around the web</h3>
+          <h2 id="social-heading" className="eyebrow">Around the web</h2>
           <span>Our social channels are coming soon.</span>
         </div>
         <div className={styles.socialWindow} aria-label="Social channels">
