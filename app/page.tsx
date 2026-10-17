@@ -6,7 +6,7 @@ import { RecruitmentSummary } from "@/components/jobs/EmploymentBenefits";
 import { site } from "@/data/site";
 import { pageMetadata } from "@/lib/seo";
 export const metadata = {
-  ...pageMetadata({ title: "Hiring Skilled Workers in the Philippines", description: site.description, path: "/" }),
+  ...pageMetadata({ title: "Hiring Skilled Workers from the Philippines", description: site.description, path: "/" }),
   title: { absolute: site.title },
 };
 import {

@@ -41,7 +41,7 @@ const thicccboi = localFont({
   display: "swap",
 });
 export const metadata: Metadata = {
-  ...pageMetadata({ title: "Hiring Skilled Workers in the Philippines", description: site.description, path: "/" }),
+  ...pageMetadata({ title: "Hiring Skilled Workers from the Philippines", description: site.description, path: "/" }),
   metadataBase: new URL(site.url),
   title: {
     default: site.title,
