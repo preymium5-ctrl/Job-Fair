@@ -15,8 +15,8 @@
   color: white;
   line-height: 1.25;
   overflow: hidden;
-  box-shadow: 0 4px 14px #D91F3226;
-  animation: fee-glow 2.8s ease-in-out infinite;
+  box-shadow: 0 4px 18px #D91F3259, 0 0 12px #D91F324D, 0 0 0 0 #F43F5E00;
+  animation: fee-glow 2s ease-in-out infinite;
 }
 .fee::after {
   content: "";
@@ -26,7 +26,7 @@
   pointer-events: none;
   background: linear-gradient(110deg, transparent 30%, #FFFFFF1A 48%, transparent 66%);
   transform: translateX(-130%);
-  animation: fee-shine 5.6s ease-in-out infinite;
+  animation: fee-shine 4s ease-in-out infinite;
 }
 .fee > * { position: relative; z-index: 1; }
 .fee strong { min-width: 0; font-size: clamp(22px, 2vw, 30px); letter-spacing: .025em; }
@@ -37,12 +37,14 @@
 
 @keyframes fee-glow {
   0%, 100% {
-    background-color: #D91F32;
-    box-shadow: 0 4px 14px #D91F3226, 0 0 0 0 #D91F3200;
+    background-color: #B91529;
+    border-color: #D91F32;
+    box-shadow: 0 4px 18px #D91F3259, 0 0 12px #D91F324D, 0 0 0 0 #F43F5E00;
   }
   50% {
-    background-color: #B91529;
-    box-shadow: 0 6px 20px #D91F3238, 0 0 0 5px #D91F3212;
+    background-color: #D91F32;
+    border-color: #FF8290;
+    box-shadow: 0 6px 24px #D91F3299, 0 0 42px #F43F5EA6, 0 0 0 7px #F43F5E38;
   }
 }
 @keyframes fee-shine {
