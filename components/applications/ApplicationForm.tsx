@@ -413,7 +413,7 @@ export default function ApplicationForm({ job }: { job: Job }) {
             <JobFairRoleInfo job={job} compact />
             {job.salaryStatus === "proposed-net" && (
               <div className={styles.example}>
-                <strong>{job.openings} positions available</strong>
+                <strong>{job.openings} available {job.openings === 1 ? "slot" : "slots"}</strong>
               </div>
             )}
             {job.isExample && (
@@ -788,7 +788,7 @@ export default function ApplicationForm({ job }: { job: Job }) {
                             {job.location}
                           </p>
                           <JobSalary job={job} compact />
-                          {job.salaryStatus === "proposed-net" && <p>{job.openings} positions available.</p>}
+                          {job.salaryStatus === "proposed-net" && <p>{job.openings} available {job.openings === 1 ? "slot" : "slots"}.</p>}
                         </div>
                         <ReviewSection
                           title="Personal details"

@@ -104,7 +104,7 @@ export function Hero({
             <span>
               {count}{" "}
               {proposedCount === count && count > 0
-                ? `roles · ${workers} positions`
+                ? `roles · ${workers} available ${workers === 1 ? "slot" : "slots"}`
                 : exampleCount === count && count > 0
                 ? "example opportunities"
                 : "opportunities"}{" "}

@@ -126,7 +126,7 @@ function ApplyPanel({ job }: { job: Job }) {
           </div>
           {typeof job.openings === "number" && (
             <div>
-              <dt>{job.salaryStatus === "proposed-net" ? "Available positions" : "Openings"}</dt>
+              <dt>Available slots</dt>
               <dd>{job.openings}</dd>
             </div>
           )}
@@ -219,7 +219,8 @@ export function JobDetails({
               </div>
               {typeof job.openings === "number" && (
                 <p className={styles.workerCount} data-enter>
-                  <strong>{job.openings}</strong> positions available
+                  <strong>{job.openings}</strong>{" "}
+                  {job.openings === 1 ? "available slot" : "available slots"}
                 </p>
               )}
               <div className={styles.salary} data-enter><JobSalary job={job} /></div>
@@ -307,7 +308,7 @@ export function JobDetails({
               </div>
               {typeof job.openings === "number" && (
                 <div>
-                  <dt>Available positions</dt>
+                  <dt>Available slots</dt>
                   <dd>{job.openings}</dd>
                 </div>
               )}
@@ -450,7 +451,7 @@ export function JobDetails({
                   </h3>
                   <p className={styles.relatedLocation}>{item.location}</p>
                   {typeof item.openings === "number" && (
-                    <p className={styles.relatedLocation}>{item.openings} workers{item.salaryStatus === "proposed-net" ? " proposed" : " sought"}</p>
+                    <p className={styles.relatedLocation}>{item.openings} available {item.openings === 1 ? "slot" : "slots"}{item.salaryStatus === "proposed-net" ? " · proposed" : ""}</p>
                   )}
                   <JobSalary job={item} compact />
                   <div className={styles.relatedActions}>

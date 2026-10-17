@@ -62,7 +62,7 @@ export default async function JobsPage() {
                 {proposedJobs.length === jobs.length ? "Available roles" : "Published opportunities"}
                 <br />
                 {proposedJobs.length > 0
-                  ? `${workers} positions available`
+                  ? `${workers} available ${workers === 1 ? "slot" : "slots"}`
                   : jobs.every((j) => j.isExample)
                   ? "Example vacancies"
                   : "Explore what’s next"}

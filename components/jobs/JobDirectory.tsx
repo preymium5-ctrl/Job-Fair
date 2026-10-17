@@ -55,6 +55,7 @@ export function JobDirectory({ jobs }: { jobs: Job[] }) {
         ? a.title.localeCompare(b.title)
         : Date.parse(b.postedAt) - Date.parse(a.postedAt),
     );
+  const availableSlots = result.reduce((total, job) => total + (employer ? getJobFairRole(job)?.employers.find((item) => item.name === employer)?.workers || 0 : job.openings || 0), 0);
   const hasFilter = !!(
     query ||
     industry ||
@@ -147,8 +148,7 @@ export function JobDirectory({ jobs }: { jobs: Job[] }) {
             / {jobs.length} published{" "}
             {jobs.every((j) => j.isExample) ? "examples" : "roles"}
             {result.some((j) => typeof j.openings === "number") && (
-              <> · {result.reduce((total, job) => total + (employer ? getJobFairRole(job)?.employers.find((item) => item.name === employer)?.workers || 0 : job.openings || 0), 0)}{" "}
-                positions available
+              <> · {availableSlots} available {availableSlots === 1 ? "slot" : "slots"}
               </>
             )}
           </span>
