@@ -1,6 +1,7 @@
 import { createHmac } from "node:crypto";
 import type { Application } from "./types";
 import type { SupportingDocumentCategory } from "./document-uploads";
+import { documentLabel, privateProfileDocumentCategories } from "./document-uploads";
 import { getJobFairRole } from "../data/job-fair";
 import type { Job } from "./types";
 
@@ -12,7 +13,7 @@ export class SheetsDeliveryError extends Error {
 export interface SheetsDocument { id: string; category: SupportingDocumentCategory; name: string; mime: string; base64: string; }
 export interface SheetsPayload {
   version: 1 | 2;
-  application: Omit<Application, "resumeKey" | "resumeName" | "resumeMime" | "isExample" | "documents"> & {
+  application: Omit<Application, "resumeKey" | "resumeName" | "resumeMime" | "isExample" | "documents" | "profile"> & {
     expectedNc2: string;
     employers: { name: string; workers: number }[];
   };
@@ -47,16 +48,54 @@ export function sheetsConfiguration(env: Record<string, string | undefined> = pr
 }
 
 export function buildSheetsPayload(application: Application, resume: Buffer, job?: Job, documents: SheetsDocument[] = []): SheetsPayload {
-  const { resumeKey: _key, resumeName, resumeMime, isExample: _example, documents: _documents, ...details } = application;
+  const { resumeKey: _key, resumeName, resumeMime, isExample: _example, documents: _documents, profile, ...details } = application;
   void _documents;
   void _key;
   void _example;
+  const privateDocuments = (_documents || []).filter(({ category }) => privateProfileDocumentCategories.some((item) => item === category));
+  const exportedDocuments = documents.filter(({ category }) => !privateProfileDocumentCategories.some((item) => item === category));
+  const profileSummary = profile ? [
+    "Application profile",
+    ...(!details.recentJobTitle && details.experienceYears == null && !details.skills
+      ? ["The reference form does not collect most recent role, years of experience or a separate skills statement."] : []),
+    `First name: ${profile.firstName}`,
+    `Last name: ${profile.lastName}`,
+    `Gender: ${profile.gender}`,
+    `Nationality: ${profile.nationality}`,
+    `Address: ${profile.address}`,
+    `Date of birth: ${profile.dateOfBirth}`,
+    `Place of birth: ${profile.placeOfBirth}`,
+    `Destination country: ${profile.destinationCountry}`,
+    `Current work country: ${profile.currentWorkCountry}`,
+    `Second job choice: ${profile.secondaryJobTitle}`,
+    `Other job choice: ${profile.otherJobTitle || "Not provided"}`,
+    `Speaks and understands English: ${profile.englishProficiency}`,
+    `Telegram: ${profile.telegram || "Not provided"}`,
+    `Father's name: ${profile.fatherName || "Not provided"}`,
+    `Mother's name: ${profile.motherName || "Not provided"}`,
+    `Terms accepted: ${profile.termsAccepted ? "Yes" : "No"}`,
+  ].join("\n") : "";
+  const documentsSummary = privateDocuments.length ? [
+    "Documents available through the authorized recruitment workspace:",
+    ...privateDocuments.map(({ category, name }) => `${documentLabel(category)}: ${name}`),
+  ].join("\n") : "";
+  const supplementalSummary = [profileSummary, documentsSummary].filter(Boolean).join("\n\n");
+  // The unchanged receiver accepts at most 4,000 summary characters and six unique legacy categories.
+  // Profile submissions reserve room by limiting the applicant's own summary to 1,000 characters.
+  let summary = details.summary;
+  if (supplementalSummary) {
+    const remaining = Math.max(0, 4000 - supplementalSummary.length - 2);
+    const truncationNote = "\n[Full professional summary available in recruitment workspace.]";
+    const originalSummary = summary.length <= remaining ? summary : `${summary.slice(0, Math.max(0, remaining - truncationNote.length))}${truncationNote}`;
+    summary = [supplementalSummary, originalSummary].filter(Boolean).join("\n\n");
+  }
   const fair = job ? getJobFairRole(job) : undefined;
   return {
-    version: documents.length ? 2 : 1,
-    ...(documents.length ? { documents } : {}),
+    version: exportedDocuments.length ? 2 : 1,
+    ...(exportedDocuments.length ? { documents: exportedDocuments } : {}),
     application: {
       ...details,
+      summary,
       referralSource: details.referralSource || "",
       nc2Certificate: details.nc2Certificate || "",
       preferredEmployer: details.preferredEmployer || "",

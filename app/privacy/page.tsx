@@ -29,11 +29,15 @@ export default function Privacy() {
         </p>
         <h2>Information you choose to provide</h2>
         <p>
-          The application form collects your name, email address, telephone
-          number, country of residence, professional background, resume,
+          The application form collects your first and last names, gender,
+          nationality, address, date and place of birth, email address, telephone
+          number, country of residence, current work country, destination country,
+          job choices, English-language response, professional background, resume,
+          optional Telegram contact and parents’ names, terms acknowledgement,
           employer preference, NC2 certificate details, optional driver’s license
-          details and a license copy for applicable roles, optional diploma
-          or education certificates and other supporting documents, and optional
+          details and a license copy, passport, residence ID,
+          diploma or education certificate, optional employment certificate and
+          other supporting documents, and optional
           cover letter. A license number is not needed. Please do not include bank
           information, medical records, or other unnecessary sensitive
           information.
@@ -58,12 +62,19 @@ export default function Privacy() {
           accounts authorized by the recruiting team can open them.
         </p>
         <p>
-          Supporting documents are optional. You can attach an NC2 certificate,
-          diploma or education certificate, NBI clearance, Form 18a, a driver’s
-          license copy for applicable roles, and another document relevant
+          The current application requires a CV, passport, residence ID and
+          diploma or education certificate. You can also attach an NC2 certificate,
+          employment certificate, NBI clearance, Form 18a, a driver’s
+          license copy, and another document relevant
           to your application. Requests for correction
           or deletion should include your reference so staff can locate both
           website and Google records.
+        </p>
+        <p>
+          Passport, residence ID and employment-certificate files remain in the
+          website’s private storage for authorized recruitment staff. Their
+          filenames are listed in the Google tracker; these files are not copied
+          to Google Drive by the existing connection.
         </p>
         <h2>Storage and access</h2>
         <p>

@@ -56,9 +56,9 @@ The script prompts for a password without displaying it. Provisioning is a one-t
 
 ### File upload and download transport
 
-[Vercel Functions limit request and response bodies to 4.5 MB](https://vercel.com/docs/functions/limitations#request-body-size). The current form sends all documents in one multipart request and permits a 5 MiB CV plus supporting documents, up to 15 MiB combined. Staff photo uploads allow 8 MiB. Those supported sizes exceed Vercel's limit, regardless of the application's own validation or function timeout configuration.
+[Vercel Functions limit request and response bodies to 4.5 MB](https://vercel.com/docs/functions/limitations#request-body-size). The current profile form sends all documents in one multipart request and caps combined files at 4 MiB, with a 3 MiB CV limit, leaving room for application fields and multipart overhead. Legacy API clients without a profile still accept a 5 MiB CV and 15 MiB combined files on a persistent Node.js deployment; those larger submissions exceed Vercel's limit. Staff photo uploads allow 8 MiB and also exceed it.
 
-Before accepting live applications with these file limits, implement authenticated, short-lived direct-to-storage uploads and private signed downloads (or route file handling through a suitable external service). Preserve server validation, ownership checks, duplicate protection, and cleanup of abandoned files. Configuring an S3 bucket alone does not bypass the Vercel request limit. Increasing a Next.js body-size setting also does not change Vercel's platform limit.
+To support larger application files or the existing staff-photo limit on Vercel, implement authenticated, short-lived direct-to-storage uploads and private signed downloads (or route file handling through a suitable external service). Preserve server validation, ownership checks, duplicate protection, and cleanup of abandoned files. Configuring an S3 bucket alone does not bypass the Vercel request limit. Increasing a Next.js body-size setting also does not change Vercel's platform limit.
 
 ### Google Sheets delivery retries
 

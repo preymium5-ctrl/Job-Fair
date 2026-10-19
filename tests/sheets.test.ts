@@ -11,7 +11,7 @@ import { sheetDeliveries } from "../lib/schema";
 import { drainSheetsQueue, sheetsQueueStatus } from "../lib/sheets-queue";
 import { buildSheetsPayload, sendApplicationToSheets, sheetsConfiguration, SheetsDeliveryError, type SheetsPayload } from "../lib/sheets-transport";
 import { applicationSchema } from "../lib/validation";
-import type { Application, Job } from "../lib/types";
+import type { Application, ApplicationProfile, Job } from "../lib/types";
 import { getJobFairRole } from "../data/job-fair";
 import { NextRequest } from "next/server";
 import { POST as submit } from "../app/api/applications/route";
@@ -72,6 +72,36 @@ test("legacy applications export complete document readiness and empty certifica
   assert.equal(payload.application.nc2Certificate, "");
   assert.equal(payload.application.preferredEmployer, "");
   assert.equal(payload.application.referralSource, "");
+});
+
+test("all bounded profile answers and private filenames fit the existing Sheets summary without new receiver keys", () => {
+  const profile: ApplicationProfile = {
+    firstName: "F".repeat(59), lastName: "L".repeat(60), gender: "Female", nationality: "N".repeat(80),
+    address: "A".repeat(300), dateOfBirth: "1990-01-01", placeOfBirth: "P".repeat(120), destinationCountry: "Croatia",
+    currentWorkCountry: "C".repeat(80), secondaryJobTitle: "J".repeat(160), englishProficiency: "No", termsAccepted: true,
+    telegram: "T".repeat(80), fatherName: "D".repeat(120), motherName: "M".repeat(120), otherJobTitle: "O".repeat(160),
+  };
+  const categories = ["passport", "residence-id", "employment-certificate"] as const;
+  const application = { ...applicant(), fullName: `${profile.firstName} ${profile.lastName}`, profile, summary: "S".repeat(1000), recentJobTitle: "", experienceYears: null, skills: "",
+    documents: categories.map((category) => ({ id: randomUUID(), category, key: `documents/${randomUUID()}.pdf`, name: `${category}-${"x".repeat(160)}.pdf`, mime: "application/pdf", size: resume.length })) };
+  const payload = buildSheetsPayload(application, resume, job, application.documents.map(({ key: _key, size: _size, ...document }) => {
+    void _key; void _size; return { ...document, base64: resume.toString("base64") };
+  }));
+  assert.equal(payload.version, 1);
+  assert.equal(payload.documents, undefined);
+  assert.equal("profile" in payload.application, false);
+  assert.ok(payload.application.summary.length <= 4000);
+  for (const value of Object.values(profile))
+    if (typeof value === "string") assert.ok(payload.application.summary.includes(value));
+  for (const document of application.documents) assert.ok(payload.application.summary.includes(document.name));
+  assert.ok(payload.application.summary.endsWith(application.summary));
+  assert.match(payload.application.summary, /Terms accepted: Yes/);
+  const legacy = { ...application, profile: undefined, summary: "L".repeat(4000) };
+  const legacyPayload = buildSheetsPayload(legacy, resume, job);
+  assert.equal(legacy.summary.length, 4000);
+  assert.ok(legacyPayload.application.summary.length <= 4000);
+  assert.match(legacyPayload.application.summary, /Full professional summary available in recruitment workspace/);
+  for (const document of application.documents) assert.ok(legacyPayload.application.summary.includes(document.name));
 });
 
 test("Sheets payload preserves each referral source and normalizes an unanswered source", () => {

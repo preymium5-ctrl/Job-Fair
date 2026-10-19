@@ -5,6 +5,30 @@ import { referralSources } from "./referral-sources";
 
 const shortText = (maximum = 160) =>
   z.string().trim().min(2, "Enter at least 2 characters.").max(maximum);
+const profileString = (maximum: number) => z.string().trim().max(maximum).regex(/^[^\x00-\x08\x0b\x0c\x0e-\x1f\x7f]*$/, "Remove unsupported control characters.");
+const profileText = (maximum: number) => profileString(maximum).min(1, "Complete this field.");
+const profileOptionalText = (maximum: number) => profileString(maximum).optional();
+export const applicationProfileSchema = z.object({
+  firstName: profileText(60),
+  lastName: profileText(60),
+  gender: z.enum(["Male", "Female"], { error: "Please select Male or Female." }),
+  nationality: profileText(80),
+  address: profileText(300),
+  dateOfBirth: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Enter a date as YYYY-MM-DD.").refine((value) => {
+    const date = new Date(`${value}T00:00:00.000Z`);
+    return Number.isFinite(date.getTime()) && date.toISOString().slice(0, 10) === value && value < new Date().toISOString().slice(0, 10);
+  }, "Enter a real date of birth in the past."),
+  placeOfBirth: profileText(120),
+  destinationCountry: z.literal("Croatia"),
+  currentWorkCountry: profileText(80).min(2, "Enter your current work country."),
+  secondaryJobTitle: profileText(160),
+  englishProficiency: z.enum(["Yes", "No"], { error: "Please select Yes or No." }),
+  termsAccepted: z.literal(true, { error: "Accept the terms to submit." }),
+  telegram: profileOptionalText(80),
+  fatherName: profileOptionalText(120),
+  motherName: profileOptionalText(120),
+  otherJobTitle: profileOptionalText(160),
+}).strict();
 export const applicationSchema = z
   .object({
     jobId: z.string().trim().min(1).max(100),
@@ -25,7 +49,8 @@ export const applicationSchema = z
         (value) => value.replace(/\D/g, "").length >= 7,
         "Enter at least 7 digits.",
       ),
-    country: shortText(80),
+    country: z.string().trim().max(80).refine((value) => !value || value.length >= 2, "Enter a country name.").default(""),
+    profile: applicationProfileSchema.optional(),
     referralSource: z
       .string()
       .trim()
@@ -35,9 +60,9 @@ export const applicationSchema = z
       )
       .transform((value) => value || undefined)
       .optional(),
-    recentJobTitle: shortText(160),
-    experienceYears: z.number().min(minimumExperienceYears, "At least 3 years of relevant work experience is required.").max(60),
-    skills: shortText(2000),
+    recentJobTitle: z.string().trim().max(160).default(""),
+    experienceYears: z.number().min(0).max(60).nullable().default(null),
+    skills: z.string().trim().max(2000).default(""),
     education: z.string().trim().max(2000).default(""),
     summary: z.string().trim().max(4000).default(""),
     coverLetter: z.string().trim().max(6000).default(""),
@@ -56,9 +81,24 @@ export const applicationSchema = z
   })
   .strict()
   .superRefine((value, context) => {
+    if (!value.profile) {
+      if (value.country.length < 2)
+        context.addIssue({ code: "custom", path: ["country"], message: "Enter your country of residence." });
+      if (value.recentJobTitle.length < 2)
+        context.addIssue({ code: "custom", path: ["recentJobTitle"], message: "Enter your most recent role." });
+      if (value.experienceYears === null || value.experienceYears < minimumExperienceYears)
+        context.addIssue({ code: "custom", path: ["experienceYears"], message: "At least 3 years of relevant work experience is required." });
+      if (value.skills.length < 2)
+        context.addIssue({ code: "custom", path: ["skills"], message: "Tell us about your relevant skills." });
+    }
+    if (value.profile && value.fullName !== `${value.profile.firstName} ${value.profile.lastName}`)
+      context.addIssue({ code: "custom", path: ["fullName"], message: "Your full name must match your first and last names." });
+    if (value.profile && value.summary.length > 1000)
+      context.addIssue({ code: "custom", path: ["summary"], message: "Keep your professional summary within 1,000 characters." });
     if (value.documentReadiness?.nc2 === "ready" && value.nc2Certificate.length < 2)
       context.addIssue({ code: "custom", path: ["nc2Certificate"], message: "Enter the name or category of your NC2 certificate." });
-  });
+  })
+  .transform((value) => ({ ...value, country: value.country || value.profile?.currentWorkCountry || "" }));
 const imageSchema = z
   .string()
   .max(2048)

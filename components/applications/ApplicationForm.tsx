@@ -2,1003 +2,283 @@
 
 import { useRef, useState } from "react";
 import Link from "next/link";
-import Image from "next/image";
-import {
-  ArrowLeft,
-  ArrowRight,
-  ArrowUpRight,
-  Check,
-  CheckCircle2,
-  FileText,
-  LockKeyhole,
-  MapPin,
-  Upload,
-  X,
-} from "lucide-react";
-import type { ApplicationInput, Job } from "@/lib/types";
-import { JobSalary } from "@/components/jobs/JobSalary";
-import { minimumExperienceYears } from "@/data/employment";
-import { NoPlacementFee } from "@/components/jobs/EmploymentBenefits";
-import { MAX_APPLICATION_UPLOAD_BYTES, MAX_SUPPORTING_DOCUMENT_BYTES, SUPPORTING_DOCUMENT_ACCEPT, supportingDocumentTypes, type SupportingDocumentCategory } from "@/lib/document-uploads";
-import { JobFairRoleInfo } from "@/components/job-fair/JobFairRoleInfo";
-import { fairDocumentTiming, getJobFairRole } from "@/data/job-fair";
-import { referralSources } from "@/lib/referral-sources";
+import { ArrowLeft, ArrowRight, CheckCircle2, ClipboardCheck, FileText, LockKeyhole } from "lucide-react";
+import type { ApplicationInput, ApplicationProfile, Job } from "@/lib/types";
+import { applicationSchema, fieldErrors } from "@/lib/validation";
+import { MAX_PROFILE_UPLOAD_BYTES, MAX_PROFILE_RESUME_BYTES, MAX_SUPPORTING_DOCUMENT_BYTES, SUPPORTING_DOCUMENT_ACCEPT, supportingDocumentTypes, requiredProfileDocumentCategories, type SupportingDocumentCategory } from "@/lib/document-uploads";
+import { countryOptions, referenceJobPositions } from "@/data/application-form-options";
+import { BrandLockup } from "@/components/ui/Brand";
+import AttachmentUpload from "./AttachmentUpload";
 import styles from "./ApplicationForm.module.css";
 
-type FormErrors = Partial<Record<keyof ApplicationInput | "resume" | "documents", string>>;
-const steps = [
-  "Your details",
-  "Your experience",
-  "Your documents",
-  "Review & submit",
-];
-const fields: (keyof ApplicationInput)[][] = [
-  ["fullName", "email", "phone", "country", "referralSource"],
-  ["recentJobTitle", "experienceYears", "skills", "education", "summary"],
-  ["coverLetter", "nc2Certificate", "driverLicenseDetails", "preferredEmployer"],
-  ["consent"],
-];
-const maxResumeBytes = 5 * 1024 * 1024;
-function validate(
-  values: ApplicationInput,
-  step: number,
-  resume: File | null,
-): FormErrors {
-  const errors: FormErrors = {};
-  if (step === 0) {
-    if (values.fullName.trim().length < 2)
-      errors.fullName = "Enter your full name (at least 2 characters).";
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(values.email.trim()))
-      errors.email = "Enter a valid email address.";
-    if (
-      values.phone.replace(/[^0-9]/g, "").length < 7 ||
-      !/^[+\d\s().-]+$/.test(values.phone.trim())
-    )
-      errors.phone = "Enter a valid contact number with country code.";
-    if (values.country.trim().length < 2)
-      errors.country = "Enter your country of residence.";
-    if (
-      values.referralSource &&
-      !referralSources.some((source) => source === values.referralSource)
-    )
-      errors.referralSource = "Choose a listed source or leave this blank.";
-  }
-  if (step === 1) {
-    if (values.recentJobTitle.trim().length < 2)
-      errors.recentJobTitle = "Enter your most recent role, or ‘New entrant’.";
-    if (
-      !Number.isFinite(values.experienceYears) ||
-      values.experienceYears < minimumExperienceYears ||
-      values.experienceYears > 60
-    )
-      errors.experienceYears = "At least 3 years of relevant work experience is required. Enter a value from 3 to 60.";
-    if (values.skills.trim().length < 2)
-      errors.skills = "Tell us about your relevant skills.";
-  }
-  if (step === 2) {
-    if ((values.nc2Certificate || "").trim().length > 200)
-      errors.nc2Certificate = "Keep your certificate details within 200 characters.";
-    if ((values.driverLicenseDetails || "").trim().length > 200)
-      errors.driverLicenseDetails = "Keep your license details within 200 characters.";
-    if (!resume) errors.resume = "Please upload your resume or CV.";
-    else if (resume.size > maxResumeBytes)
-      errors.resume = "Your file must be 5 MB or smaller.";
-    else if (!/\.(pdf|doc|docx)$/i.test(resume.name))
-      errors.resume = "Choose a PDF, DOC or DOCX document.";
-  }
-  if (step === 3 && !values.consent)
-    errors.consent = "Please acknowledge the privacy notice to submit.";
-  return errors;
-}
+type FormErrors = Record<string, string | undefined>;
+type JobOption = Pick<Job, "id" | "title" | "slug">;
+type ProfileTextKey = Exclude<keyof ApplicationProfile, "gender" | "englishProficiency" | "termsAccepted" | "destinationCountry">;
+const emptyProfile: ApplicationProfile = {
+  firstName: "", lastName: "", gender: "" as ApplicationProfile["gender"], nationality: "", telegram: "",
+  address: "", dateOfBirth: "", placeOfBirth: "", fatherName: "", motherName: "", destinationCountry: "Croatia",
+  currentWorkCountry: "", secondaryJobTitle: "", otherJobTitle: "", englishProficiency: "" as ApplicationProfile["englishProficiency"], termsAccepted: false,
+};
+const profileLimits: Partial<Record<ProfileTextKey, number>> = {
+  firstName: 60, lastName: 60, nationality: 80, telegram: 80, address: 300, placeOfBirth: 120,
+  fatherName: 120, motherName: 120, currentWorkCountry: 80, secondaryJobTitle: 160, otherJobTitle: 160,
+};
+const uploadLabels: Partial<Record<SupportingDocumentCategory, string>> = {
+  passport: "Please upload a copy of your valid passport",
+  "residence-id": "Please upload your updated and valid residence ID (front & back)",
+  diploma: "Please upload your high school or college diploma",
+  "employment-certificate": "Please upload your certificate of employment(s)",
+  nc2: "Please upload your NC2 or TESDA certificate",
+  "driver-license": "Please upload your driver’s license(s) from the Philippines (front & back)",
+};
 
-export default function ApplicationForm({ job }: { job: Job }) {
-  const fairRole = getJobFairRole(job);
-  const [step, setStep] = useState(0);
+export default function ApplicationForm({ job, jobs = [job] }: { job: Job; jobs?: JobOption[] }) {
   const [values, setValues] = useState<ApplicationInput>({
-    jobId: job.id,
-    fullName: "",
-    email: "",
-    phone: "",
-    country: "",
-    referralSource: "",
-    recentJobTitle: "",
-    experienceYears: Number.NaN,
-    skills: "",
-    education: "",
-    summary: "",
-    coverLetter: "",
-    nc2Certificate: "",
-    ...(fairRole?.drivingLicenseIsPlus ? { driverLicenseDetails: "" } : {}),
-    preferredEmployer: "",
-    consent: false,
+    jobId: job.id, fullName: "", email: "", phone: "", country: "", recentJobTitle: "", experienceYears: null,
+    skills: "", education: "", summary: "", coverLetter: "", nc2Certificate: "", preferredEmployer: "",
+    profile: { ...emptyProfile }, consent: false,
   });
   const [resume, setResume] = useState<File | null>(null);
   const [supportingFiles, setSupportingFiles] = useState<Partial<Record<SupportingDocumentCategory, File>>>({});
-  const documentRefs = useRef<Partial<Record<SupportingDocumentCategory, HTMLInputElement | null>>>({});
   const [errors, setErrors] = useState<FormErrors>({});
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
   const [progress, setProgress] = useState(0);
-  const [result, setResult] = useState<{
-    reference: string;
-    jobTitle: string;
-  } | null>(null);
+  const [website, setWebsite] = useState("");
+  const [result, setResult] = useState<{ reference: string; jobTitle: string } | null>(null);
   const [copyNotice, setCopyNotice] = useState("");
-  const headingRef = useRef<HTMLHeadingElement>(null);
+  const [latestBirthDate] = useState(() => new Date(Date.now() - 86400000).toISOString().slice(0, 10));
   const formRef = useRef<HTMLFormElement>(null);
-  const fileRef = useRef<HTMLInputElement>(null);
+  const headingRef = useRef<HTMLHeadingElement>(null);
   const submittingRef = useRef(false);
   const idempotencyRef = useRef<string | null>(null);
-  const [website, setWebsite] = useState("");
 
-  function update<K extends keyof ApplicationInput>(
-    key: K,
-    value: ApplicationInput[K],
-  ) {
+  function update<K extends keyof ApplicationInput>(key: K, value: ApplicationInput[K]) {
     idempotencyRef.current = null;
     setValues((current) => ({ ...current, [key]: value }));
     setErrors((current) => ({ ...current, [key]: undefined }));
   }
-
-  function goTo(next: number) {
-    setStep(next);
-    setError("");
-    setErrors({});
-    requestAnimationFrame(() => headingRef.current?.focus());
-  }
-
-  function showErrors(nextErrors: FormErrors) {
-    setErrors(nextErrors);
-    requestAnimationFrame(() =>
-      formRef.current
-        ?.querySelector<HTMLElement>("[aria-invalid='true']")
-        ?.focus(),
-    );
-  }
-
-  function continueStep() {
-    const nextErrors = validate(values, step, resume);
-    const documentError = checkSupportingFiles(step === 1 ? "diploma" : undefined);
-    if ((step === 1 || step === 2) && documentError) nextErrors.documents = documentError;
-    if (Object.keys(nextErrors).length) {
-      showErrors(nextErrors);
-      return;
-    }
-    goTo(step + 1);
-  }
-
-  function chooseFile(file: File | undefined) {
+  function updateProfile<K extends keyof ApplicationProfile>(key: K, value: ApplicationProfile[K]) {
     idempotencyRef.current = null;
-    const next = file || null;
-    setResume(next);
-    const check = next ? validate(values, 2, next) : {};
-    setErrors((current) => ({ ...current, resume: check.resume }));
+    setValues((current) => {
+      const profile = { ...(current.profile || emptyProfile), [key]: value };
+      return { ...current, profile, fullName: `${profile.firstName.trim()} ${profile.lastName.trim()}`.trim(), country: profile.currentWorkCountry };
+    });
+    setErrors((current) => ({ ...current, [`profile.${key}`]: undefined, fullName: undefined, country: undefined }));
   }
-
+  function showErrors(nextErrors: FormErrors) {
+    if (nextErrors.fullName) nextErrors["profile.lastName"] ||= nextErrors.fullName;
+    if (nextErrors.country) nextErrors["profile.currentWorkCountry"] ||= nextErrors.country;
+    setErrors(nextErrors);
+    requestAnimationFrame(() => formRef.current?.querySelector<HTMLElement>("[aria-invalid='true'], [data-form-error]")?.focus());
+  }
+  function fileError(file: File, isResume = false) {
+    const max = isResume ? MAX_PROFILE_RESUME_BYTES : MAX_SUPPORTING_DOCUMENT_BYTES;
+    if (!file.size || file.size > max) return "Choose a non-empty file of 3 MB or less.";
+    if (!(isResume ? /\.(pdf|doc|docx)$/i : /\.(pdf|doc|docx|jpe?g|png)$/i).test(file.name))
+      return isResume ? "Choose a PDF, DOC, or DOCX file." : "Choose a PDF, DOC, DOCX, JPG, or PNG file.";
+  }
+  function chooseResume(file: File | null) {
+    idempotencyRef.current = null;
+    setResume(file);
+    setErrors((current) => ({ ...current, resume: file ? fileError(file, true) : undefined, documents: undefined }));
+  }
+  function validateFiles() {
+    const nextErrors: FormErrors = {};
+    if (!resume) nextErrors.resume = "Please attach your updated CV or resume.";
+    else if (fileError(resume, true)) nextErrors.resume = fileError(resume, true);
+    for (const { id, label } of supportingDocumentTypes) {
+      const file = supportingFiles[id];
+      if (!file && requiredProfileDocumentCategories.some((category) => category === id))
+        nextErrors[`document:${id}`] = `Please attach your ${label.toLowerCase()}.`;
+      else if (file && fileError(file)) nextErrors[`document:${id}`] = fileError(file);
+    }
+    if (totalUploadBytes > MAX_PROFILE_UPLOAD_BYTES)
+      nextErrors.documents = "Keep all files together within 4 MB. Choose smaller files or remove an optional attachment.";
+    return nextErrors;
+  }
   async function submit() {
     if (submittingRef.current) return;
-    const documentError = checkSupportingFiles();
-    if (documentError) { setStep(2); showErrors({ documents: documentError }); return; }
-    for (let index = 0; index < 4; index++) {
-      const nextErrors = validate(values, index, resume);
-      if (Object.keys(nextErrors).length) {
-        setStep(index);
-        showErrors(nextErrors);
-        return;
-      }
-    }
-    if (!resume) return;
+    const parsed = applicationSchema.safeParse(values);
+    const nextErrors: FormErrors = { ...(!parsed.success ? fieldErrors(parsed.error) : {}), ...validateFiles() };
+    if (Object.values(nextErrors).some(Boolean)) { showErrors(nextErrors); return; }
+    if (!resume || !parsed.success) return;
     submittingRef.current = true;
-    setBusy(true);
-    setError("");
-    setProgress(0);
+    setBusy(true); setError(""); setProgress(0);
     idempotencyRef.current ||= crypto.randomUUID();
     const body = new FormData();
-    body.append("payload", JSON.stringify(values));
+    body.append("payload", JSON.stringify(parsed.data));
     body.append("resume", resume);
-    for (const { id } of supportingDocumentTypes) {
-      const file = supportingFiles[id];
-      if (file) body.append(`document:${id}`, file);
-    }
+    for (const { id } of supportingDocumentTypes) if (supportingFiles[id]) body.append(`document:${id}`, supportingFiles[id]!);
     body.append("website", website);
     body.append("idempotencyKey", idempotencyRef.current);
     const xhr = new XMLHttpRequest();
     xhr.open("POST", "/api/applications");
     xhr.timeout = 120000;
-    xhr.upload.onprogress = (event) => {
-      if (event.lengthComputable)
-        setProgress(Math.round((event.loaded / event.total) * 100));
-    };
-    const fail = (message: string) => {
-      setError(message);
-      setBusy(false);
-      submittingRef.current = false;
-    };
-    xhr.onerror = () =>
-      fail(
-        "We couldn’t connect. Your application has not been confirmed. Check your connection and try again.",
-      );
-    xhr.ontimeout = () =>
-      fail(
-        "The request timed out. Please try again; your reference will be recovered if the submission was received.",
-      );
+    xhr.upload.onprogress = (event) => { if (event.lengthComputable) setProgress(Math.round((event.loaded / event.total) * 100)); };
+    const fail = (message: string) => { setError(message); setBusy(false); submittingRef.current = false; };
+    xhr.onerror = () => fail("We couldn’t connect. Your application has not been confirmed. Check your connection and try again.");
+    xhr.ontimeout = () => fail("The request timed out. Try again; your reference will be recovered if the application was received.");
     xhr.onload = () => {
-      let response: {
-        error?: string;
-        fieldErrors?: FormErrors;
-        reference?: string;
-        jobTitle?: string;
-      };
-      try {
-        response = JSON.parse(xhr.responseText);
-      } catch {
-        fail("We couldn’t confirm your application. Please try again.");
-        return;
+      if (xhr.status === 413) {
+        showErrors({ documents: "Keep all files together within 4 MB and try again." });
+        fail("The upload is too large. Choose smaller files and try again."); return;
       }
-      if (
-        xhr.status >= 200 &&
-        xhr.status < 300 &&
-        response.reference &&
-        response.jobTitle
-      ) {
-        setResult({
-          reference: response.reference,
-          jobTitle: response.jobTitle,
-        });
+      let response: { error?: string; fieldErrors?: FormErrors; reference?: string; jobTitle?: string };
+      try { response = JSON.parse(xhr.responseText); }
+      catch { fail("We couldn’t confirm your application. Please try again."); return; }
+      if (xhr.status >= 200 && xhr.status < 300 && response.reference && response.jobTitle) {
+        setResult({ reference: response.reference, jobTitle: response.jobTitle });
         setBusy(false);
         requestAnimationFrame(() => headingRef.current?.focus());
       } else {
-        if (response.fieldErrors) {
-          const invalidStep = fields.findIndex((keys) =>
-            keys.some((key) => response.fieldErrors?.[key]),
-          );
-          if (invalidStep >= 0) setStep(invalidStep);
-          else if (response.fieldErrors.resume || response.fieldErrors.documents) setStep(2);
-          showErrors(response.fieldErrors);
-        }
-        fail(
-          response.error ||
-            "We couldn’t submit your application. Please review your details and try again.",
-        );
+        if (response.fieldErrors) showErrors(response.fieldErrors);
+        fail(response.error || "We couldn’t submit your application. Please check your details and try again.");
       }
     };
     xhr.send(body);
   }
 
-  function checkSupportingFiles(only?: SupportingDocumentCategory) {
-    for (const { id, label } of supportingDocumentTypes) {
-      if (only && id !== only) continue;
-      const file = supportingFiles[id];
-      if (file && (!file.size || file.size > MAX_SUPPORTING_DOCUMENT_BYTES)) return `${label}: choose a file no larger than 3 MB.`;
-      if (file && !/\.(pdf|doc|docx|jpe?g|png)$/i.test(file.name)) return `${label}: choose a PDF, DOC, DOCX, JPG, or PNG file.`;
-    }
-    if (!only && Object.values(supportingFiles).reduce((sum, file) => sum + (file?.size || 0), resume?.size || 0) > MAX_APPLICATION_UPLOAD_BYTES)
-      return "Keep the CV and supporting documents together within 15 MB.";
+  function textField(key: ProfileTextKey, label: string, options: { optional?: boolean; wide?: boolean; type?: string; autoComplete?: string; placeholder?: string; help?: string } = {}) {
+    const id = `profile.${key}`;
+    return <div className={`${styles.field} ${options.wide ? styles.full : ""}`}>
+      <label htmlFor={id}>{label}{options.optional ? <span className={styles.optional}>Optional</span> : <span className={styles.asterisk}>*</span>}</label>
+      <input id={id} name={id} value={String(values.profile?.[key] || "")} type={options.type || "text"}
+        autoComplete={options.autoComplete} maxLength={profileLimits[key]} placeholder={options.placeholder}
+        max={options.type === "date" ? latestBirthDate : undefined}
+        disabled={busy} aria-required={!options.optional} aria-invalid={Boolean(errors[id])}
+        aria-describedby={[options.help ? `${id}-help` : "", errors[id] ? `${id}-error` : ""].filter(Boolean).join(" ") || undefined}
+        onChange={(event) => updateProfile(key, event.target.value)} />
+      {options.help && <p className={styles.help} id={`${id}-help`}>{options.help}</p>}
+      {errors[id] && <p className={styles.fieldError} id={`${id}-error`}>{errors[id]}</p>}
+    </div>;
   }
-
-  function supportingUpload(category: SupportingDocumentCategory) {
-    const label = supportingDocumentTypes.find((item) => item.id === category)!.label;
-    const file = supportingFiles[category];
-    return (
-      <div className={`${styles.field} ${styles.wide} ${styles.documentUpload}`} key={category}>
-        <label htmlFor={`attachment-${category}`}>{label} <span>Optional</span></label>
-        <input id={`attachment-${category}`} type="file" accept={SUPPORTING_DOCUMENT_ACCEPT} disabled={busy}
-          ref={(element) => { documentRefs.current[category] = element; }} aria-invalid={Boolean(errors.documents)}
-          aria-describedby={`attachment-${category}-help${errors.documents ? " supporting-documents-error" : ""}`}
-          onChange={(event) => { idempotencyRef.current = null; const next = event.target.files?.[0];
-            setSupportingFiles((current) => ({ ...current, [category]: next })); setErrors((current) => ({ ...current, documents: undefined })); }} />
-        <p className={styles.documentNote} id={`attachment-${category}-help`}>PDF, DOC, DOCX, JPG or PNG · Up to 3 MB</p>
-        {file && <div className={styles.file}><FileText size={18} /><div><strong>{file.name}</strong><span>{(file.size / 1024 / 1024).toFixed(2)} MB</span></div>
-          <button type="button" disabled={busy} aria-label={`Remove ${label}`} onClick={() => {
-            idempotencyRef.current = null; setSupportingFiles((current) => ({ ...current, [category]: undefined }));
-            const element = documentRefs.current[category]; if (element) element.value = "";
-            setErrors((current) => ({ ...current, documents: undefined }));
-          }}><X size={18} /></button></div>}
-      </div>
-    );
+  function profileSelect<K extends "nationality" | "currentWorkCountry" | "secondaryJobTitle">(key: K, label: string, options: readonly string[], wide = true, help?: string) {
+    const id = `profile.${key}`;
+    return <div className={`${styles.field} ${wide ? styles.full : ""}`}>
+      <label htmlFor={id}>{label}<span className={styles.asterisk}>*</span></label>
+      <select id={id} name={id} value={values.profile?.[key] || ""} disabled={busy} aria-required="true" aria-invalid={Boolean(errors[id])}
+        aria-describedby={[help ? `${id}-help` : "", errors[id] ? `${id}-error` : ""].filter(Boolean).join(" ") || undefined}
+        onChange={(event) => updateProfile(key, event.target.value)}>
+        <option value="">Select an option</option>
+        {options.map((option) => <option key={option} value={option}>{option}</option>)}
+      </select>
+      {help && <p className={styles.help} id={`${id}-help`}>{help}</p>}
+      {errors[id] && <p className={styles.fieldError} id={`${id}-error`}>{errors[id]}</p>}
+    </div>;
   }
-
-  function input(
-    key: keyof ApplicationInput,
-    label: string,
-    options: {
-      placeholder?: string;
-      type?: string;
-      autoComplete?: string;
-      optional?: boolean;
-      wide?: boolean;
-      textarea?: boolean;
-    } = {},
-  ) {
-    const props = {
-      id: key,
-      name: key,
-      value: String(values[key] ?? ""),
-      "aria-invalid": Boolean(errors[key]),
-      "aria-required": !options.optional,
-      "aria-describedby": errors[key] ? `${key}-error` : undefined,
-      onChange: (
-        event: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>,
-      ) =>
-        update(
-          key,
-          key === "experienceYears"
-            ? event.target.value === ""
-              ? Number.NaN
-              : Number(event.target.value)
-            : event.target.value,
-        ),
-      placeholder: options.placeholder,
-      disabled: busy,
+  function choice<K extends "gender" | "englishProficiency">(key: K, label: string, options: ApplicationProfile[K][], wide = false) {
+    const id = `profile.${key}`;
+    return <fieldset className={`${styles.choiceField} ${wide ? styles.full : ""}`} tabIndex={-1} aria-invalid={Boolean(errors[id])} aria-describedby={errors[id] ? `${id}-error` : undefined}>
+      <legend>{label}<span className={styles.asterisk}>*</span></legend>
+      <div className={styles.choices}>{options.map((option) => <label key={option}><input type="radio" name={id} value={option} checked={values.profile?.[key] === option} disabled={busy} onChange={() => updateProfile(key, option)} /><span>{option}</span></label>)}</div>
+      {errors[id] && <p className={styles.fieldError} id={`${id}-error`}>{errors[id]}</p>}
+    </fieldset>;
+  }
+  function upload(category: SupportingDocumentCategory) {
+    const hints: Partial<Record<SupportingDocumentCategory, string>> = {
+      passport: "A clear copy of your passport, valid for at least 2 years.",
+      "residence-id": "Combine the front and back in one file. Both sides must be readable.",
+      diploma: "Your Grade 12 certificate, high school diploma, or college diploma.",
+      "employment-certificate": "A certificate of employment or employment contract showing your experience.",
+      nc2: "Attach your NC2 or TESDA certificate if available.",
+      "driver-license": "Combine the front and back in one file, if available.",
     };
-    const limits: Partial<Record<keyof ApplicationInput, number>> = {
-      fullName: 120,
-      email: 254,
-      phone: 30,
-      country: 80,
-      recentJobTitle: 160,
-      skills: 2000,
-      education: 2000,
-      summary: 4000,
-      coverLetter: 6000,
-      nc2Certificate: 200,
-      driverLicenseDetails: 200,
-    };
-    return (
-      <div className={`${styles.field} ${options.wide ? styles.full : ""}`}>
-        <label htmlFor={key}>
-          {label}
-          {options.optional ? (
-            <span>Optional</span>
-          ) : (
-            <span aria-label="required">*</span>
-          )}
-        </label>
-        {options.textarea ? (
-          <textarea {...props} rows={4} maxLength={limits[key]} />
-        ) : (
-          <input
-            {...props}
-            value={
-              key === "experienceYears" &&
-              !Number.isFinite(values.experienceYears)
-                ? ""
-                : props.value
-            }
-            type={options.type || "text"}
-            autoComplete={options.autoComplete}
-            min={key === "experienceYears" ? minimumExperienceYears : undefined}
-            max={key === "experienceYears" ? 60 : undefined}
-            maxLength={limits[key]}
-          />
-        )}
-        {errors[key] && (
-          <p id={`${key}-error`} className={styles.fieldError}>
-            {errors[key]}
-          </p>
-        )}
-      </div>
-    );
+    return <AttachmentUpload id={`attachment-${category}`} label={uploadLabels[category] || category}
+      required={requiredProfileDocumentCategories.some((id) => id === category)} hint={hints[category] || "Attach a clear, readable copy."}
+      accept={SUPPORTING_DOCUMENT_ACCEPT} maxBytes={MAX_SUPPORTING_DOCUMENT_BYTES} file={supportingFiles[category] || null}
+      error={errors[`document:${category}`]} disabled={busy} onChange={(file) => {
+        idempotencyRef.current = null;
+        setSupportingFiles((current) => ({ ...current, [category]: file || undefined }));
+        setErrors((current) => ({ ...current, [`document:${category}`]: file ? fileError(file) : undefined, documents: undefined }));
+      }} />;
   }
+  const totalUploadBytes = Object.values(supportingFiles).reduce((sum, file) => sum + (file?.size || 0), resume?.size || 0);
+  const requiredAttachments = [
+    { label: "CV / Resume", ready: Boolean(resume && !fileError(resume, true)) },
+    ...requiredProfileDocumentCategories.map((id) => ({ label: supportingDocumentTypes.find((item) => item.id === id)!.label, ready: Boolean(supportingFiles[id] && !fileError(supportingFiles[id]!)) })),
+  ];
+  const readyCount = requiredAttachments.filter(({ ready }) => ready).length;
+  const errorCount = Object.values(errors).filter(Boolean).length;
 
-  return (
-    <div className={styles.page}>
-      <div className="container">
-        <Link href={`/jobs/${job.slug}`} className={styles.back}>
-          <ArrowLeft size={16} /> Back to the opportunity
-        </Link>
-        <div className={styles.layout}>
-          <aside className={styles.sidebar}>
-            <p className="eyebrow">Jobs in Croatia / Application</p>
-            <h1>
-              Make your
-              <br />
-              <span>next move.</span>
-            </h1>
-            <div className={styles.jobImage}>
-              <Image
-                src={job.image}
-                alt={job.imageAlt}
-                fill
-                sizes="(max-width: 800px) 100vw, 36vw"
-                style={{
-                  objectFit: "cover",
-                  objectPosition: job.imagePosition || "center",
-                }}
-              />
-            </div>
-            <div className={styles.jobMeta}>
-              <span>{job.category}</span>
-              <h2>{job.title}</h2>
-              <p>
-                <MapPin size={15} />
-                {job.location}
-              </p>
-            </div>
-            <JobSalary job={job} />
-            <NoPlacementFee />
-            <JobFairRoleInfo job={job} compact />
-            {job.salaryStatus === "proposed-net" && (
-              <div className={styles.example}>
-                <strong>{job.openings} available {job.openings === 1 ? "slot" : "slots"}</strong>
-              </div>
-            )}
-            {job.isExample && (
-              <div className={styles.example}>
-                <strong>Development example vacancy</strong>
-                <p>
-                  This is a demonstration role, not an employer’s live
-                  recruitment campaign. Submit only fictitious information when
-                  trying this application.
-                </p>
-              </div>
-            )}
-            <p className={styles.private}>
-              <LockKeyhole size={16} /> Your resume is private and available
-              only to authorized recruitment staff.
-            </p>
-          </aside>
-          <section className={styles.formSection}>
-            {result ? (
-              <div className={styles.success}>
-                <CheckCircle2 size={52} strokeWidth={1.2} />
-                <p className="eyebrow">Application received</p>
-                <h2 ref={headingRef} tabIndex={-1}>
-                  Your next step
-                  <br />
-                  starts with you.
-                </h2>
-                <p>
-                  Application submitted successfully for{" "}
-                  <strong>{result.jobTitle}</strong>.
-                </p>
-                <div className={styles.reference}>
-                  <span>Your application reference</span>
-                  <strong>{result.reference}</strong>
-                  <button
-                    type="button"
-                    onClick={async () => {
-                      try {
-                        await navigator.clipboard.writeText(result.reference);
-                        setCopyNotice("Reference copied.");
-                      } catch {
-                        setCopyNotice(
-                          "Select and copy the reference above to save it.",
-                        );
-                      }
-                    }}
-                  >
-                    Copy reference <FileText size={14} />
-                  </button>
-                  {copyNotice && <span role="status">{copyNotice}</span>}
-                </div>
-                <p>
-                  Save this reference for your records. The recruitment team can
-                  use it to locate your application. Review and next steps vary
-                  by employer and role.
-                </p>
-                {job.isExample && (
-                  <p className={styles.example}>
-                    This submission is stored as a development example and is
-                    not part of live employer recruitment.
-                  </p>
-                )}
-                <Link href="/jobs" className="button button-primary">
-                  Explore more opportunities <ArrowUpRight size={18} />
-                </Link>
-              </div>
-            ) : (
-              <>
-                <ol className={styles.steps} aria-label="Application progress">
-                  {steps.map((label, index) => (
-                    <li
-                      key={label}
-                      className={`${index === step ? styles.current : ""} ${index < step ? styles.completed : ""}`}
-                      aria-current={index === step ? "step" : undefined}
-                    >
-                      <span>
-                        {index < step ? <Check size={16} /> : `0${index + 1}`}
-                      </span>
-                      <div>{label}</div>
-                    </li>
-                  ))}
-                </ol>
-                <div className={styles.formHeading}>
-                  <p className="eyebrow">Step 0{step + 1} / 04</p>
-                  <h2 ref={headingRef} tabIndex={-1}>
-                    {
-                      [
-                        "Your application.",
-                        "Bring your experience.",
-                        "Share your documents.",
-                        "Ready for your next step?",
-                      ][step]
-                    }
-                  </h2>
-                  <p>
-                    {
-                      [
-                        `Applying for ${job.title}${fairRole ? " as a Filipino applicant" : ""}. Start with the details we’ll use to contact you.`,
-                        "Show us the skills and experience you bring to this role.",
-                        "Upload your CV and attach any supporting documents you would like to include.",
-                        "Take a moment to check your details before sending.",
-                      ][step]
-                    }
-                  </p>
-                </div>
-                <form
-                  ref={formRef}
-                  aria-label={`${job.title} application form`}
-                  noValidate
-                  onSubmit={(event) => {
-                    event.preventDefault();
-                    if (step < 3) continueStep();
-                    else void submit();
-                  }}
-                >
-                  <div className={styles.honeypot} aria-hidden="true">
-                    <label htmlFor="website">Website</label>
-                    <input
-                      id="website"
-                      name="website"
-                      value={website}
-                      onChange={(event) => setWebsite(event.target.value)}
-                      tabIndex={-1}
-                      autoComplete="off"
-                    />
-                  </div>
-                  <div className={styles.formBody} key={step}>
-                    {step === 0 && (
-                      <div className={styles.grid}>
-                        {input("fullName", "Full name", {
-                          placeholder: "As you’d like to be addressed",
-                          autoComplete: "name",
-                          wide: true,
-                        })}
-                        {input("email", "Email address", {
-                          placeholder: "you@example.com",
-                          type: "email",
-                          autoComplete: "email",
-                        })}
-                        {input("phone", "Contact number", {
-                          placeholder: "+63 912 345 6789",
-                          type: "tel",
-                          autoComplete: "tel",
-                        })}
-                        {input("country", "Country of residence", {
-                          placeholder: "e.g. Philippines",
-                          autoComplete: "country-name",
-                          wide: true,
-                        })}
-                        <div className={`${styles.field} ${styles.full}`}>
-                          <label htmlFor="referralSource">
-                            Where did you hear about us? <span>Optional</span>
-                          </label>
-                          <select
-                            id="referralSource"
-                            name="referralSource"
-                            value={values.referralSource || ""}
-                            disabled={busy}
-                            aria-invalid={Boolean(errors.referralSource)}
-                            aria-describedby={
-                              errors.referralSource ? "referralSource-error" : undefined
-                            }
-                            onChange={(event) => update("referralSource", event.target.value)}
-                          >
-                            <option value="">Select an option</option>
-                            {referralSources.map((source) => (
-                              <option key={source} value={source}>
-                                {source}
-                              </option>
-                            ))}
-                          </select>
-                          {errors.referralSource && (
-                            <p id="referralSource-error" className={styles.fieldError}>
-                              {errors.referralSource}
-                            </p>
-                          )}
-                        </div>
-                      </div>
-                    )}
-                    {step === 1 && (
-                      <div className={styles.grid}>
-                        {input("recentJobTitle", "Most recent job title", {
-                          placeholder: "e.g. Warehouse Associate",
-                        })}
-                        {input(
-                          "experienceYears",
-                          "Years of relevant experience (minimum 3)",
-                          { type: "number" },
-                        )}
-                        {input("skills", "Relevant skills", {
-                          placeholder: "What are you particularly good at?",
-                          wide: true,
-                          textarea: true,
-                        })}
-                        {input("education", "Education / certifications", {
-                          placeholder:
-                            "Qualifications relevant to this position",
-                          optional: true,
-                          wide: true,
-                        })}
-                        {supportingUpload("diploma")}
-                        {errors.documents && <p className={styles.fieldError} id="supporting-documents-error" role="alert">{errors.documents}</p>}
-                        {input("summary", "Professional summary", {
-                          placeholder:
-                            "A few sentences about your experience and ambitions",
-                          optional: true,
-                          wide: true,
-                          textarea: true,
-                        })}
-                      </div>
-                    )}
-                    {step === 2 && (
-                      <>
-                        <div className={styles.field}>
-                          <label htmlFor="resume">
-                            Resume / CV <span aria-label="required">*</span>
-                          </label>
-                          <div
-                            className={`${styles.upload} ${errors.resume ? styles.uploadError : ""}`}
-                            onDragOver={(event) => event.preventDefault()}
-                            onDrop={(event) => {
-                              event.preventDefault();
-                              if (!busy)
-                                chooseFile(event.dataTransfer.files[0]);
-                            }}
-                          >
-                            <Upload size={27} strokeWidth={1.3} />
-                            <strong>
-                              {resume
-                                ? "Your resume is ready"
-                                : "Drop your resume here"}
-                            </strong>
-                            <p>PDF, DOC or DOCX · Up to 5 MB</p>
-                            <input
-                              ref={fileRef}
-                              id="resume"
-                              type="file"
-                              aria-required="true"
-                              accept=".pdf,.doc,.docx"
-                              onChange={(event) =>
-                                chooseFile(event.target.files?.[0])
-                              }
-                              aria-invalid={Boolean(errors.resume)}
-                              aria-describedby={
-                                errors.resume ? "resume-error" : "resume-help"
-                              }
-                              disabled={busy}
-                            />
-                            <span id="resume-help" className={styles.fileHint}>
-                              Choose a document
-                            </span>
-                          </div>
-                          {errors.resume && (
-                            <p id="resume-error" className={styles.fieldError}>
-                              {errors.resume}
-                            </p>
-                          )}
-                          {resume && (
-                            <div className={styles.file}>
-                              <FileText size={18} />
-                              <div>
-                                <strong>{resume.name}</strong>
-                                <span>
-                                  {(resume.size / 1024 / 1024).toFixed(2)} MB
-                                </span>
-                              </div>
-                              <button
-                                type="button"
-                                disabled={busy}
-                                onClick={() => {
-                                  setResume(null);
-                                  idempotencyRef.current = null;
-                                  if (fileRef.current)
-                                    fileRef.current.value = "";
-                                }}
-                                aria-label="Remove resume"
-                              >
-                                <X size={18} />
-                              </button>
-                            </div>
-                          )}
-                        </div>
-                        <section className={styles.requirements} aria-labelledby="supporting-documents-heading">
-                          <h3 id="supporting-documents-heading">Supporting documents</h3>
-                          <p className={styles.documentNote}>Attach the documents you have available. These uploads are optional. Keep your CV and all attachments together within 15 MB.</p>
-                          {supportingDocumentTypes.filter(({ id }) => id !== "driver-license").map(({ id }) => supportingUpload(id))}
-                          {errors.documents && <p className={styles.fieldError} id="supporting-documents-error" role="alert">{errors.documents}</p>}
-                        </section>
-                        <section
-                          className={styles.requirements}
-                          aria-labelledby="requirements-heading"
-                        >
-                          <h3 id="requirements-heading">
-                            Requirements for {job.title}
-                          </h3>
-                          {fairRole ? (
-                            <>
-                              <p className={styles.roleGuidance}>
-                                <strong>NC2 guidance:</strong> {fairRole.nc2}
-                              </p>
-                              {fairRole.focus && (
-                                <p className={styles.roleGuidance}>
-                                  {fairRole.focus}
-                                </p>
-                              )}
-                              <p className={styles.documentNote}>
-                                {fairDocumentTiming}
-                              </p>
-                            </>
-                          ) : (
-                            <p className={styles.documentNote}>
-                              The recruitment team will confirm which documents
-                              this role needs.
-                            </p>
-                          )}
-                          <div className={styles.certificate}>
-                            {input("nc2Certificate", "NC2 certificate category / details", {
-                              optional: true,
-                              placeholder: fairRole?.nc2 || "e.g. Electrical Installation and Maintenance NC II",
-                              wide: true,
-                            })}
-                            <p className={styles.documentNote}>
-                              Name the certificate you hold or are working toward.
-                              You can attach a certificate above if it is available.
-                              Certificate numbers are not needed.
-                            </p>
-                          </div>
-                          {fairRole?.drivingLicenseIsPlus && (
-                            <div className={styles.certificate}>
-                              {input("driverLicenseDetails", "Driver’s license details", {
-                                optional: true,
-                                placeholder: "License type / category and issuing country",
-                                wide: true,
-                              })}
-                              <p className={styles.documentNote}>
-                                A driver’s license is a plus. You can apply without one.
-                                A license number is not needed.
-                              </p>
-                              {supportingUpload("driver-license")}
-                            </div>
-                          )}
-                          {Boolean(fairRole?.employers.length) && (
-                            <div className={styles.field}>
-                              <label htmlFor="preferredEmployer">
-                                Preferred employer <span>Optional</span>
-                              </label>
-                              <select
-                                id="preferredEmployer"
-                                name="preferredEmployer"
-                                value={values.preferredEmployer || ""}
-                                disabled={busy}
-                                aria-invalid={Boolean(errors.preferredEmployer)}
-                                aria-describedby={errors.preferredEmployer ? "employer-help preferredEmployer-error" : "employer-help"}
-                                onChange={(event) => update("preferredEmployer", event.target.value)}
-                              >
-                                <option value="">Open to all listed employers</option>
-                                {fairRole?.employers.map((employer) => (
-                                  <option key={employer.name} value={employer.name}>
-                                    {employer.name}
-                                  </option>
-                                ))}
-                              </select>
-                              <p id="employer-help" className={styles.documentNote}>
-                                Choose from the employers listed for this role.
-                                Your preference will be reviewed by the recruitment team.
-                              </p>
-                              {errors.preferredEmployer && (
-                                <p id="preferredEmployer-error" className={styles.fieldError}>
-                                  {errors.preferredEmployer}
-                                </p>
-                              )}
-                            </div>
-                          )}
-                        </section>
-                        <div className={styles.cover}>
-                          {input(
-                            "coverLetter",
-                            "Cover letter / additional information",
-                            {
-                              optional: true,
-                              wide: true,
-                              textarea: true,
-                              placeholder:
-                                "What would you like the recruitment team to know?",
-                            },
-                          )}
-                        </div>
-                        <p className={styles.documentNote}>
-                          Your CV and supporting documents are private. Attach only
-                          documents relevant to your application.
-                        </p>
-                      </>
-                    )}
-                    {step === 3 && (
-                      <>
-                        <div className={styles.reviewJob}>
-                          <span>Applying for</span>
-                          <h3>{job.title}</h3>
-                          <p>
-                            {job.location}
-                          </p>
-                          <JobSalary job={job} compact />
-                          {job.salaryStatus === "proposed-net" && <p>{job.openings} available {job.openings === 1 ? "slot" : "slots"}.</p>}
-                        </div>
-                        <ReviewSection
-                          title="Personal details"
-                          onEdit={() => goTo(0)}
-                          items={[
-                            ["Full name", values.fullName],
-                            ["Email", values.email],
-                            ["Phone", values.phone],
-                            ["Country of residence", values.country],
-                            ["Where did you hear about us?", values.referralSource || "Not provided"],
-                          ]}
-                        />
-                        <ReviewSection
-                          title="Professional background"
-                          onEdit={() => goTo(1)}
-                          items={[
-                            ["Recent role", values.recentJobTitle],
-                            ["Experience", `${values.experienceYears} years`],
-                            ["Skills", values.skills],
-                            ["Education", values.education || "Not provided"],
-                            ["Summary", values.summary || "Not provided"],
-                          ]}
-                        />
-                        <ReviewSection
-                          title="Documents"
-                          onEdit={() => goTo(2)}
-                          items={[
-                            ["Resume", resume?.name || "Not selected"],
-                            ...supportingDocumentTypes.filter(({ id }) => id !== "driver-license" || fairRole?.drivingLicenseIsPlus).map(({ id, label }): [string, string] => [label, supportingFiles[id]?.name || "Not attached"]),
-                            ["NC2 certificate", values.nc2Certificate || "Not provided"],
-                            ...(fairRole?.drivingLicenseIsPlus ? [["Driver’s license details", values.driverLicenseDetails || "Not provided"] as [string, string]] : []),
-                            ...(fairRole
-                              ? [[
-                                  "Preferred employer",
-                                  values.preferredEmployer || "Open to all listed employers",
-                                ] as [string, string]]
-                              : []),
-                            [
-                              "Cover letter",
-                              values.coverLetter || "Not provided",
-                            ],
-                          ]}
-                        />
-                        <div className={styles.privacyNotice}>
-                          <LockKeyhole size={20} />
-                          <p>
-                            Your details and uploaded documents will be used to assess this
-                            application and contact you about this opportunity.
-                            Application details are sent to the site owner’s Google
-                            Sheet for recruitment review. Your files are stored privately
-                            and are available only to authorized staff. Read
-                            our <Link href="/privacy">privacy notice</Link> for
-                            data handling and deletion information.
-                          </p>
-                        </div>
-                        <label className={styles.consent}>
-                          <input
-                            id="consent"
-                            type="checkbox"
-                            aria-required="true"
-                            checked={values.consent}
-                            onChange={(event) =>
-                              update("consent", event.target.checked)
-                            }
-                            aria-invalid={Boolean(errors.consent)}
-                            aria-describedby={
-                              errors.consent ? "consent-error" : undefined
-                            }
-                            disabled={busy}
-                          />
-                          <span>
-                            I have read the privacy notice and consent to the
-                            processing of my information for this application. I
-                            confirm my details are accurate.
-                            {job.isExample &&
-                              " I understand this is a development example vacancy."}
-                          </span>
-                        </label>
-                        {errors.consent && (
-                          <p id="consent-error" className={styles.fieldError}>
-                            {errors.consent}
-                          </p>
-                        )}
-                      </>
-                    )}
-                  </div>
-                  {error && (
-                    <div className={styles.error} role="alert">
-                      {error}
-                    </div>
-                  )}
-                  {busy && (
-                    <div className={styles.progress} role="status">
-                      <div>
-                        <span>
-                          {progress < 100
-                            ? "Uploading your application"
-                            : "Confirming receipt…"}
-                        </span>
-                        <span>{progress}%</span>
-                      </div>
-                      <progress
-                        value={progress}
-                        max={100}
-                        aria-label="Application upload progress"
-                      />
-                    </div>
-                  )}
-                  <div className={styles.actions}>
-                    {step > 0 ? (
-                      <button
-                        type="button"
-                        className={styles.previous}
-                        onClick={() => goTo(step - 1)}
-                        disabled={busy}
-                      >
-                        <ArrowLeft size={17} /> Previous step
-                      </button>
-                    ) : (
-                      <span className={styles.required}>
-                        * Required information
-                      </span>
-                    )}
-                    <button
-                      type="submit"
-                      className="button button-primary"
-                      disabled={busy}
-                    >
-                      {busy
-                        ? "Submitting…"
-                        : step === 3
-                          ? "Submit application"
-                          : "Continue"}
-                      <ArrowRight size={18} />
-                    </button>
-                  </div>
-                  <p className={styles.saveNote}>
-                    Your application is sent only when you choose “Submit
-                    application”.
-                  </p>
-                </form>
-              </>
-            )}
-          </section>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function ReviewSection({
-  title,
-  items,
-  onEdit,
-}: {
-  title: string;
-  items: [string, string][];
-  onEdit: () => void;
-}) {
-  return (
-    <section className={styles.reviewSection}>
-      <div>
-        <h3>{title}</h3>
-        <button type="button" onClick={onEdit}>
-          Edit <ArrowUpRight size={14} />
-        </button>
-      </div>
-      <dl>
-        {items.map(([label, value]) => (
-          <div key={label}>
-            <dt>{label}</dt>
-            <dd>{value}</dd>
+  return <div className={styles.page}>
+    <div className={styles.shell}>
+      <Link href={`/jobs/${job.slug}`} className={styles.back}><ArrowLeft size={16} /> Back to the opportunity</Link>
+      <article className={styles.card} aria-label="Application">
+        <header className={styles.brandHeader}><BrandLockup /><span>APPLICATION FORM</span></header>
+        {result ? <div className={styles.success}>
+          <CheckCircle2 size={48} aria-hidden="true" />
+          <h1 ref={headingRef} tabIndex={-1}>Application received</h1>
+          <p>Your application for <strong>{result.jobTitle}</strong> has been received.</p>
+          <div className={styles.reference}><span>Your application reference</span><strong>{result.reference}</strong>
+            <button type="button" onClick={async () => {
+              try { await navigator.clipboard.writeText(result.reference); setCopyNotice("Reference copied."); }
+              catch { setCopyNotice("Select and copy your reference above to save it."); }
+            }}>Copy reference <FileText size={16} /></button>
+            {copyNotice && <span role="status">{copyNotice}</span>}
           </div>
-        ))}
-      </dl>
-    </section>
-  );
+          <p>Save this reference. The recruitment team can use it to locate your application and contact you about the next steps.</p>
+          <Link href="/jobs" className="button button-primary">Explore opportunities <ArrowRight size={17} /></Link>
+        </div> : <form ref={formRef} className={styles.form} aria-label="Job application form" noValidate onSubmit={(event) => { event.preventDefault(); void submit(); }}>
+          <div className={styles.intro}><h1 ref={headingRef} tabIndex={-1}>Welcome! Please tell us about yourself.</h1><p>Please enter these details as they appear on your passport.</p><span className={styles.rule} /></div>
+          <p className={styles.requiredNote}><span>*</span> Required information</p>
+          {errorCount > 0 && <p className={styles.errorSummary} role="alert">Please check the highlighted answers and attachments before submitting.</p>}
+          <div className={styles.honeypot} aria-hidden="true"><label htmlFor="website">Website</label><input id="website" tabIndex={-1} autoComplete="off" value={website} onChange={(event) => setWebsite(event.target.value)} /></div>
+          <section className={styles.grid} aria-label="Personal details">
+            {textField("firstName", "Your first name", { autoComplete: "given-name", placeholder: "Enter your first name" })}
+            {textField("lastName", "Your last name", { autoComplete: "family-name", placeholder: "Enter your last name" })}
+            {choice("gender", "Enter your gender", ["Male", "Female"])}
+            <div className={styles.field}><label htmlFor="email">Email<span className={styles.asterisk}>*</span></label><input id="email" name="email" type="email" autoComplete="email" placeholder="you@example.com" maxLength={254} value={values.email} disabled={busy} aria-required="true" aria-invalid={Boolean(errors.email)} aria-describedby={errors.email ? "email-error" : undefined} onChange={(event) => update("email", event.target.value)} />{errors.email && <p id="email-error" className={styles.fieldError}>{errors.email}</p>}</div>
+            {profileSelect("nationality", "Please enter your nationality", ["Filipino", ...countryOptions.filter((country) => country !== "Philippines")], false)}
+            <div className={styles.field}><label htmlFor="phone">WhatsApp number<span className={styles.asterisk}>*</span></label><input id="phone" name="phone" type="tel" autoComplete="tel" placeholder="+63 912 345 6789" maxLength={30} value={values.phone} disabled={busy} aria-required="true" aria-invalid={Boolean(errors.phone)} aria-describedby={`phone-help${errors.phone ? " phone-error" : ""}`} onChange={(event) => update("phone", event.target.value)} /><p id="phone-help" className={styles.help}>Enter your active WhatsApp number with the country code.</p>{errors.phone && <p id="phone-error" className={styles.fieldError}>{errors.phone}</p>}</div>
+            {textField("telegram", "Telegram number", { optional: true, wide: true, type: "tel", placeholder: "Enter your Telegram number", help: "Enter your active Telegram number, if you use Telegram." })}
+            {textField("address", "Your current address", { wide: true, autoComplete: "street-address", placeholder: "House / street, city, province, postal code and country" })}
+            {textField("dateOfBirth", "Date of birth", { type: "date", autoComplete: "bday" })}
+            {textField("placeOfBirth", "Your place of birth", { placeholder: "City / province and country" })}
+            {textField("fatherName", "Your father’s full name", { optional: true })}
+            {textField("motherName", "Your mother’s full name", { optional: true })}
+            <div className={`${styles.field} ${styles.full}`}><label htmlFor="destinationCountry">Please select a country where you would like to apply<span className={styles.asterisk}>*</span></label><select id="destinationCountry" value="Croatia" disabled={busy} aria-required="true" onChange={() => {}}><option value="Croatia">Croatia</option></select><p className={styles.help}>Our listed vacancies are in Croatia.</p></div>
+          </section>
+          <section className={styles.section} aria-labelledby="work-heading">
+            <h2 id="work-heading">Work Experience</h2><span className={styles.rule} />
+            <div className={styles.grid}>
+              {profileSelect("currentWorkCountry", "Where are you currently working?", countryOptions, true, "Select the country where you currently work or are based.")}
+              <div className={`${styles.field} ${styles.full}`}><label htmlFor="jobId">What job position are you primarily applying for?<span className={styles.asterisk}>*</span></label><select id="jobId" name="jobId" value={values.jobId} disabled={busy} aria-required="true" aria-invalid={Boolean(errors.jobId)} aria-describedby={`job-help${errors.jobId ? " jobId-error" : ""}`} onChange={(event) => update("jobId", event.target.value)}>{jobs.map((option) => <option key={option.id} value={option.id}>{option.title}</option>)}</select><p id="job-help" className={styles.help}>Please select only a position for which you already have relevant work experience.</p>{errors.jobId && <p id="jobId-error" className={styles.fieldError}>{errors.jobId}</p>}</div>
+              {profileSelect("secondaryJobTitle", "Please select another job position in which you have experience", referenceJobPositions, true, "Please select only a position for which you already have relevant work experience.")}
+              {textField("otherJobTitle", "If the job you’re applying for is not listed above, please enter it here", { optional: true, wide: true })}
+            </div>
+          </section>
+          <section className={styles.section} aria-labelledby="documents-heading">
+            <h2 id="documents-heading">Document Uploads</h2><span className={styles.rule} />
+            <p className={styles.sectionIntro}>Please have clear scanned or photographed copies of these documents ready on your device:</p>
+            <ul className={styles.documentList}><li>CV / Resume</li><li>Valid passport copy (valid for at least 2 years)</li><li>Valid residence ID (both sides)</li><li>Grade 12 school certificate / high school or college diploma</li><li>Certificate of employment or employment contract</li><li>For driver applicants: valid driver’s license (both sides)</li></ul>
+            <div className={styles.checklist}><ClipboardCheck size={22} aria-hidden="true" /><div><strong role="status">{readyCount} of 4 required documents ready</strong><p>{(totalUploadBytes / 1024 / 1024).toFixed(1)} MB of 4 MB used. Keep all files together within 4 MB; aim for under 1 MB each.</p></div></div>
+            <div className={styles.uploads}>
+              <AttachmentUpload id="resume" label="Please upload your CV" required hint="Maximum one file. Please make sure your CV is updated." accept=".pdf,.doc,.docx" maxBytes={MAX_PROFILE_RESUME_BYTES} file={resume} error={errors.resume} disabled={busy} onChange={chooseResume} />
+              {upload("passport")}{upload("residence-id")}{upload("diploma")}{upload("employment-certificate")}{upload("nc2")}{upload("driver-license")}
+            </div>
+            {errors.documents && <p className={styles.errorSummary} role="alert" data-form-error tabIndex={-1}>{errors.documents}</p>}
+            <p className={styles.privacyHint}><LockKeyhole size={16} aria-hidden="true" />Your files are private and available only to authorized recruitment staff.</p>
+          </section>
+          <section className={styles.section} aria-labelledby="notices-heading">
+            <h2 id="notices-heading">IMPORTANT NOTICES</h2><span className={styles.rule} />
+            {choice("englishProficiency", "We require all candidates to display basic proficiency in English. Are you able to speak, read, and write English at a basic level?", ["Yes", "No"], true)}
+            <p className={styles.feeNotice}><CheckCircle2 size={20} aria-hidden="true" /><strong>No placement fee.</strong></p>
+          </section>
+          <section className={styles.section} aria-labelledby="terms-heading">
+            <h2 id="terms-heading">Terms and Conditions</h2><span className={styles.rule} />
+            <label className={styles.consent}><input id="profile.termsAccepted" type="checkbox" checked={values.profile?.termsAccepted || false} disabled={busy} aria-required="true" aria-invalid={Boolean(errors["profile.termsAccepted"])} aria-describedby={errors["profile.termsAccepted"] ? "terms-error" : undefined} onChange={(event) => updateProfile("termsAccepted", event.target.checked)} /><span>I agree to the <Link href="/terms" target="_blank" rel="noopener noreferrer">terms and conditions</Link> provided by Jobs in Croatia. By providing my contact details, I agree to receive messages about my application.</span></label>
+            {errors["profile.termsAccepted"] && <p id="terms-error" className={styles.fieldError}>{errors["profile.termsAccepted"]}</p>}
+            <label className={styles.consent}><input id="consent" type="checkbox" checked={values.consent} disabled={busy} aria-required="true" aria-invalid={Boolean(errors.consent)} aria-describedby={errors.consent ? "consent-error" : undefined} onChange={(event) => update("consent", event.target.checked)} /><span>I agree to the <Link href="/privacy" target="_blank" rel="noopener noreferrer">privacy policy</Link> provided by Jobs in Croatia and understand that my information will be used in accordance with the policy.</span></label>
+            {errors.consent && <p id="consent-error" className={styles.fieldError}>{errors.consent}</p>}
+          </section>
+          {error && <p className={styles.errorSummary} role="alert">{error}</p>}
+          {busy && <div className={styles.progress} role="status"><p>{progress < 100 ? "Uploading your application" : "Confirming receipt…"}<span>{progress}%</span></p><progress value={progress} max={100} aria-label="Application upload progress" /></div>}
+          <button className={styles.submit} type="submit" disabled={busy}>{busy ? "Submitting…" : "Submit"}<ArrowRight size={18} aria-hidden="true" /></button>
+          <p className={styles.saveNote}>Check your answers before submitting. Your application is sent only when you select Submit.</p>
+          <div className={styles.policyLinks}><Link href="/privacy">Privacy Policy</Link><span>|</span><Link href="/terms">Terms of Service</Link></div>
+        </form>}
+      </article>
+    </div>
+  </div>;
 }

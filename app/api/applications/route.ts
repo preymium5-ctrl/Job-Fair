@@ -24,7 +24,7 @@ import {
 import type { Application } from "@/lib/types";
 import { getJobFairRole } from "@/data/job-fair";
 import { drainSheetsQueue } from "@/lib/sheets-queue";
-import { MAX_APPLICATION_UPLOAD_BYTES, supportingDocumentTypes } from "@/lib/document-uploads";
+import { documentLabel, MAX_APPLICATION_UPLOAD_BYTES, MAX_PROFILE_RESUME_BYTES, MAX_PROFILE_UPLOAD_BYTES, requiredProfileDocumentCategories, supportingDocumentTypes } from "@/lib/document-uploads";
 
 export const runtime = "nodejs";
 export async function POST(request: NextRequest) {
@@ -65,9 +65,20 @@ export async function POST(request: NextRequest) {
       return failure("Attach your resume.", 422, {
         fieldErrors: { resume: "Attach a PDF, DOC, or DOCX resume." },
       });
+    if (result.data.profile && file.size > MAX_PROFILE_RESUME_BYTES)
+      return failure("Your CV must be 3 MB or smaller.", 422, { fieldErrors: { resume: "Your CV must be 3 MB or smaller." } });
     const resume = await validateResume(file);
+    if (result.data.profile) {
+      const missingDocuments = Object.fromEntries(requiredProfileDocumentCategories
+        .filter((category) => !(form.get(`document:${category}`) instanceof File))
+        .map((category) => [`document:${category}`, `Attach your ${documentLabel(category).toLowerCase()}.`]));
+      if (Object.keys(missingDocuments).length)
+        return failure("Attach the required application documents.", 422, { fieldErrors: missingDocuments });
+    }
     const documents: { category: (typeof supportingDocumentTypes)[number]["id"]; document: Awaited<ReturnType<typeof validateSupportingDocument>> }[] = [];
     let uploadBytes = file.size;
+    const uploadLimit = result.data.profile ? MAX_PROFILE_UPLOAD_BYTES : MAX_APPLICATION_UPLOAD_BYTES;
+    const uploadLimitError = `Keep all uploads together within ${result.data.profile ? 4 : 15} MB.`;
     const allowedFileFields = new Set(["resume", ...supportingDocumentTypes.map(({ id }) => `document:${id}`)]);
     for (const [field, item] of form.entries()) {
       if (item instanceof File && !allowedFileFields.has(field))
@@ -77,20 +88,20 @@ export async function POST(request: NextRequest) {
     for (const { id } of supportingDocumentTypes) {
       const files = form.getAll(`document:${id}`);
       if (files.length > 1 || files.some((item) => !(item instanceof File)))
-        return failure("Attach one file per document category.", 422, { fieldErrors: { documents: "Attach one file per document category." } });
+        return failure("Attach one file per document category.", 422, { fieldErrors: { [`document:${id}`]: "Attach one file per document category." } });
       const attachment = files[0];
       if (attachment instanceof File) {
         uploadBytes += attachment.size;
-        if (uploadBytes > MAX_APPLICATION_UPLOAD_BYTES) return failure("Keep all uploads together within 15 MB.", 422, { fieldErrors: { documents: "Keep all uploads together within 15 MB." } });
+        if (uploadBytes > uploadLimit) return failure(uploadLimitError, 422, { fieldErrors: { documents: uploadLimitError } });
         try { documents.push({ category: id, document: await validateSupportingDocument(attachment) }); }
         catch (error) {
-          if (error instanceof UploadError) return failure(error.message, 422, { fieldErrors: { documents: error.message } });
+          if (error instanceof UploadError) return failure(error.message, 422, { fieldErrors: { [`document:${id}`]: error.message } });
           throw error;
         }
       }
     }
-    if (resume.bytes.length + documents.reduce((sum, item) => sum + item.document.bytes.length, 0) > MAX_APPLICATION_UPLOAD_BYTES)
-      return failure("Keep all uploads together within 15 MB.", 422, { fieldErrors: { documents: "Keep all uploads together within 15 MB." } });
+    if (resume.bytes.length + documents.reduce((sum, item) => sum + item.document.bytes.length, 0) > uploadLimit)
+      return failure(uploadLimitError, 422, { fieldErrors: { documents: uploadLimitError } });
     const requestDigest = createHash("sha256")
       .update(JSON.stringify(result.data))
       .update(resume.bytes);
@@ -125,7 +136,7 @@ export async function POST(request: NextRequest) {
     if (!job || job.status !== "published")
       return failure("This position is no longer accepting applications.", 409);
     const fairRole = getJobFairRole(job);
-    if ((result.data.driverLicenseDetails || documents.some(({ category }) => category === "driver-license")) && !fairRole?.drivingLicenseIsPlus)
+    if (!result.data.profile && (result.data.driverLicenseDetails || documents.some(({ category }) => category === "driver-license")) && !fairRole?.drivingLicenseIsPlus)
       return failure("Driver’s license details are not collected for this position.", 422, {
         fieldErrors: { driverLicenseDetails: "Remove the license details and attachment for this position." },
       });

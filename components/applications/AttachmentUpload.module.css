@@ -1,0 +1,271 @@
+.field {
+  min-width: 0;
+  padding: 0;
+  background: #fff;
+  border: 0;
+  border-radius: 0;
+  scroll-margin-top: 120px;
+}
+
+.heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-bottom: 8px;
+}
+
+.label {
+  color: var(--brand-blue, #164b83);
+  font-size: 14px;
+  font-weight: 500;
+  line-height: 1.45;
+  cursor: pointer;
+}
+
+.required,
+.optional {
+  flex-shrink: 0;
+  padding: 3px 9px;
+  border-radius: 99px;
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1.6;
+}
+
+.required {
+  color: #a71929;
+  background: var(--red-soft, #fde8ea);
+}
+
+.optional {
+  color: #49617c;
+  background: #edf2f7;
+}
+
+.hint {
+  margin: 0 0 12px;
+  color: #536477;
+  font-size: 12px;
+  line-height: 1.6;
+}
+
+.dropzone {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  min-height: 120px;
+  padding: 18px;
+  border: 1.5px dashed #99b4d0;
+  border-radius: 10px;
+  background: #f7faff;
+  text-align: center;
+  transition: background 160ms ease, border-color 160ms ease, box-shadow 160ms ease;
+}
+
+.dropzone:hover,
+.dragging {
+  border-color: var(--brand-blue, #164b83);
+  background: var(--surface-soft, #e6f0fa);
+}
+
+.dropzone:focus-within {
+  outline: 3px solid var(--brand-blue, #164b83);
+  outline-offset: 3px;
+}
+
+.input {
+  position: absolute;
+  z-index: 1;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  opacity: 0;
+  cursor: pointer;
+  font-size: 16px;
+  scroll-margin-top: 120px;
+}
+
+.icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 48px;
+  height: 48px;
+  flex-shrink: 0;
+  border-radius: 50%;
+  color: var(--brand-blue, #164b83);
+  background: #e5eef9;
+}
+
+.instructions,
+.fileDetails {
+  display: flex;
+  align-items: center;
+  flex-direction: column;
+  gap: 6px;
+  width: 100%;
+  min-width: 0;
+}
+
+.choose {
+  display: inline-block;
+  color: var(--brand-blue, #164b83);
+  font-size: 16px;
+  font-weight: 700;
+  line-height: 1.5;
+  text-decoration: underline;
+  text-underline-offset: 4px;
+}
+
+.instructions > span {
+  color: #536477;
+  font-size: 13px;
+  line-height: 1.6;
+}
+
+.fileName {
+  max-width: 100%;
+  overflow-wrap: anywhere;
+  color: var(--brand-blue, #164b83);
+  font-size: 15px;
+  line-height: 1.5;
+}
+
+.fileMeta {
+  color: #49617c;
+  font-size: 13px;
+  line-height: 1.6;
+}
+
+.fileDetails .choose {
+  margin-top: 4px;
+  font-size: 14px;
+}
+
+.selected .dropzone {
+  border-style: solid;
+  border-color: #aac2dd;
+  background: #eef5fd;
+}
+
+.selected .icon {
+  color: #164b83;
+  background: #dceaf9;
+}
+
+.footer {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 4px 14px;
+  margin-top: 11px;
+}
+
+.limits {
+  flex: 1 1 170px;
+  margin: 0;
+  color: #536477;
+  font-size: 12px;
+  line-height: 1.7;
+}
+
+.remove {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  min-width: 88px;
+  min-height: 44px;
+  padding: 8px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: #a71929;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.remove:hover {
+  background: var(--red-soft, #fde8ea);
+}
+
+.remove:focus-visible {
+  outline: 3px solid var(--brand-blue, #164b83);
+  outline-offset: 2px;
+}
+
+.invalid {
+  border-color: #d91f32;
+}
+
+.invalid .dropzone {
+  border-color: var(--brand-red, #d91f32);
+  background: #fff7f8;
+}
+
+.error {
+  display: flex;
+  align-items: flex-start;
+  gap: 7px;
+  margin: 9px 0 0;
+  color: #b01729;
+  font-size: 13px;
+  line-height: 1.6;
+}
+
+.error svg {
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+
+.disabled {
+  opacity: 0.65;
+}
+
+.disabled .input,
+.remove:disabled {
+  cursor: not-allowed;
+}
+
+.disabled .dropzone:hover {
+  border-color: #99b4d0;
+  background: #f7faff;
+}
+
+.srOnly {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+@media (max-width: 600px) {
+  .field {
+    padding: 0;
+    border-radius: 0;
+  }
+
+  .dropzone {
+    min-height: 120px;
+    padding: 18px 13px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .dropzone {
+    transition: none;
+  }
+}

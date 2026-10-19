@@ -1,7 +1,7 @@
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
 import ApplicationForm from "@/components/applications/ApplicationForm";
-import { getPublicJobBySlug } from "@/lib/public-jobs";
+import { getPublicJobBySlug, getPublicJobs } from "@/lib/public-jobs";
 import { siteUrl } from "@/lib/seo";
 
 export const dynamic = "force-dynamic";
@@ -31,5 +31,8 @@ export default async function ApplyPage({
   const { slug } = await params;
   const job = await getPublicJobBySlug(slug);
   if (!job || job.status !== "published") notFound();
-  return <ApplicationForm key={job.id} job={job} />;
+  const jobs = (await getPublicJobs())
+    .filter((item) => item.status === "published")
+    .map(({ id, title, slug }) => ({ id, title, slug }));
+  return <ApplicationForm key={job.id} job={job} jobs={jobs} />;
 }

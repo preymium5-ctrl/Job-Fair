@@ -43,15 +43,34 @@ export interface DocumentReadiness {
   nbi: DocumentStatus;
   form18a: DocumentStatus;
 }
+export interface ApplicationProfile {
+  firstName: string;
+  lastName: string;
+  gender: "Male" | "Female";
+  nationality: string;
+  address: string;
+  dateOfBirth: string;
+  placeOfBirth: string;
+  destinationCountry: "Croatia";
+  currentWorkCountry: string;
+  secondaryJobTitle: string;
+  englishProficiency: "Yes" | "No";
+  termsAccepted: boolean;
+  telegram?: string;
+  fatherName?: string;
+  motherName?: string;
+  otherJobTitle?: string;
+}
 export interface ApplicationInput {
   jobId: string;
   fullName: string;
   email: string;
   phone: string;
   country: string;
+  profile?: ApplicationProfile;
   referralSource?: string;
   recentJobTitle: string;
-  experienceYears: number;
+  experienceYears: number | null;
   skills: string;
   education: string;
   summary: string;

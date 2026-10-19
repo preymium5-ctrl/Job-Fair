@@ -271,6 +271,55 @@ test("complete website payload writes a literal referral answer through signed d
   assert.equal(state.rows.length, 2);
 });
 
+test("reference profile answers and private identity filenames deliver through the updated receiver without new columns or duplicate categories", () => {
+  const { state, post } = fixture();
+  const original = application();
+  const documents = ["passport", "residence-id", "employment-certificate", "diploma"].map((category) => ({
+    id: `${category}-id`, category, name: `${category}.pdf`, key: `private/${category}.pdf`, mime: original.resume.mime,
+    size: Buffer.from(original.resume.base64, "base64").length,
+  })) as NonNullable<Application["documents"]>;
+  const record: Application = {
+    ...original.application, preferredEmployer: "", resumeKey: "private/resume.pdf", resumeName: original.resume.name,
+    resumeMime: original.resume.mime, isExample: false, fullName: "Test Applicant", recentJobTitle: "", experienceYears: null, skills: "",
+    profile: { firstName: "Test", lastName: "Applicant", gender: "Male", nationality: "Filipino", address: "Sample address",
+      dateOfBirth: "1990-01-01", placeOfBirth: "Manila", destinationCountry: "Croatia", currentWorkCountry: "Philippines",
+      secondaryJobTitle: "Welder", englishProficiency: "No", termsAccepted: true }, documents,
+  } as Application;
+  const payload = buildSheetsPayload(record, Buffer.from(original.resume.base64, "base64"), undefined,
+    documents.map(({ key: _key, size: _size, ...document }) => { void _key; void _size; return { ...document, base64: original.resume.base64 }; }));
+  assert.equal("profile" in payload.application, false);
+  assert.deepEqual(payload.documents?.map(({ category }) => category), ["diploma"]);
+  assert.equal(post(payload).ok, true);
+  assert.equal(state.rows[0].length, 30);
+  assert.equal(state.rows[1].length, 30);
+  assert.equal(state.rows[1][12], "");
+  assert.equal(state.rows[1][13], "");
+  assert.equal(state.rows[1][14], "");
+  assert.match(String(state.rows[1][18]), /reference form does not collect/);
+  assert.match(String(state.rows[1][18]), /First name: Test/);
+  assert.match(String(state.rows[1][18]), /Speaks and understands English: No/);
+  assert.match(String(state.rows[1][18]), /Passport: passport.pdf/);
+  assert.match(String(state.rows[1][18]), /Residence ID: residence-id.pdf/);
+  assert.match(String(state.rows[1][18]), /Certificate of employment: employment-certificate.pdf/);
+  assert.equal(state.files.length, 2); // Only the CV and the existing diploma category go to Drive.
+  assert.equal(post(payload).duplicate, true);
+  assert.equal(state.rows.length, 2);
+});
+
+test("receiver accepts unknown years as null and leaves the sheet cell blank while rejecting string sentinels", () => {
+  const original = application();
+  const { post, state } = fixture();
+  for (const experienceYears of ["", "Not collected", "0", -1, 61])
+    assert.equal(post({ ...original, application: { ...original.application, experienceYears } }).code, "INVALID_APPLICATION");
+  assert.equal(state.files.length, 0);
+  const payload = { ...original, application: { ...original.application, experienceYears: null, recentJobTitle: "", skills: "" } };
+  assert.equal(post(payload).ok, true);
+  assert.equal(state.rows[1][12], "");
+  assert.equal(state.rows[1][13], "");
+  assert.equal(state.rows[1][14], "");
+  assert.equal(post(payload).duplicate, true);
+});
+
 test("receiver rejects invalid and formula-like referral answers before storing files or rows", () => {
   for (const referralSource of ["=HYPERLINK(\"https://example.test\")", "+Facebook", "Unknown source", "Facebook\n", 1, null, []]) {
     const { state, post } = fixture();

@@ -230,7 +230,7 @@ function chapterValidatePayload_(payload) {
   }
   [ ['id', 100, 1], ['reference', 80, 1], ['jobId', 100, 1], ['jobTitle', 160, 2],
     ['fullName', 120, 2], ['email', 254, 3], ['phone', 30, 7], ['country', 80, 2],
-    ['recentJobTitle', 160, 2], ['skills', 2000, 2], ['education', 2000, 0],
+    ['recentJobTitle', 160, 0], ['skills', 2000, 0], ['education', 2000, 0],
     ['summary', 4000, 0], ['coverLetter', 6000, 0], ['nc2Certificate', 200, 0],
     ['preferredEmployer', 160, 0], ['expectedNc2', 300, 0]
   ].forEach(function (rule) { chapterText_(application[rule[0]], rule[1], rule[2]); });
@@ -239,7 +239,7 @@ function chapterValidatePayload_(payload) {
     /^\d{4}-\d{2}-\d{2}T/.test(application.submittedAt) && Number.isFinite(Date.parse(application.submittedAt)), 'INVALID_APPLICATION');
   chapterAssert_(/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(application.email) && /^[+\d\s().-]+$/.test(application.phone) &&
     application.phone.replace(/\D/g, '').length >= 7, 'INVALID_APPLICATION');
-  chapterAssert_(typeof application.experienceYears === 'number' && Number.isFinite(application.experienceYears) &&
+  chapterAssert_(application.experienceYears === null || typeof application.experienceYears === 'number' && Number.isFinite(application.experienceYears) &&
     application.experienceYears >= 0 && application.experienceYears <= 60, 'INVALID_APPLICATION');
   chapterAssert_(['New', 'Under Review', 'Shortlisted', 'Interview', 'Selected', 'Rejected'].indexOf(application.status) !== -1 &&
     application.consent === true, 'INVALID_APPLICATION');
@@ -369,7 +369,7 @@ function chapterRow_(application, file) {
   return [application.id, application.reference, application.fullName, application.email, application.phone,
     application.jobTitle, application.preferredEmployer, new Date(application.submittedAt).toISOString(),
     'https://drive.google.com/file/d/' + file.id + '/view', file.name, application.status, application.country,
-    application.experienceYears, application.recentJobTitle, application.skills, application.nc2Certificate,
+    application.experienceYears === null ? '' : application.experienceYears, application.recentJobTitle, application.skills, application.nc2Certificate,
     application.expectedNc2, application.education, application.summary, application.coverLetter,
     application.employers.map(function (employer) { return employer.name + ': ' + employer.workers; }).join('; '), 'Yes'];
 }

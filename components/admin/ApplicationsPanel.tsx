@@ -232,15 +232,39 @@ export default function ApplicationsPanel({
                   ["Full name", selected.fullName],
                   ["Email", selected.email],
                   ["Phone", selected.phone],
-                  ["Country of residence", selected.country],
+                  [selected.profile ? "Current work country" : "Country of residence", selected.country],
+                  ["Where did you hear about us?", selected.referralSource || "Not provided"],
                 ]}
               />
+              {selected.profile && (
+                <Details
+                  title="Application profile"
+                  items={[
+                    ["First name", selected.profile.firstName],
+                    ["Last name", selected.profile.lastName],
+                    ["Gender", selected.profile.gender],
+                    ["Nationality", selected.profile.nationality],
+                    ["Address", selected.profile.address],
+                    ["Date of birth", selected.profile.dateOfBirth],
+                    ["Place of birth", selected.profile.placeOfBirth],
+                    ["Destination country", selected.profile.destinationCountry],
+                    ["Current work country", selected.profile.currentWorkCountry],
+                    ["Second job choice", selected.profile.secondaryJobTitle],
+                    ["Other job choice", selected.profile.otherJobTitle || "Not provided"],
+                    ["Speaks and understands English", selected.profile.englishProficiency],
+                    ["Telegram", selected.profile.telegram || "Not provided"],
+                    ["Father’s name", selected.profile.fatherName || "Not provided"],
+                    ["Mother’s name", selected.profile.motherName || "Not provided"],
+                    ["Terms accepted", selected.profile.termsAccepted ? "Yes" : "Not recorded"],
+                  ]}
+                />
+              )}
               <Details
                 title="Professional background"
                 items={[
-                  ["Most recent role", selected.recentJobTitle],
-                  ["Relevant experience", `${selected.experienceYears} years`],
-                  ["Skills", selected.skills],
+                  ["Most recent role", selected.recentJobTitle || "Not collected"],
+                  ["Relevant experience", selected.experienceYears == null ? "Not collected" : `${selected.experienceYears} years`],
+                  ["Skills", selected.skills || "Not collected"],
                   [
                     "Education / certifications",
                     selected.education || "Not provided",
