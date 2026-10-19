@@ -13,7 +13,11 @@ export const applicationProfileSchema = z.object({
   lastName: profileText(60),
   gender: z.enum(["Male", "Female"], { error: "Please select Male or Female." }),
   nationality: profileText(80),
-  address: profileText(300),
+  address: profileString(300).default(""),
+  street: profileText(140).optional(),
+  city: profileText(60).optional(),
+  province: profileText(60).optional(),
+  postalCode: profileText(20).optional(),
   dateOfBirth: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Enter a date as YYYY-MM-DD.").refine((value) => {
     const date = new Date(`${value}T00:00:00.000Z`);
     return Number.isFinite(date.getTime()) && date.toISOString().slice(0, 10) === value && value < new Date().toISOString().slice(0, 10);
@@ -28,7 +32,20 @@ export const applicationProfileSchema = z.object({
   fatherName: profileOptionalText(120),
   motherName: profileOptionalText(120),
   otherJobTitle: profileOptionalText(160),
-}).strict();
+}).strict().superRefine((value, context) => {
+  const addressFields = ["street", "city", "province", "postalCode"] as const;
+  if (addressFields.some((key) => value[key] !== undefined)) {
+    for (const key of addressFields)
+      if (value[key] === undefined) context.addIssue({ code: "custom", path: [key], message: `Enter your ${key === "postalCode" ? "postal code" : key === "street" ? "street address" : key}.` });
+  } else if (!value.address) {
+    context.addIssue({ code: "custom", path: ["address"], message: "Enter your current address." });
+  }
+}).transform((value) => ({
+  ...value,
+  address: [value.street, value.city, value.province, value.postalCode].some((part) => part !== undefined)
+    ? [value.street, value.city, value.province, value.postalCode].join(", ")
+    : value.address,
+}));
 export const applicationSchema = z
   .object({
     jobId: z.string().trim().min(1).max(100),

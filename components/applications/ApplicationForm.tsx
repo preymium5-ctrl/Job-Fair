@@ -16,11 +16,12 @@ type JobOption = Pick<Job, "id" | "title" | "slug">;
 type ProfileTextKey = Exclude<keyof ApplicationProfile, "gender" | "englishProficiency" | "termsAccepted" | "destinationCountry">;
 const emptyProfile: ApplicationProfile = {
   firstName: "", lastName: "", gender: "" as ApplicationProfile["gender"], nationality: "", telegram: "",
-  address: "", dateOfBirth: "", placeOfBirth: "", fatherName: "", motherName: "", destinationCountry: "Croatia",
+  address: "", street: "", city: "", province: "", postalCode: "",
+  dateOfBirth: "", placeOfBirth: "", fatherName: "", motherName: "", destinationCountry: "Croatia",
   currentWorkCountry: "", secondaryJobTitle: "", otherJobTitle: "", englishProficiency: "" as ApplicationProfile["englishProficiency"], termsAccepted: false,
 };
 const profileLimits: Partial<Record<ProfileTextKey, number>> = {
-  firstName: 60, lastName: 60, nationality: 80, telegram: 80, address: 300, placeOfBirth: 120,
+  firstName: 60, lastName: 60, nationality: 80, telegram: 80, street: 140, city: 60, province: 60, postalCode: 20, placeOfBirth: 120,
   fatherName: 120, motherName: 120, currentWorkCountry: 80, secondaryJobTitle: 160, otherJobTitle: 160,
 };
 const uploadLabels: Partial<Record<SupportingDocumentCategory, string>> = {
@@ -232,7 +233,15 @@ export default function ApplicationForm({ job, jobs = [job] }: { job: Job; jobs?
             {profileSelect("nationality", "Please enter your nationality", ["Filipino", ...countryOptions.filter((country) => country !== "Philippines")], false)}
             <div className={styles.field}><label htmlFor="phone">WhatsApp number<span className={styles.asterisk}>*</span></label><input id="phone" name="phone" type="tel" autoComplete="tel" placeholder="+63 912 345 6789" maxLength={30} value={values.phone} disabled={busy} aria-required="true" aria-invalid={Boolean(errors.phone)} aria-describedby={`phone-help${errors.phone ? " phone-error" : ""}`} onChange={(event) => update("phone", event.target.value)} /><p id="phone-help" className={styles.help}>Enter your active WhatsApp number with the country code.</p>{errors.phone && <p id="phone-error" className={styles.fieldError}>{errors.phone}</p>}</div>
             {textField("telegram", "Telegram number", { optional: true, wide: true, type: "tel", placeholder: "Enter your Telegram number", help: "Enter your active Telegram number, if you use Telegram." })}
-            {textField("address", "Your current address", { wide: true, autoComplete: "street-address", placeholder: "House / street, city, province, postal code and country" })}
+            <fieldset className={`${styles.addressGroup} ${styles.full}`}>
+              <legend>Your current address</legend>
+              <div className={styles.grid}>
+                {textField("street", "Street", { autoComplete: "street-address", placeholder: "House / building number and street" })}
+                {textField("city", "City", { autoComplete: "address-level2", placeholder: "Enter your city" })}
+                {textField("province", "Province", { autoComplete: "address-level1", placeholder: "Enter your province / state" })}
+                {textField("postalCode", "Postal code", { autoComplete: "postal-code", placeholder: "Enter your postal code" })}
+              </div>
+            </fieldset>
             {textField("dateOfBirth", "Date of birth", { type: "date", autoComplete: "bday" })}
             {textField("placeOfBirth", "Your place of birth", { placeholder: "City / province and country" })}
             {textField("fatherName", "Your father’s full name", { optional: true })}

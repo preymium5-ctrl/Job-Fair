@@ -88,6 +88,50 @@ test("reference-only profile answers normalize unasked fields honestly while leg
     assert.equal(applicationSchema.safeParse({ ...input(), profile: undefined, experienceYears: years }).success, false);
 });
 
+test("structured addresses trim and normalize every part, preserve postal text and require all four pieces", () => {
+  const structured = { ...profile, address: "Stale combined address", street: " 17 Sample Street ", city: " Manila ", province: " Metro Manila ", postalCode: " 0017 " };
+  const parsed = applicationSchema.parse({ ...referenceInput(), profile: structured }).profile!;
+  assert.equal(parsed.street, "17 Sample Street");
+  assert.equal(parsed.city, "Manila");
+  assert.equal(parsed.province, "Metro Manila");
+  assert.equal(parsed.postalCode, "0017");
+  assert.equal(parsed.address, "17 Sample Street, Manila, Metro Manila, 0017");
+  assert.equal(applicationSchema.parse({ ...referenceInput(), profile: { ...structured, address: "", postalCode: " SW1A 1AA " } }).profile?.postalCode, "SW1A 1AA");
+  assert.equal(applicationSchema.parse({ ...referenceInput(), profile: { ...structured, address: undefined } }).profile?.address, parsed.address);
+  for (const field of ["street", "city", "province", "postalCode"] as const) {
+    for (const absent of [undefined, "   "]) {
+      const result = applicationSchema.safeParse({ ...referenceInput(), profile: { ...structured, [field]: absent } });
+      assert.equal(result.success, false);
+      if (!result.success) assert.ok(result.error.issues.some((issue) => issue.path.join(".") === `profile.${field}`));
+    }
+  }
+  const empty = applicationSchema.safeParse({ ...referenceInput(), profile: { ...profile, address: "", street: "", city: "", province: "", postalCode: "" } });
+  assert.equal(empty.success, false);
+  if (!empty.success) assert.deepEqual(empty.error.issues.map((issue) => issue.path.join(".")).sort(), ["profile.city", "profile.postalCode", "profile.province", "profile.street"]);
+  const defaults = applicationSchema.safeParse({ ...referenceInput(), profile: { ...profile, gender: "", englishProficiency: "", address: "", street: "", city: "", province: "", postalCode: "" } });
+  assert.equal(defaults.success, false);
+  if (!defaults.success) {
+    const paths = defaults.error.issues.map((issue) => issue.path.join("."));
+    for (const field of ["street", "city", "province", "postalCode"])
+      assert.equal(paths.filter((path) => path === `profile.${field}`).length, 1);
+    assert.ok(paths.includes("profile.gender"));
+    assert.ok(paths.includes("profile.englishProficiency"));
+  }
+  const partial = applicationSchema.safeParse({ ...referenceInput(), profile: { ...profile, city: "Manila" } });
+  assert.equal(partial.success, false);
+  if (!partial.success) assert.deepEqual(partial.error.issues.map((issue) => issue.path.join(".")).sort(), ["profile.postalCode", "profile.province", "profile.street"]);
+  const legacy = applicationSchema.parse(referenceInput()).profile!;
+  assert.equal(legacy.address, profile.address);
+  assert.equal(legacy.street, undefined);
+  const maximum = { ...structured, address: "", street: "s".repeat(140), city: "c".repeat(60), province: "p".repeat(60), postalCode: "0".repeat(20) };
+  assert.equal(applicationSchema.parse({ ...referenceInput(), profile: maximum }).profile?.address.length, 286);
+  for (const field of ["street", "city", "province", "postalCode"] as const) {
+    const tooLong = applicationSchema.safeParse({ ...referenceInput(), profile: { ...maximum, [field]: maximum[field] + "x" } });
+    assert.equal(tooLong.success, false);
+    if (!tooLong.success) assert.ok(tooLong.error.issues.some((issue) => issue.path.join(".") === `profile.${field}`));
+  }
+});
+
 test("profile submissions require individual files, retain private categories, recover retries and deliver legacy-compatible Sheets payloads", async () => {
   const job = (await getJobs())[0];
   const values = input(job.id);
@@ -169,14 +213,15 @@ test("profile uploads enforce a 4 MB combined budget and 3 MB CV limit without c
   assert.equal((await getApplications()).length, beforeCount + 1);
 });
 
-test("reference-only applications persist blank experience and accept optional driver documents for every job", async () => {
+test("reference-only applications persist structured addresses and blank experience and accept optional driver documents for every job", async () => {
   const originalJob = (await getJobs())[0];
   const id = randomUUID();
   await saveJob({ ...originalJob, id, slug: `reference-${id}`, title: "Custom reference vacancy" }, "test-staff", true);
   const key = randomUUID();
-  function request() {
+  function request(postalCode = " 0017 ") {
     const form = new FormData();
-    form.set("payload", JSON.stringify({ ...referenceInput(id), email: "reference-only@example.test", driverLicenseDetails: "Category B" }));
+    form.set("payload", JSON.stringify({ ...referenceInput(id), email: "reference-only@example.test", driverLicenseDetails: "Category B",
+      profile: { ...profile, address: "Stale combined address", street: " 17 Sample Street ", city: " Manila ", province: " Metro Manila ", postalCode } }));
     form.set("idempotencyKey", key);
     form.set("resume", new File([pdf], "cv.pdf"));
     for (const category of ["passport", "residence-id", "diploma", "driver-license"])
@@ -187,8 +232,14 @@ test("reference-only applications persist blank experience and accept optional d
   assert.equal(accepted.status, 201);
   const receipt = await accepted.json();
   assert.equal((await submit(request())).status, 200);
+  assert.equal((await submit(request("0018"))).status, 409);
   const stored = (await getApplications()).find(({ reference }) => reference === receipt.reference)!;
   assert.equal(stored.country, "Philippines");
+  assert.equal(stored.profile?.street, "17 Sample Street");
+  assert.equal(stored.profile?.city, "Manila");
+  assert.equal(stored.profile?.province, "Metro Manila");
+  assert.equal(stored.profile?.postalCode, "0017");
+  assert.equal(stored.profile?.address, "17 Sample Street, Manila, Metro Manila, 0017");
   assert.equal(stored.recentJobTitle, "");
   assert.equal(stored.experienceYears, null);
   assert.equal(stored.skills, "");
@@ -199,6 +250,7 @@ test("reference-only applications persist blank experience and accept optional d
     assert.equal(payload.application.recentJobTitle, "");
     assert.equal(payload.application.skills, "");
     assert.match(payload.application.summary, /reference form does not collect most recent role, years of experience or a separate skills statement/);
+    assert.match(payload.application.summary, /Street: 17 Sample Street\nCity: Manila\nProvince: Metro Manila\nPostal code: 0017/);
     assert.deepEqual(payload.documents?.map(({ category }) => category).sort(), ["diploma", "driver-license"]);
     return { ok: true, applicationId: stored.id, reference: stored.reference, row: 2, duplicate: false };
   } });

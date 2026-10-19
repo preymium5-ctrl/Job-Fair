@@ -96,12 +96,36 @@ test("all bounded profile answers and private filenames fit the existing Sheets 
   for (const document of application.documents) assert.ok(payload.application.summary.includes(document.name));
   assert.ok(payload.application.summary.endsWith(application.summary));
   assert.match(payload.application.summary, /Terms accepted: Yes/);
+  const structuredProfile: ApplicationProfile = { ...profile, street: "s".repeat(140), city: "c".repeat(60), province: "p".repeat(60), postalCode: "0".repeat(20) };
+  structuredProfile.address = [structuredProfile.street, structuredProfile.city, structuredProfile.province, structuredProfile.postalCode].join(", ");
+  const structuredPayload = buildSheetsPayload({ ...application, profile: structuredProfile }, resume, job);
+  assert.ok(structuredPayload.application.summary.length <= 4000);
+  assert.ok(structuredPayload.application.summary.endsWith(application.summary));
+  for (const [label, value] of [["Street", structuredProfile.street], ["City", structuredProfile.city], ["Province", structuredProfile.province], ["Postal code", structuredProfile.postalCode]])
+    assert.ok(structuredPayload.application.summary.includes(`${label}: ${value}`));
+  assert.ok(!structuredPayload.application.summary.includes(`Address: ${structuredProfile.address}`));
+  assert.equal("profile" in structuredPayload.application, false);
   const legacy = { ...application, profile: undefined, summary: "L".repeat(4000) };
   const legacyPayload = buildSheetsPayload(legacy, resume, job);
   assert.equal(legacy.summary.length, 4000);
   assert.ok(legacyPayload.application.summary.length <= 4000);
   assert.match(legacyPayload.application.summary, /Full professional summary available in recruitment workspace/);
   for (const document of application.documents) assert.ok(legacyPayload.application.summary.includes(document.name));
+});
+
+test("Sheets address export retains the combined legacy value and labels structured pieces without changing receiver fields", () => {
+  const profile: ApplicationProfile = { firstName: "Test", lastName: "Applicant", gender: "Female", nationality: "Filipino",
+    address: "Legacy full address", dateOfBirth: "1990-01-01", placeOfBirth: "Manila", destinationCountry: "Croatia",
+    currentWorkCountry: "Philippines", secondaryJobTitle: "Welder", englishProficiency: "Yes", termsAccepted: true };
+  const legacy = buildSheetsPayload({ ...applicant(), profile }, resume, job);
+  assert.match(legacy.application.summary, /Address: Legacy full address/);
+  assert.doesNotMatch(legacy.application.summary, /Street:|Postal code:/);
+  const structured = buildSheetsPayload({ ...applicant(), profile: { ...profile, address: "17 Sample Street, Manila, Metro Manila, 0017",
+    street: "17 Sample Street", city: "Manila", province: "Metro Manila", postalCode: "0017" } }, resume, job);
+  assert.match(structured.application.summary, /Street: 17 Sample Street\nCity: Manila\nProvince: Metro Manila\nPostal code: 0017/);
+  assert.doesNotMatch(structured.application.summary, /Address:/);
+  assert.deepEqual(Object.keys(structured.application).sort(), Object.keys(legacy.application).sort());
+  assert.equal("street" in structured.application, false);
 });
 
 test("Sheets payload preserves each referral source and normalizes an unanswered source", () => {

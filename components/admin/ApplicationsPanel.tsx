@@ -244,7 +244,12 @@ export default function ApplicationsPanel({
                     ["Last name", selected.profile.lastName],
                     ["Gender", selected.profile.gender],
                     ["Nationality", selected.profile.nationality],
-                    ["Address", selected.profile.address],
+                    ...(selected.profile.street !== undefined ? [
+                      ["Street", selected.profile.street],
+                      ["City", selected.profile.city || "Not provided"],
+                      ["Province", selected.profile.province || "Not provided"],
+                      ["Postal code", selected.profile.postalCode || "Not provided"],
+                    ] as [string, string][] : [["Address", selected.profile.address]] as [string, string][]),
                     ["Date of birth", selected.profile.dateOfBirth],
                     ["Place of birth", selected.profile.placeOfBirth],
                     ["Destination country", selected.profile.destinationCountry],

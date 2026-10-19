@@ -49,6 +49,10 @@ export interface ApplicationProfile {
   gender: "Male" | "Female";
   nationality: string;
   address: string;
+  street?: string;
+  city?: string;
+  province?: string;
+  postalCode?: string;
   dateOfBirth: string;
   placeOfBirth: string;
   destinationCountry: "Croatia";

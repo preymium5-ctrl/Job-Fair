@@ -62,7 +62,9 @@ export function buildSheetsPayload(application: Application, resume: Buffer, job
     `Last name: ${profile.lastName}`,
     `Gender: ${profile.gender}`,
     `Nationality: ${profile.nationality}`,
-    `Address: ${profile.address}`,
+    ...(profile.street !== undefined
+      ? [`Street: ${profile.street}`, `City: ${profile.city}`, `Province: ${profile.province}`, `Postal code: ${profile.postalCode}`]
+      : [`Address: ${profile.address}`]),
     `Date of birth: ${profile.dateOfBirth}`,
     `Place of birth: ${profile.placeOfBirth}`,
     `Destination country: ${profile.destinationCountry}`,

@@ -281,7 +281,8 @@ test("reference profile answers and private identity filenames deliver through t
   const record: Application = {
     ...original.application, preferredEmployer: "", resumeKey: "private/resume.pdf", resumeName: original.resume.name,
     resumeMime: original.resume.mime, isExample: false, fullName: "Test Applicant", recentJobTitle: "", experienceYears: null, skills: "",
-    profile: { firstName: "Test", lastName: "Applicant", gender: "Male", nationality: "Filipino", address: "Sample address",
+    profile: { firstName: "Test", lastName: "Applicant", gender: "Male", nationality: "Filipino", address: "17 Sample Street, Manila, Metro Manila, 0017",
+      street: "17 Sample Street", city: "Manila", province: "Metro Manila", postalCode: "0017",
       dateOfBirth: "1990-01-01", placeOfBirth: "Manila", destinationCountry: "Croatia", currentWorkCountry: "Philippines",
       secondaryJobTitle: "Welder", englishProficiency: "No", termsAccepted: true }, documents,
   } as Application;
@@ -297,6 +298,7 @@ test("reference profile answers and private identity filenames deliver through t
   assert.equal(state.rows[1][14], "");
   assert.match(String(state.rows[1][18]), /reference form does not collect/);
   assert.match(String(state.rows[1][18]), /First name: Test/);
+  assert.match(String(state.rows[1][18]), /Street: 17 Sample Street\nCity: Manila\nProvince: Metro Manila\nPostal code: 0017/);
   assert.match(String(state.rows[1][18]), /Speaks and understands English: No/);
   assert.match(String(state.rows[1][18]), /Passport: passport.pdf/);
   assert.match(String(state.rows[1][18]), /Residence ID: residence-id.pdf/);
