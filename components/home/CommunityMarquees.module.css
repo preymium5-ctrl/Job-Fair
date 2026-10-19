@@ -80,6 +80,16 @@
   background: var(--paper);
 }
 
+.socialLabel {
+  display: inline-flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.socialLabel[href]:hover {
+  color: var(--accent);
+}
+
 .socialIcon img {
   object-fit: contain;
 }
@@ -101,8 +111,34 @@
   font-weight: 500;
 }
 
-.socialWindow:hover .track {
+.socialWindow:hover .track,
+.socialWindow:focus-within .track {
   animation-play-state: paused;
+}
+
+/* Keep keyboard links visible even when the marquee has drifted offscreen. */
+.socialWindow:has(a:focus-visible) {
+  overflow: visible;
+  mask-image: none;
+}
+
+.socialWindow:has(a:focus-visible) .track {
+  animation: none;
+  transform: none;
+  width: 100%;
+}
+
+.socialWindow:has(a:focus-visible) .socialGroup {
+  width: 100%;
+  min-width: 0;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 24px;
+  padding-inline: var(--space);
+}
+
+.socialWindow:has(a:focus-visible) .group[aria-hidden="true"] {
+  display: none;
 }
 
 @keyframes community-drift {
@@ -113,6 +149,7 @@
   .socialHeading { align-items: flex-start; }
   .socialHeading > span { max-width: 145px; text-align: right; }
   .socialItem { gap: 10px; padding-right: 24px; }
+  .socialLabel { gap: 10px; }
   .socialIcon { width: 46px; height: 46px; }
   .socialIcon img, .socialIcon svg { width: 23px; height: 23px; }
   .separator { margin-left: 14px; }

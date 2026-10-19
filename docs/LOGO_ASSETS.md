@@ -2,10 +2,13 @@
 
 The homepage includes a continuous CSS marquee in
 `components/home/CommunityMarquees.tsx`, after the introduction. It shows social
-platform icons; these are intentionally not links because the site has no social
-profiles yet. Instagram and IG are represented by one icon.
+platform icons. Facebook links to `https://www.facebook.com/profile.php?id=61560913240742`
+and TikTok links to `https://www.tiktok.com/@jobsincroatiaa`; both open in a new tab.
+The remaining platforms are decorative until profile URLs are supplied.
+Instagram and IG are represented by one icon.
 
-Motion pauses on hover. The visible pause button was removed at the site owner's
+Motion pauses on hover or focus. Keyboard focus reveals a static, wrapping list,
+and repeated links stay out of the tab order. The visible pause button was removed at the site owner's
 request. Reduced-motion
 preferences show a static, wrapping layout with repeated artwork hidden.
 
