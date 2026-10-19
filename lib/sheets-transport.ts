@@ -57,6 +57,7 @@ export function buildSheetsPayload(application: Application, resume: Buffer, job
     ...(documents.length ? { documents } : {}),
     application: {
       ...details,
+      referralSource: details.referralSource || "",
       nc2Certificate: details.nc2Certificate || "",
       preferredEmployer: details.preferredEmployer || "",
       documentReadiness: details.documentReadiness || {

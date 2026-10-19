@@ -22,6 +22,7 @@ import { NoPlacementFee } from "@/components/jobs/EmploymentBenefits";
 import { MAX_APPLICATION_UPLOAD_BYTES, MAX_SUPPORTING_DOCUMENT_BYTES, SUPPORTING_DOCUMENT_ACCEPT, supportingDocumentTypes, type SupportingDocumentCategory } from "@/lib/document-uploads";
 import { JobFairRoleInfo } from "@/components/job-fair/JobFairRoleInfo";
 import { fairDocumentTiming, getJobFairRole } from "@/data/job-fair";
+import { referralSources } from "@/lib/referral-sources";
 import styles from "./ApplicationForm.module.css";
 
 type FormErrors = Partial<Record<keyof ApplicationInput | "resume" | "documents", string>>;
@@ -32,7 +33,7 @@ const steps = [
   "Review & submit",
 ];
 const fields: (keyof ApplicationInput)[][] = [
-  ["fullName", "email", "phone", "country"],
+  ["fullName", "email", "phone", "country", "referralSource"],
   ["recentJobTitle", "experienceYears", "skills", "education", "summary"],
   ["coverLetter", "nc2Certificate", "driverLicenseDetails", "preferredEmployer"],
   ["consent"],
@@ -56,6 +57,11 @@ function validate(
       errors.phone = "Enter a valid contact number with country code.";
     if (values.country.trim().length < 2)
       errors.country = "Enter your country of residence.";
+    if (
+      values.referralSource &&
+      !referralSources.some((source) => source === values.referralSource)
+    )
+      errors.referralSource = "Choose a listed source or leave this blank.";
   }
   if (step === 1) {
     if (values.recentJobTitle.trim().length < 2)
@@ -94,6 +100,7 @@ export default function ApplicationForm({ job }: { job: Job }) {
     email: "",
     phone: "",
     country: "",
+    referralSource: "",
     recentJobTitle: "",
     experienceYears: Number.NaN,
     skills: "",
@@ -563,6 +570,34 @@ export default function ApplicationForm({ job }: { job: Job }) {
                           autoComplete: "country-name",
                           wide: true,
                         })}
+                        <div className={`${styles.field} ${styles.full}`}>
+                          <label htmlFor="referralSource">
+                            Where did you hear about us? <span>Optional</span>
+                          </label>
+                          <select
+                            id="referralSource"
+                            name="referralSource"
+                            value={values.referralSource || ""}
+                            disabled={busy}
+                            aria-invalid={Boolean(errors.referralSource)}
+                            aria-describedby={
+                              errors.referralSource ? "referralSource-error" : undefined
+                            }
+                            onChange={(event) => update("referralSource", event.target.value)}
+                          >
+                            <option value="">Select an option</option>
+                            {referralSources.map((source) => (
+                              <option key={source} value={source}>
+                                {source}
+                              </option>
+                            ))}
+                          </select>
+                          {errors.referralSource && (
+                            <p id="referralSource-error" className={styles.fieldError}>
+                              {errors.referralSource}
+                            </p>
+                          )}
+                        </div>
                       </div>
                     )}
                     {step === 1 && (
@@ -798,6 +833,7 @@ export default function ApplicationForm({ job }: { job: Job }) {
                             ["Email", values.email],
                             ["Phone", values.phone],
                             ["Country of residence", values.country],
+                            ["Where did you hear about us?", values.referralSource || "Not provided"],
                           ]}
                         />
                         <ReviewSection

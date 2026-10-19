@@ -49,6 +49,7 @@ export interface ApplicationInput {
   email: string;
   phone: string;
   country: string;
+  referralSource?: string;
   recentJobTitle: string;
   experienceYears: number;
   skills: string;

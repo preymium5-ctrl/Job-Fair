@@ -16,6 +16,7 @@ import {
 } from "../lib/repository";
 import { administrators, audits } from "../lib/schema";
 import { applicationSchema } from "../lib/validation";
+import { referralSources } from "../lib/referral-sources";
 import {
   decodeSession,
   hashPassword,
@@ -184,6 +185,27 @@ test("server validation rejects invalid contact details and missing consent", ()
     assert.equal(applicationSchema.safeParse({ ...applicant("test"), experienceYears }).success, false);
   assert.equal(applicationSchema.safeParse({ ...applicant("test"), experienceYears: 3 }).success, true);
 });
+
+test("referral validation accepts listed sources and preserves legacy blank payloads", () => {
+  const legacy = applicationSchema.parse(applicant("test"));
+  for (const referralSource of ["", "   "]) {
+    const parsed = applicationSchema.parse({ ...applicant("test"), referralSource });
+    assert.equal(parsed.referralSource, undefined);
+    assert.equal(JSON.stringify(parsed), JSON.stringify(legacy));
+  }
+  for (const source of referralSources) {
+    assert.equal(
+      applicationSchema.parse({ ...applicant("test"), referralSource: ` ${source} ` }).referralSource,
+      source,
+    );
+  }
+  for (const referralSource of ["Unlisted source", "facebook", 123, null, ["Facebook"]]) {
+    const result = applicationSchema.safeParse({ ...applicant("test"), referralSource });
+    assert.equal(result.success, false);
+    if (!result.success)
+      assert.ok(result.error.issues.some((issue) => issue.path[0] === "referralSource"));
+  }
+});
 test("resume validation checks actual bytes, size, archives and filenames", async () => {
   assert.throws(
     () =>
@@ -318,7 +340,13 @@ test("applications persist once; invalid uploads, bots and closed jobs never ret
   const retry = await submit(applicationRequest(payload, key));
   assert.equal(retry.status, 200);
   assert.deepEqual(await retry.json(), accepted);
+  const blankReferralRetry = await submit(
+    applicationRequest({ ...payload, referralSource: "   " }, key),
+  );
+  assert.equal(blankReferralRetry.status, 200);
+  assert.deepEqual(await blankReferralRetry.json(), accepted);
   assert.equal((await getApplications()).length, 1);
+  assert.equal((await getApplications())[0].referralSource, undefined);
   const changed = await submit(
     applicationRequest({ ...payload, fullName: "Another Applicant" }, key),
   );
@@ -357,6 +385,33 @@ test("applications persist once; invalid uploads, bots and closed jobs never ret
     ),
   );
   assert.equal((await getApplications()).length, 1);
+});
+
+test("application API persists referral sources and includes them in idempotency checks", async () => {
+  const [job] = await getJobs();
+  const payload = {
+    ...applicant(job.id),
+    email: "referral-applicant@example.test",
+    referralSource: " Facebook ",
+  };
+  const key = randomUUID();
+  const beforeCount = (await getApplications()).length;
+  const first = await submit(applicationRequest(payload, key));
+  assert.equal(first.status, 201, JSON.stringify(await first.clone().json()));
+  const accepted = await first.json();
+  const retry = await submit(applicationRequest({ ...payload, referralSource: "Facebook" }, key));
+  assert.equal(retry.status, 200);
+  assert.deepEqual(await retry.json(), accepted);
+  const changed = await submit(applicationRequest({ ...payload, referralSource: "TikTok" }, key));
+  assert.equal(changed.status, 409);
+  const invalid = await submit(applicationRequest({ ...payload, referralSource: "Unlisted source" }));
+  assert.equal(invalid.status, 422);
+  const rejected = await invalid.json();
+  assert.equal(rejected.fieldErrors.referralSource, "Choose where you heard about us from the list.");
+  await closeDatabase();
+  const stored = await getApplications();
+  assert.equal(stored.length, beforeCount + 1);
+  assert.equal(stored.find((item) => item.reference === accepted.reference)?.referralSource, "Facebook");
 });
 test("staff-only applicants, private downloads, status audits and session revocation", async () => {
   assert.equal(

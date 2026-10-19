@@ -71,6 +71,17 @@ test("legacy applications export complete document readiness and empty certifica
   assert.deepEqual(payload.application.documentReadiness, { nc2: "not-yet", diploma: "not-yet", nbi: "not-yet", form18a: "not-yet" });
   assert.equal(payload.application.nc2Certificate, "");
   assert.equal(payload.application.preferredEmployer, "");
+  assert.equal(payload.application.referralSource, "");
+});
+
+test("Sheets payload preserves each referral source and normalizes an unanswered source", () => {
+  for (const referralSource of ["Facebook", "TikTok", "Instagram", "Reddit", "YouTube", "Google Search", "Friend or family", "Other"]) {
+    const payload = buildSheetsPayload({ ...applicant(), referralSource }, resume, job);
+    assert.equal(payload.application.referralSource, referralSource);
+    assert.ok(!("resumeKey" in payload.application));
+    assert.ok(!("isExample" in payload.application));
+  }
+  assert.equal(buildSheetsPayload({ ...applicant(), referralSource: "" }, resume, job).application.referralSource, "");
 });
 
 test("new applications atomically queue exactly once and remain queued without configuration", async () => {

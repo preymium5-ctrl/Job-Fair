@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { applicationStatuses, documentStatuses } from "./types";
 import { minimumExperienceYears } from "../data/employment";
+import { referralSources } from "./referral-sources";
 
 const shortText = (maximum = 160) =>
   z.string().trim().min(2, "Enter at least 2 characters.").max(maximum);
@@ -25,6 +26,15 @@ export const applicationSchema = z
         "Enter at least 7 digits.",
       ),
     country: shortText(80),
+    referralSource: z
+      .string()
+      .trim()
+      .refine(
+        (value) => value === "" || referralSources.some((source) => source === value),
+        "Choose where you heard about us from the list.",
+      )
+      .transform((value) => value || undefined)
+      .optional(),
     recentJobTitle: shortText(160),
     experienceYears: z.number().min(minimumExperienceYears, "At least 3 years of relevant work experience is required.").max(60),
     skills: shortText(2000),

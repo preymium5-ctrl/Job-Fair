@@ -6,7 +6,10 @@ const CHAPTER_HEADERS = Object.freeze([
   'Recent role', 'Skills', 'NC2 certificate', 'Expected NC2', 'Education',
   'Professional summary', 'Cover letter', 'Employer allocations', 'Consent',
   'Diploma / education document', 'NC2 document', 'NBI / apostille document', 'Form 18a document', 'Other document',
-  'Driver license details', 'Driver license document'
+  'Driver license details', 'Driver license document', 'Where did you hear about us?'
+]);
+const CHAPTER_REFERRAL_SOURCES = Object.freeze([
+  'Facebook', 'TikTok', 'Instagram', 'Reddit', 'YouTube', 'Google Search', 'Friend or family', 'Other'
 ]);
 const CHAPTER_SHEET_ID = '1v9-lAvpJPUCxCqr03EkVwKKAfedEDtckHir4ro6cyeU';
 const CHAPTER_MAX_CV_BYTES = 5 * 1024 * 1024;
@@ -16,7 +19,7 @@ const CHAPTER_FILE_FIELDS = 'id,name,mimeType,size,trashed,parents,appProperties
 
 /** Public health response intentionally exposes no configuration or applicant data. */
 function doGet() {
-  return chapterJson_({ ok: true, service: 'chapter-applications', version: 1, schemaVersion: 3, columns: CHAPTER_HEADERS.length });
+  return chapterJson_({ ok: true, service: 'chapter-applications', version: 1, schemaVersion: 4, columns: CHAPTER_HEADERS.length });
 }
 
 function doPost(event) {
@@ -75,12 +78,14 @@ function doPost(event) {
     }
 
     const file = chapterGetOrCreateCv_(config, application, payload.resume, payload.bytes);
-    const row = chapterRow_(application, file).concat(documentColumns.slice(0, 5), [application.driverLicenseDetails || '', documentColumns[5]]);
+    const row = chapterRow_(application, file).concat(documentColumns.slice(0, 5), [
+      application.driverLicenseDetails || '', documentColumns[5], application.referralSource || ''
+    ]);
     // Use an explicit range: append's table detection can skip a hidden first column.
     // The script lock serializes writers and the ID/reference check makes retries safe.
     const rowNumber = sheet.getLastRow() + 1;
     if (rowNumber > sheet.getMaxRows()) sheet.insertRowsAfter(sheet.getMaxRows(), 100);
-    const targetRange = chapterSheetRange_(config.sheetName, 'A' + rowNumber + ':AC' + rowNumber);
+    const targetRange = chapterSheetRange_(config.sheetName, 'A' + rowNumber + ':AD' + rowNumber);
     const result = chapterGoogleJson_(
       'https://sheets.googleapis.com/v4/spreadsheets/' + config.sheetId + '/values/' +
       encodeURIComponent(targetRange) + '?valueInputOption=RAW',
@@ -88,7 +93,7 @@ function doPost(event) {
         payload: JSON.stringify({ majorDimension: 'ROWS', values: [row] }) }, 'SHEET_WRITE_FAILED'
     );
     const range = result.updatedRange;
-    const rowMatch = typeof range === 'string' && /!A(\d+):AC(\d+)$/.exec(range);
+    const rowMatch = typeof range === 'string' && /!A(\d+):AD(\d+)$/.exec(range);
     chapterAssert_(rowMatch && Number(rowMatch[1]) === rowNumber && Number(rowMatch[2]) === rowNumber &&
       result.updatedRows === 1 && result.updatedColumns === CHAPTER_HEADERS.length, 'SHEET_WRITE_UNCONFIRMED');
     return chapterJson_({ ok: true, applicationId: application.id,
@@ -216,8 +221,13 @@ function chapterValidatePayload_(payload) {
     'expectedNc2', 'employers'
   ];
   if (application && Object.prototype.hasOwnProperty.call(application, 'driverLicenseDetails')) applicationKeys.push('driverLicenseDetails');
+  if (application && Object.prototype.hasOwnProperty.call(application, 'referralSource')) applicationKeys.push('referralSource');
   chapterKeys_(application, applicationKeys);
   if (Object.prototype.hasOwnProperty.call(application, 'driverLicenseDetails')) chapterText_(application.driverLicenseDetails, 200, 0);
+  if (Object.prototype.hasOwnProperty.call(application, 'referralSource')) {
+    chapterText_(application.referralSource, 80, 0);
+    chapterAssert_(!application.referralSource || CHAPTER_REFERRAL_SOURCES.indexOf(application.referralSource) !== -1, 'INVALID_APPLICATION');
+  }
   [ ['id', 100, 1], ['reference', 80, 1], ['jobId', 100, 1], ['jobTitle', 160, 2],
     ['fullName', 120, 2], ['email', 254, 3], ['phone', 30, 7], ['country', 80, 2],
     ['recentJobTitle', 160, 2], ['skills', 2000, 2], ['education', 2000, 0],
