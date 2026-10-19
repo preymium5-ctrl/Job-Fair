@@ -7,6 +7,7 @@ import type { ApplicationInput, ApplicationProfile, Job } from "@/lib/types";
 import { applicationSchema, fieldErrors } from "@/lib/validation";
 import { MAX_PROFILE_UPLOAD_BYTES, MAX_PROFILE_RESUME_BYTES, MAX_SUPPORTING_DOCUMENT_BYTES, SUPPORTING_DOCUMENT_ACCEPT, supportingDocumentTypes, requiredProfileDocumentCategories, type SupportingDocumentCategory } from "@/lib/document-uploads";
 import { countryOptions, referenceJobPositions } from "@/data/application-form-options";
+import { fairDocuments, fairOptionalDocument, fairDocumentTiming, fairNc2Requirements, nc2ElectricalNote } from "@/data/job-fair";
 import { BrandLockup } from "@/components/ui/Brand";
 import AttachmentUpload from "./AttachmentUpload";
 import styles from "./ApplicationForm.module.css";
@@ -27,9 +28,11 @@ const profileLimits: Partial<Record<ProfileTextKey, number>> = {
 const uploadLabels: Partial<Record<SupportingDocumentCategory, string>> = {
   passport: "Please upload a copy of your valid passport",
   "residence-id": "Please upload your updated and valid residence ID (front & back)",
-  diploma: "Please upload your high school or college diploma",
+  diploma: "Please upload your high school diploma",
   "employment-certificate": "Please upload your certificate of employment(s)",
-  nc2: "Please upload your NC2 or TESDA certificate",
+  nc2: "Please upload your valid NC2 certificate",
+  nbi: "Please upload your NBI clearance with apostille",
+  form18a: "Please upload your Form 18a",
   "driver-license": "Please upload your driver’s license(s) from the Philippines (front & back)",
 };
 
@@ -180,9 +183,11 @@ export default function ApplicationForm({ job, jobs = [job] }: { job: Job; jobs?
     const hints: Partial<Record<SupportingDocumentCategory, string>> = {
       passport: "A clear copy of your passport, valid for at least 2 years.",
       "residence-id": "Combine the front and back in one file. Both sides must be readable.",
-      diploma: "Your Grade 12 certificate, high school diploma, or college diploma.",
+      diploma: "Needed for the work permit application. Upload your high school diploma now if available.",
       "employment-certificate": "A certificate of employment or employment contract showing your experience.",
-      nc2: "Attach your NC2 or TESDA certificate if available.",
+      nc2: "Needed for the work permit application. Check the position guide above and upload your certificate if available.",
+      nbi: "Needed for the work permit application. Combine your NBI clearance and apostille in one file, if available.",
+      form18a: "Needed for the work permit application. Upload your completed Form 18a if available.",
       "driver-license": "Combine the front and back in one file, if available.",
     };
     return <AttachmentUpload id={`attachment-${category}`} label={uploadLabels[category] || category}
@@ -257,14 +262,26 @@ export default function ApplicationForm({ job, jobs = [job] }: { job: Job; jobs?
               {textField("otherJobTitle", "If the job you’re applying for is not listed above, please enter it here", { optional: true, wide: true })}
             </div>
           </section>
+          <section className={styles.section} aria-labelledby="requirements-heading">
+            <h2 id="requirements-heading">Document requirements</h2><span className={styles.rule} />
+            <p className={styles.sectionIntro}><strong>All positions:</strong></p>
+            <ul className={styles.documentList}>{fairDocuments.map((document) => <li key={document}>{document}</li>)}</ul>
+            <p className={styles.sectionIntro}>{fairOptionalDocument}</p>
+            <div className={styles.timingNotice}><strong>IMPORTANT</strong><p>{fairDocumentTiming}</p></div>
+            <table className={styles.requirementsTable}>
+              <caption>NC2 certificate required by position</caption>
+              <thead><tr><th scope="col">Position</th><th scope="col">Required NC2</th></tr></thead>
+              <tbody>{fairNc2Requirements.map(({ position, certificate }) => <tr key={position}><th scope="row">{position}</th><td>{certificate}</td></tr>)}</tbody>
+            </table>
+            <p className={styles.electricalNote}>* {nc2ElectricalNote}</p>
+          </section>
           <section className={styles.section} aria-labelledby="documents-heading">
             <h2 id="documents-heading">Document Uploads</h2><span className={styles.rule} />
-            <p className={styles.sectionIntro}>Please have clear scanned or photographed copies of these documents ready on your device:</p>
-            <ul className={styles.documentList}><li>CV / Resume</li><li>Valid passport copy (valid for at least 2 years)</li><li>Valid residence ID (both sides)</li><li>Grade 12 school certificate / high school or college diploma</li><li>Certificate of employment or employment contract</li><li>For driver applicants: valid driver’s license (both sides)</li></ul>
-            <div className={styles.checklist}><ClipboardCheck size={22} aria-hidden="true" /><div><strong role="status">{readyCount} of 4 required documents ready</strong><p>{(totalUploadBytes / 1024 / 1024).toFixed(1)} MB of 4 MB used. Keep all files together within 4 MB; aim for under 1 MB each.</p></div></div>
+            <p className={styles.sectionIntro}>For this application, attach your CV, valid passport, and residence ID. Attach the work permit documents below if you have them available.</p>
+            <div className={styles.checklist}><ClipboardCheck size={22} aria-hidden="true" /><div><strong role="status">{readyCount} of {requiredAttachments.length} required documents ready</strong><p>{(totalUploadBytes / 1024 / 1024).toFixed(1)} MB of 4 MB used. Keep all files together within 4 MB; aim for under 1 MB each.</p></div></div>
             <div className={styles.uploads}>
               <AttachmentUpload id="resume" label="Please upload your CV" required hint="Maximum one file. Please make sure your CV is updated." accept=".pdf,.doc,.docx" maxBytes={MAX_PROFILE_RESUME_BYTES} file={resume} error={errors.resume} disabled={busy} onChange={chooseResume} />
-              {upload("passport")}{upload("residence-id")}{upload("diploma")}{upload("employment-certificate")}{upload("nc2")}{upload("driver-license")}
+              {upload("passport")}{upload("residence-id")}{upload("diploma")}{upload("nc2")}{upload("nbi")}{upload("form18a")}{upload("employment-certificate")}{upload("driver-license")}
             </div>
             {errors.documents && <p className={styles.errorSummary} role="alert" data-form-error tabIndex={-1}>{errors.documents}</p>}
             <p className={styles.privacyHint}><LockKeyhole size={16} aria-hidden="true" />Your files are private and available only to authorized recruitment staff.</p>

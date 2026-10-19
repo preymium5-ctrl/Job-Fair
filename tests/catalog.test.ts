@@ -6,7 +6,7 @@ import path from "node:path";
 import { eq } from "drizzle-orm";
 import { proposedJobs, proposalV1Jobs, previousRecruitmentJobs } from "../data/jobs";
 import { maximumAgeRequirement, maximumApplicantAge, minimumExperienceRequirement, recruitmentBenefits } from "../data/employment";
-import { fairDocuments, getJobFairRole, jobFair, nc2ElectricalNote } from "../data/job-fair";
+import { fairDocuments, fairDocumentTiming, fairNc2Requirements, getJobFairRole, jobFair, nc2ElectricalNote } from "../data/job-fair";
 import { hiringAllocations, hiringWorkerTotal } from "../data/hiring-allocations";
 import {
   legacyExampleJobIds,
@@ -143,6 +143,11 @@ test("the dated fair allocations reconcile six employers and exactly 248 workers
 test("certificate and trade-test guidance follows the source without inventing missing categories", () => {
   const role = (slug: string) => getJobFairRole(proposedJobs.find((job) => job.slug === slug)!)!;
   assert.deepEqual(fairDocuments, ["Valid NC2 certificate", "High school diploma", "NBI clearance with apostille", "Form 18a"]);
+  assert.equal(fairDocumentTiming, "Documents do not have to be ready on the testing day — candidates must obtain them so the work permit application can be filed.");
+  assert.equal(fairNc2Requirements.length, 8);
+  assert.equal(new Set(fairNc2Requirements.map(({ position }) => position)).size, 8);
+  assert.deepEqual(fairNc2Requirements.filter(({ certificate }) => certificate.endsWith("*")).map(({ position }) => position),
+    ["Electrical assemblers / installers", "Motor & generator winding", "Motor & generator fitters / assemblers"]);
   for (const slug of ["fabricator", "cnc-operator", "industrial-spray-painter", "grinder-and-cleaner"])
     assert.equal(role(slug).nc2, "NC2 Fabricator");
   for (const slug of ["tig-rel-welder", "mig-mag-tig-rel-welder", "welder", "mig-mag-tig-welder"])

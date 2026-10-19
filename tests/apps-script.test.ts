@@ -422,6 +422,8 @@ test("driver license details and all six optional documents align, remain privat
   };
   assert.equal(post(payload).ok, true);
   assert.equal(state.files.length, 7);
+  assert.match(String(state.rows[1][24]), /drive.google.com\/file\/d\/private-cv-3\/view/);
+  assert.match(String(state.rows[1][25]), /drive.google.com\/file\/d\/private-cv-4\/view/);
   assert.equal(state.rows[1][27], payload.application.driverLicenseDetails);
   assert.match(String(state.rows[1][28]), /drive.google.com\/file\/d\/private-cv-6\/view/);
   assert.equal(post(payload).duplicate, true);

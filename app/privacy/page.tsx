@@ -36,7 +36,7 @@ export default function Privacy() {
           optional Telegram contact and parents’ names, terms acknowledgement,
           employer preference, NC2 certificate details, optional driver’s license
           details and a license copy, passport, residence ID,
-          diploma or education certificate, optional employment certificate and
+          optional diploma or education certificate, employment certificate and
           other supporting documents, and optional
           cover letter. A license number is not needed. Please do not include bank
           information, medical records, or other unnecessary sensitive
@@ -62,8 +62,8 @@ export default function Privacy() {
           accounts authorized by the recruiting team can open them.
         </p>
         <p>
-          The current application requires a CV, passport, residence ID and
-          diploma or education certificate. You can also attach an NC2 certificate,
+          The current application requires a CV, passport and residence ID.
+          You can also attach a diploma or education certificate, NC2 certificate,
           employment certificate, NBI clearance, Form 18a, a driver’s
           license copy, and another document relevant
           to your application. Requests for correction

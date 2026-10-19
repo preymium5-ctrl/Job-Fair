@@ -147,7 +147,7 @@ test("profile submissions require individual files, retain private categories, r
   }
   const missing = await submit(request([]));
   assert.equal(missing.status, 422);
-  assert.deepEqual(Object.keys((await missing.json()).fieldErrors).sort(), ["document:diploma", "document:passport", "document:residence-id"]);
+  assert.deepEqual(Object.keys((await missing.json()).fieldErrors).sort(), ["document:passport", "document:residence-id"]);
   assert.equal((await getApplications()).length, 0);
   const duplicate = await submit(request(["passport", "passport", "residence-id", "diploma"]));
   assert.equal(duplicate.status, 422);
@@ -255,4 +255,33 @@ test("reference-only applications persist structured addresses and blank experie
     return { ok: true, applicationId: stored.id, reference: stored.reference, row: 2, duplicate: false };
   } });
   assert.equal(delivery.delivered, 1);
+});
+
+test("work-permit documents may be absent initially and available NBI and Form 18a files still persist and export", async () => {
+  const job = (await getJobs())[0];
+  for (const permitDocuments of [[], ["nbi", "form18a"]]) {
+    const form = new FormData();
+    form.set("payload", JSON.stringify({ ...referenceInput(job.id), email: `permit-${permitDocuments.length}@example.test` }));
+    form.set("idempotencyKey", randomUUID());
+    form.set("resume", new File([pdf], "cv.pdf"));
+    const categories = ["passport", "residence-id", ...permitDocuments];
+    for (const category of categories) form.set(`document:${category}`, new File([pdf], `${category}.pdf`));
+    const accepted = await submit(new NextRequest(`${origin}/api/applications`, { method: "POST", headers: { origin }, body: form }));
+    assert.equal(accepted.status, 201);
+    const receipt = await accepted.json();
+    const stored = (await getApplications()).find(({ reference }) => reference === receipt.reference)!;
+    assert.deepEqual(stored.documents?.map(({ category }) => category).sort(), [...categories].sort());
+    assert.ok(!stored.documents?.some(({ category }) => category === "diploma" || category === "nc2"));
+    for (const document of stored.documents || []) assert.deepEqual(await readObject(document.key), pdf);
+    const delivery = await drainSheetsQueue({ applicationId: stored.id }, { transport: async (payload) => {
+      assert.equal(payload.version, permitDocuments.length ? 2 : 1);
+      assert.deepEqual(payload.documents?.map(({ category }) => category) || [], permitDocuments);
+      for (const document of payload.documents || []) {
+        assert.equal(document.base64, pdf.toString("base64"));
+        assert.equal(document.id, stored.documents?.find(({ category }) => category === document.category)?.id);
+      }
+      return { ok: true, applicationId: stored.id, reference: stored.reference, row: 2, duplicate: false };
+    } });
+    assert.equal(delivery.delivered, 1);
+  }
 });
