@@ -6,6 +6,14 @@ Original stock assets downloaded and checked on 14 October 2026. Stock photograp
 
 The Jobs in Croatia wordmark and navy briefcase with a red checkerboard motif were created as original vector artwork on 16 October 2026. The shared website mark is in `components/ui/Brand.tsx`; the matching browser icon is in `app/icon.svg`.
 
+The application form uses the recognizable WhatsApp and Telegram brand marks from
+[Bootstrap Icons](https://icons.getbootstrap.com/), saved as
+`public/brand/messaging/whatsapp.svg` and `public/brand/messaging/telegram.svg`.
+The SVG paths are unchanged; their fills use WhatsApp green (#25D366) and Telegram
+blue (#26A5E4). Source assets: [WhatsApp](https://icons.getbootstrap.com/assets/icons/whatsapp.svg)
+and [Telegram](https://icons.getbootstrap.com/assets/icons/telegram.svg). The
+Bootstrap Icons MIT license is retained at `public/brand/messaging/LICENSE.txt`.
+
 ## Photo licence
 
 All photographs below are sourced from individual free photo pages on Pexels under the [Pexels licence](https://www.pexels.com/legal-pages/license/). Pexels permits use on websites and commercial projects, modification, and downloading. Attribution is appreciated but not mandatory. Restrictions include standalone resale or stock redistribution, using imagery as a trademark, offensive depictions, and implying endorsement by a depicted person or brand. The original photographers are credited here for traceability.

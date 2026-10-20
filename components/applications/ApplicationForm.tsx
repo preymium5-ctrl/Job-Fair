@@ -2,7 +2,8 @@
 
 import { useRef, useState, type ReactNode } from "react";
 import Link from "next/link";
-import { ArrowLeft, ArrowRight, CheckCircle2, ClipboardCheck, FileText, LockKeyhole, MessageCircle, Send } from "lucide-react";
+import Image from "next/image";
+import { ArrowLeft, ArrowRight, CheckCircle2, ClipboardCheck, FileText, LockKeyhole } from "lucide-react";
 import type { ApplicationInput, ApplicationProfile, Job } from "@/lib/types";
 import { applicationSchema, fieldErrors } from "@/lib/validation";
 import { MAX_PROFILE_UPLOAD_BYTES, MAX_PROFILE_RESUME_BYTES, MAX_SUPPORTING_DOCUMENT_BYTES, SUPPORTING_DOCUMENT_ACCEPT, supportingDocumentTypes, getRequiredProfileDocumentCategories, isDriverPosition, type SupportingDocumentCategory } from "@/lib/document-uploads";
@@ -246,8 +247,8 @@ export default function ApplicationForm({ job, jobs = [job], additionalJobs = []
             {textField("lastName", "Your last name", { autoComplete: "family-name", placeholder: "Enter your last name" })}
             {choice("gender", "Enter your gender", ["Male", "Female"])}
             <div className={styles.field}><label htmlFor="email">Email<span className={styles.asterisk}>*</span></label><input id="email" name="email" type="email" autoComplete="email" placeholder="you@example.com" maxLength={254} value={values.email} disabled={busy} aria-required="true" aria-invalid={Boolean(errors.email)} aria-describedby={errors.email ? "email-error" : undefined} onChange={(event) => update("email", event.target.value)} />{errors.email && <p id="email-error" className={styles.fieldError}>{errors.email}</p>}</div>
-            <div className={styles.field}><label htmlFor="phone"><MessageCircle size={18} className={styles.whatsappIcon} aria-hidden="true" />WhatsApp number<span className={styles.asterisk}>*</span></label><input id="phone" name="phone" type="tel" autoComplete="tel" placeholder="+63 912 345 6789" maxLength={30} value={values.phone} disabled={busy} aria-required="true" aria-invalid={Boolean(errors.phone)} aria-describedby={`phone-help${errors.phone ? " phone-error" : ""}`} onChange={(event) => update("phone", event.target.value)} /><p id="phone-help" className={styles.help}>Enter your active WhatsApp number with the country code.</p>{errors.phone && <p id="phone-error" className={styles.fieldError}>{errors.phone}</p>}</div>
-            {textField("telegram", "Telegram number", { optional: true, type: "tel", placeholder: "Enter your Telegram number", help: "Enter your active Telegram number, if you use Telegram.", icon: <Send size={18} className={styles.telegramIcon} aria-hidden="true" /> })}
+            <div className={styles.field}><label htmlFor="phone"><Image src="/brand/messaging/whatsapp.svg" width={20} height={20} alt="" aria-hidden="true" unoptimized className={styles.contactBrandIcon} />WhatsApp number<span className={styles.asterisk}>*</span></label><input id="phone" name="phone" type="tel" autoComplete="tel" placeholder="+63 912 345 6789" maxLength={30} value={values.phone} disabled={busy} aria-required="true" aria-invalid={Boolean(errors.phone)} aria-describedby={`phone-help${errors.phone ? " phone-error" : ""}`} onChange={(event) => update("phone", event.target.value)} /><p id="phone-help" className={styles.help}>Enter your active WhatsApp number with the country code.</p>{errors.phone && <p id="phone-error" className={styles.fieldError}>{errors.phone}</p>}</div>
+            {textField("telegram", "Telegram number", { optional: true, type: "tel", placeholder: "Enter your Telegram number", help: "Enter your active Telegram number, if you use Telegram.", icon: <Image src="/brand/messaging/telegram.svg" width={20} height={20} alt="" aria-hidden="true" unoptimized className={styles.contactBrandIcon} /> })}
             <fieldset className={`${styles.addressGroup} ${styles.full}`}>
               <legend>Your current address / location</legend>
               <div className={styles.grid}>
