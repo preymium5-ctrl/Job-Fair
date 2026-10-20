@@ -44,6 +44,10 @@ export default function ApplicationsPanel({
   const selected = applications.find(
     (application) => application.id === selectedId,
   );
+  const positionOptions = new Map(jobs.map(({ id, title }) => [id, { id, title }]));
+  for (const application of applications)
+    if (!positionOptions.has(application.jobId))
+      positionOptions.set(application.jobId, { id: application.jobId, title: application.jobTitle });
   const visible = applications.filter(
     (application) =>
       (!status || application.status === status) &&
@@ -136,7 +140,7 @@ export default function ApplicationsPanel({
           onChange={(event) => setJobId(event.target.value)}
         >
           <option value="">All positions</option>
-          {jobs.map((job) => (
+          {[...positionOptions.values()].map((job) => (
             <option key={job.id} value={job.id}>
               {job.title}
             </option>
@@ -243,7 +247,7 @@ export default function ApplicationsPanel({
                     ["First name", selected.profile.firstName],
                     ["Last name", selected.profile.lastName],
                     ["Gender", selected.profile.gender],
-                    ["Nationality", selected.profile.nationality],
+                    ["Nationality", selected.profile.nationality || "Not collected"],
                     ...(selected.profile.street !== undefined ? [
                       ["Street", selected.profile.street],
                       ["City", selected.profile.city || "Not provided"],
@@ -254,7 +258,7 @@ export default function ApplicationsPanel({
                     ["Place of birth", selected.profile.placeOfBirth],
                     ["Destination country", selected.profile.destinationCountry],
                     ["Current work country", selected.profile.currentWorkCountry],
-                    ["Second job choice", selected.profile.secondaryJobTitle],
+                    ["Additional role with experience", selected.profile.secondaryJobTitle],
                     ["Other job choice", selected.profile.otherJobTitle || "Not provided"],
                     ["Speaks and understands English", selected.profile.englishProficiency],
                     ["Telegram", selected.profile.telegram || "Not provided"],

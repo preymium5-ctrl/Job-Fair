@@ -313,7 +313,9 @@ export const previousRecruitmentJobs: Job[] = proposalV1Jobs.map((job) => {
   };
 });
 
-export const proposedJobs: Job[] = previousRecruitmentJobs.map((job) => ({
+// Retain this snapshot so deployed catalogs can update the original combined role
+// without replacing staff edits or altering the archived proposal records.
+export const combinedRoleRecruitmentJobs: Job[] = previousRecruitmentJobs.map((job) => ({
   ...job,
   openings: hiringWorkerTotal(job.slug) ?? job.openings,
   location: "Croatia",
@@ -324,6 +326,57 @@ export const proposedJobs: Job[] = previousRecruitmentJobs.map((job) => ({
     .replace(" in the plan", ""))],
   benefits: [...recruitmentBenefits],
 }));
+
+const combinedFinishingRole = combinedRoleRecruitmentJobs.find((job) => job.slug === "grinder-and-cleaner")!;
+const grinderSummary = "Grind and deburr metal components to prepare consistent surfaces for the next production stage.";
+const cleanerSummary = "Maintain clean, orderly workplaces through careful surface cleaning, floor care, and waste handling.";
+
+export const proposedJobs: Job[] = [
+  ...combinedRoleRecruitmentJobs.map((job) => job.slug !== combinedFinishingRole.slug ? job : {
+    ...job,
+    // Keep the original ID and URL so existing application links remain valid.
+    title: "Grinder",
+    summary: grinderSummary,
+    description: job.description.replace(job.summary, grinderSummary),
+    responsibilities: job.responsibilities.map((item) => item.replace("grinding and cleaning tools", "grinding and deburring tools")),
+    imageAlt: "AI-generated illustration of a Filipino grinder inspecting a finished metal component",
+  }),
+  {
+    id: "proposed-cleaner-18",
+    slug: "cleaner",
+    title: "Cleaner",
+    category: "Cleaning & Facilities",
+    location: "Croatia",
+    employmentType: "Terms to be confirmed",
+    summary: cleanerSummary,
+    description: `${cleanerSummary} We are hiring skilled Filipino workers for this position in Croatia. Review the responsibilities, qualifications, salary range and benefits below, then apply with your CV and relevant supporting documents.`,
+    responsibilities: [
+      "Clean floors, surfaces, and shared facilities using suitable tools and approved cleaning methods.",
+      "Handle cleaning supplies and waste carefully and keep equipment in good working order.",
+      "Report damaged facilities, supply shortages, and any cleaning or safety concerns to the supervisor.",
+      "Follow the employer's confirmed cleaning schedule, hygiene standards, and safety procedures.",
+    ],
+    requirements: [
+      maximumAgeRequirement,
+      minimumExperienceRequirement,
+      "Relevant professional cleaning experience and attention to hygiene and detail.",
+      "Ability to follow cleaning instructions and handle supplies and equipment safely.",
+      "Final duties, workplace, and employer-specific requirements are subject to confirmation.",
+    ],
+    benefits: [...recruitmentBenefits],
+    experience: "Minimum 3 years of relevant work experience",
+    image: "/images/jobs/filipino/cleaner.webp",
+    imageAlt: "AI-generated illustration of a Filipino cleaner wiping a glass partition in a workplace",
+    imagePosition: "center",
+    postedAt: "2026-10-20T00:00:00.000Z",
+    status: "published",
+    isExample: false,
+    featured: false,
+    salary: combinedFinishingRole.salary,
+    salaryStatus: "proposed-net",
+    // No separate Cleaner allocation was provided; do not duplicate Grinder slots.
+  },
+];
 
 // Kept for the existing read-only route smoke script and other catalog consumers.
 export const sampleJobs = proposedJobs;

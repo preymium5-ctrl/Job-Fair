@@ -24,7 +24,7 @@ import {
 import type { Application } from "@/lib/types";
 import { getJobFairRole } from "@/data/job-fair";
 import { drainSheetsQueue } from "@/lib/sheets-queue";
-import { documentLabel, MAX_APPLICATION_UPLOAD_BYTES, MAX_PROFILE_RESUME_BYTES, MAX_PROFILE_UPLOAD_BYTES, requiredProfileDocumentCategories, supportingDocumentTypes } from "@/lib/document-uploads";
+import { documentLabel, getRequiredProfileDocumentCategories, isDriverPosition, MAX_APPLICATION_UPLOAD_BYTES, MAX_PROFILE_RESUME_BYTES, MAX_PROFILE_UPLOAD_BYTES, supportingDocumentTypes } from "@/lib/document-uploads";
 
 export const runtime = "nodejs";
 export async function POST(request: NextRequest) {
@@ -68,8 +68,12 @@ export async function POST(request: NextRequest) {
     if (result.data.profile && file.size > MAX_PROFILE_RESUME_BYTES)
       return failure("Your CV must be 3 MB or smaller.", 422, { fieldErrors: { resume: "Your CV must be 3 MB or smaller." } });
     const resume = await validateResume(file);
-    if (result.data.profile) {
-      const missingDocuments = Object.fromEntries(requiredProfileDocumentCategories
+    const job = await getJobById(result.data.jobId);
+    const requiredDocuments = result.data.profile
+      ? getRequiredProfileDocumentCategories(job?.title || "")
+      : isDriverPosition(job?.title || "") ? ["driver-license"] : [];
+    if (requiredDocuments.length) {
+      const missingDocuments = Object.fromEntries(requiredDocuments
         .filter((category) => !(form.get(`document:${category}`) instanceof File))
         .map((category) => [`document:${category}`, `Attach your ${documentLabel(category).toLowerCase()}.`]));
       if (Object.keys(missingDocuments).length)
@@ -132,11 +136,10 @@ export async function POST(request: NextRequest) {
         "You have submitted several applications recently. Please try again in an hour.",
         429,
       );
-    const job = await getJobById(result.data.jobId);
     if (!job || job.status !== "published")
       return failure("This position is no longer accepting applications.", 409);
     const fairRole = getJobFairRole(job);
-    if (!result.data.profile && (result.data.driverLicenseDetails || documents.some(({ category }) => category === "driver-license")) && !fairRole?.drivingLicenseIsPlus)
+    if (!result.data.profile && (result.data.driverLicenseDetails || documents.some(({ category }) => category === "driver-license")) && !fairRole?.drivingLicenseIsPlus && !isDriverPosition(job.title))
       return failure("Driver’s license details are not collected for this position.", 422, {
         fieldErrors: { driverLicenseDetails: "Remove the license details and attachment for this position." },
       });
@@ -204,6 +207,10 @@ export async function POST(request: NextRequest) {
       return failure("Use the website application form.", 400);
     if (error instanceof Error && error.message === "JOB_NOT_OPEN")
       return failure("This position is no longer accepting applications.", 409);
+    if (error instanceof Error && error.message === "MISSING_DRIVER_LICENSE")
+      return failure("Attach the required driver's license for this position.", 422, {
+        fieldErrors: { "document:driver-license": "Attach your driver’s license copy." },
+      });
     if (error instanceof Error && error.message === "INVALID_EMPLOYER")
       return failure("Choose an employer listed for this position.", 422, {
         fieldErrors: { preferredEmployer: "Choose an employer listed for this position, or no preference." },

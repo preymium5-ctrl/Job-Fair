@@ -6,12 +6,15 @@ import { tmpdir } from "node:os";
 import { randomUUID } from "node:crypto";
 import { NextRequest } from "next/server";
 import { closeDatabase } from "../lib/db";
-import { getApplications, getJobs, saveJob } from "../lib/repository";
+import { getApplications, getJobById, getJobBySlug, getJobs, saveJob } from "../lib/repository";
 import { applicationSchema } from "../lib/validation";
 import type { ApplicationProfile } from "../lib/types";
 import { readObject } from "../lib/storage";
 import { drainSheetsQueue } from "../lib/sheets-queue";
 import { POST as submit } from "../app/api/applications/route";
+import { destinationCountries } from "../data/application-form-options";
+import { additionalApplicationJobs } from "../data/application-jobs";
+import { getRequiredProfileDocumentCategories, isDriverPosition } from "../lib/document-uploads";
 
 const original = { ...process.env };
 const origin = "http://localhost:3000";
@@ -86,6 +89,16 @@ test("reference-only profile answers normalize unasked fields honestly while leg
       assert.ok(missing.error.issues.some((issue) => issue.path[0] === field));
   for (const years of [null, 0, 1, 2, 2.99])
     assert.equal(applicationSchema.safeParse({ ...input(), profile: undefined, experienceYears: years }).success, false);
+});
+
+test("the form accepts every offered destination without collecting or inventing nationality", () => {
+  const { nationality: _nationality, ...withoutNationality } = profile; void _nationality;
+  for (const destinationCountry of destinationCountries) {
+    const parsed = applicationSchema.parse({ ...referenceInput(), profile: { ...withoutNationality, destinationCountry } });
+    assert.equal(parsed.profile?.destinationCountry, destinationCountry);
+    assert.equal(Object.hasOwn(parsed.profile!, "nationality"), false);
+  }
+  assert.equal(applicationSchema.parse(referenceInput()).profile?.nationality, "Filipino", "Legacy nationality answers remain readable");
 });
 
 test("structured addresses trim and normalize every part, preserve postal text and require all four pieces", () => {
@@ -284,4 +297,71 @@ test("work-permit documents may be absent initially and available NBI and Form 1
     } });
     assert.equal(delivery.delivered, 1);
   }
+});
+
+test("driver roles require a license in both form variants and additional roles retain their actual title", async () => {
+  for (const title of ["Truck Driver", "FORKLIFT DRIVER", "Bus drivers"])
+    assert.equal(isDriverPosition(title), true);
+  assert.equal(isDriverPosition("Cleaner"), false);
+  assert.deepEqual(getRequiredProfileDocumentCategories("Cleaner"), ["passport", "residence-id"]);
+  assert.deepEqual(getRequiredProfileDocumentCategories("Truck Driver"), ["passport", "residence-id", "driver-license"]);
+
+  const driver = additionalApplicationJobs.find(({ title }) => isDriverPosition(title))!;
+  assert.ok(driver);
+  const key = randomUUID();
+  const { nationality: _nationality, ...withoutNationality } = profile; void _nationality;
+  const values = { ...input(driver.id), email: "additional-driver@example.test", profile: { ...withoutNationality, destinationCountry: "Montenegro" } };
+  function request(withLicense: boolean, legacy = false) {
+    const { profile: _profile, ...legacyValues } = values; void _profile;
+    const form = new FormData();
+    form.set("payload", JSON.stringify(legacy ? legacyValues : values));
+    form.set("idempotencyKey", key);
+    form.set("resume", new File([pdf], "cv.pdf"));
+    for (const category of ["passport", "residence-id", ...(withLicense ? ["driver-license"] : [])])
+      form.set(`document:${category}`, new File([pdf], `${category}.pdf`));
+    return new NextRequest(`${origin}/api/applications`, { method: "POST", headers: { origin }, body: form });
+  }
+  for (const legacy of [false, true]) {
+    const missing = await submit(request(false, legacy));
+    assert.equal(missing.status, 422);
+    assert.deepEqual(Object.keys((await missing.json()).fieldErrors), ["document:driver-license"]);
+  }
+  const accepted = await submit(request(true));
+  assert.equal(accepted.status, 201, JSON.stringify(await accepted.clone().json()));
+  const receipt = await accepted.json();
+  assert.equal(receipt.jobTitle, driver.title);
+  assert.equal((await submit(request(true))).status, 200);
+  const stored = (await getApplications()).find(({ reference }) => reference === receipt.reference)!;
+  assert.equal(stored.jobId, driver.id);
+  assert.equal(stored.jobTitle, driver.title);
+  assert.equal(stored.profile?.destinationCountry, "Montenegro");
+  assert.equal(Object.hasOwn(stored.profile!, "nationality"), false);
+  const delivery = await drainSheetsQueue({ applicationId: stored.id }, { transport: async (payload) => {
+    assert.equal(payload.application.jobTitle, driver.title);
+    assert.match(payload.application.summary, /Destination country: Montenegro/);
+    assert.doesNotMatch(payload.application.summary, /Nationality:/);
+    assert.ok(payload.documents?.some(({ category }) => category === "driver-license"));
+    return { ok: true, applicationId: stored.id, reference: stored.reference, row: 2, duplicate: false };
+  } });
+  assert.equal(delivery.delivered, 1);
+});
+
+test("application-only roles stay off public job lists and preserve staff closures", async () => {
+  const role = additionalApplicationJobs.find(({ title }) => !isDriverPosition(title))!;
+  assert.ok(role);
+  assert.equal((await getJobs()).some(({ applicationOnly }) => applicationOnly), false);
+  assert.equal(await getJobBySlug(role.slug), undefined);
+  assert.equal((await getJobById(role.id))?.title, role.title);
+  assert.ok((await getJobs({ includeApplicationOnly: true })).some(({ id }) => id === role.id));
+  await saveJob({ ...role, status: "closed" }, "test-staff");
+  await closeDatabase();
+  assert.equal((await getJobById(role.id))?.status, "closed");
+  assert.equal((await getJobs({ includeApplicationOnly: true })).some(({ id }) => id === role.id), false);
+  const form = new FormData();
+  form.set("payload", JSON.stringify({ ...referenceInput(role.id), email: "closed-additional@example.test" }));
+  form.set("idempotencyKey", randomUUID());
+  form.set("resume", new File([pdf], "cv.pdf"));
+  for (const category of ["passport", "residence-id"])
+    form.set(`document:${category}`, new File([pdf], `${category}.pdf`));
+  assert.equal((await submit(new NextRequest(`${origin}/api/applications`, { method: "POST", headers: { origin }, body: form }))).status, 409);
 });

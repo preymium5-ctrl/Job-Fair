@@ -2,11 +2,11 @@
 export const applicationFaqs = [
   [
     "How do I apply for a job?",
-    "Find a role that fits your experience, read its requirements, and select Apply now. Complete the four steps, attach your CV, and submit. Each application is linked to the position you choose.",
+    "Find a role that fits your experience, read its requirements, and select Apply now. Complete the application form, attach your documents, and submit. Each application is linked to the position you choose.",
   ],
   [
-    "What documents are required?",
-    "Upload your current CV as a PDF, DOC, or DOCX file up to 5 MB. You can also attach a diploma or education certificate, NC2 certificate, NBI clearance, Form 18a, and another relevant document. Supporting documents are optional and accept PDF, DOC, DOCX, JPG, or PNG files up to 3 MB each; all uploads together must stay within 15 MB. You can apply while documents are still in progress.",
+    "What documents may be required?",
+    "Attach your current CV, valid passport, and residence ID. Driver applicants must also attach their Philippine driver’s license, showing the front and back. You can attach available diploma, NC2, employment, NBI clearance, and other relevant documents; Form 18a applies to Croatia applicants. Your CV must be a PDF, DOC, or DOCX file up to 3 MB. Supporting documents accept PDF, DOC, DOCX, JPG, or PNG files up to 3 MB each, with all uploads together within 4 MB. You can apply while work permit documents are still in progress.",
   ],
   [
     "Can I apply for multiple positions?",
@@ -22,7 +22,7 @@ export const applicationFaqs = [
   ],
   [
     "Where can I find salary details?",
-    "Each opportunity shows its salary range and payment period. Check the role details and confirm the written employment terms with the recruitment team.",
+    "Official job listings show their salary range and payment period. For additional roles in the application form, ask the recruitment team to confirm the salary, employer, and written employment terms.",
   ],
   [
     "When are interviews and testing?",

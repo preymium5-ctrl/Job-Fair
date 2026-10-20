@@ -62,7 +62,7 @@ export function buildSheetsPayload(application: Application, resume: Buffer, job
     `First name: ${profile.firstName}`,
     `Last name: ${profile.lastName}`,
     `Gender: ${profile.gender}`,
-    `Nationality: ${profile.nationality}`,
+    ...(profile.nationality ? [`Nationality: ${profile.nationality}`] : []),
     ...(profile.street !== undefined
       ? [`Street: ${profile.street}`, `City: ${profile.city}`, `Province: ${profile.province}`, `Postal code: ${profile.postalCode}`]
       : [`Address: ${profile.address}`]),
@@ -70,7 +70,7 @@ export function buildSheetsPayload(application: Application, resume: Buffer, job
     `Place of birth: ${profile.placeOfBirth}`,
     `Destination country: ${profile.destinationCountry}`,
     `Current work country: ${profile.currentWorkCountry}`,
-    `Second job choice: ${profile.secondaryJobTitle}`,
+    `Additional role with experience: ${profile.secondaryJobTitle}`,
     `Other job choice: ${profile.otherJobTitle || "Not provided"}`,
     `Speaks and understands English: ${profile.englishProficiency}`,
     `Telegram: ${profile.telegram || "Not provided"}`,

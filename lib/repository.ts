@@ -1,23 +1,38 @@
 import { and, desc, eq } from "drizzle-orm";
 import { randomUUID } from "node:crypto";
-import { migrateProposedJobCatalog } from "./catalog-migration";
+import { migrateProposedJobCatalog, migrateSeparatedCleaningRoles } from "./catalog-migration";
 import { getDatabase, localModeAllowed } from "./db";
 import { applications, audits, jobs, sheetDeliveries } from "./schema";
 import type { Application, ApplicationStatus, Job } from "./types";
 import { getJobFairRole } from "../data/job-fair";
+import { additionalApplicationJobs } from "../data/application-jobs";
+import { proposedJobs } from "../data/jobs";
+import { isDriverPosition } from "./document-uploads";
 
 let seedPromise: Promise<void> | undefined;
 async function ensureSeeded() {
   if (!seedPromise)
     seedPromise = (async () => {
-      if (
-        !localModeAllowed() &&
-        process.env.SEED_PROPOSED_JOBS !== "true" &&
-        process.env.SEED_EXAMPLE_JOBS !== "true"
-      )
-        return;
       const db = await getDatabase();
-      await migrateProposedJobCatalog(db);
+      if (
+        localModeAllowed() ||
+        process.env.SEED_PROPOSED_JOBS === "true" ||
+        process.env.SEED_EXAMPLE_JOBS === "true"
+      )
+        await migrateProposedJobCatalog(db);
+      else {
+        const grinder = proposedJobs.find((job) => job.slug === "grinder-and-cleaner")!;
+        const [existingGrinder] = await db.select({ id: jobs.id }).from(jobs).where(eq(jobs.id, grinder.id)).limit(1);
+        // Existing production catalogs receive this narrow migration without
+        // enabling initial seeding or replaying older catalog replacements.
+        if (existingGrinder) await migrateSeparatedCleaningRoles(db);
+      }
+      // Application-only roles need durable IDs for application foreign keys.
+      // Never reopen or overwrite an existing role changed by recruitment staff.
+      if (additionalApplicationJobs.length)
+        await db.insert(jobs).values(additionalApplicationJobs.map((job) => ({
+          id: job.id, slug: job.slug, status: job.status, data: job,
+        }))).onConflictDoNothing({ target: jobs.id });
     })().catch((error) => {
       seedPromise = undefined;
       throw error;
@@ -25,7 +40,7 @@ async function ensureSeeded() {
   await seedPromise;
 }
 export async function getJobs(
-  options: { includeUnpublished?: boolean } = {},
+  options: { includeUnpublished?: boolean; includeApplicationOnly?: boolean } = {},
 ): Promise<Job[]> {
   await ensureSeeded();
   const db = await getDatabase();
@@ -37,6 +52,7 @@ export async function getJobs(
     );
   return result
     .map((row) => row.data)
+    .filter((job) => options.includeApplicationOnly || !job.applicationOnly)
     .sort((a, b) => Date.parse(b.postedAt) - Date.parse(a.postedAt));
 }
 export async function getJobBySlug(slug: string): Promise<Job | undefined> {
@@ -48,7 +64,7 @@ export async function getJobBySlug(slug: string): Promise<Job | undefined> {
     .from(jobs)
     .where(and(eq(jobs.slug, slug), eq(jobs.status, "published")))
     .limit(1);
-  return row?.data;
+  return row?.data.applicationOnly ? undefined : row?.data;
 }
 export async function getJobById(id: string): Promise<Job | undefined> {
   await ensureSeeded();
@@ -124,9 +140,11 @@ export async function createApplication(
       .where(eq(jobs.id, application.jobId))
       .for("share");
     if (!job || job.status !== "published") throw new Error("JOB_NOT_OPEN");
+    if (isDriverPosition(job.data.title) && !application.documents?.some((document) => document.category === "driver-license"))
+      throw new Error("MISSING_DRIVER_LICENSE");
     if (application.preferredEmployer && !getJobFairRole(job.data)?.employers.some((employer) => employer.name === application.preferredEmployer))
       throw new Error("INVALID_EMPLOYER");
-    if (!application.profile && (application.driverLicenseDetails || application.documents?.some((document) => document.category === "driver-license")) && !getJobFairRole(job.data)?.drivingLicenseIsPlus)
+    if (!application.profile && (application.driverLicenseDetails || application.documents?.some((document) => document.category === "driver-license")) && !getJobFairRole(job.data)?.drivingLicenseIsPlus && !isDriverPosition(job.data.title))
       throw new Error("INVALID_DRIVER_LICENSE");
     const currentApplication = {
       ...application,

@@ -30,12 +30,12 @@ export default function Privacy() {
         <h2>Information you choose to provide</h2>
         <p>
           The application form collects your first and last names, gender,
-          nationality, address, date and place of birth, email address, telephone
+          address, date and place of birth, email address, telephone
           number, country of residence, current work country, destination country,
           job choices, English-language response, professional background, resume,
           optional Telegram contact and parents’ names, terms acknowledgement,
-          employer preference, NC2 certificate details, optional driver’s license
-          details and a license copy, passport, residence ID,
+          employer preference, NC2 certificate details, driver’s license
+          details and a license copy where applicable, passport, residence ID,
           optional diploma or education certificate, employment certificate and
           other supporting documents, and optional
           cover letter. A license number is not needed. Please do not include bank
@@ -46,8 +46,8 @@ export default function Privacy() {
         <p>
           The information is associated with the position you select and made
           available to authorized recruitment staff for reviewing that
-          application. The catalogue describes work opportunities in Croatia for Filipino
-          applicants. This local
+          application. Applications can express interest in work in Croatia,
+          Slovenia, Serbia, Romania, North Macedonia or Montenegro. This local
           installation stores applications for authorized staff review and does
           not automatically forward them to employers. Submission records your
           interest and does not guarantee an interview or employment.
@@ -63,9 +63,11 @@ export default function Privacy() {
         </p>
         <p>
           The current application requires a CV, passport and residence ID.
+          Driver applicants must also attach their driver’s license from the
+          Philippines, showing the front and back.
           You can also attach a diploma or education certificate, NC2 certificate,
-          employment certificate, NBI clearance, Form 18a, a driver’s
-          license copy, and another document relevant
+          employment certificate, NBI clearance, Form 18a for Croatia applicants,
+          a driver’s license copy for other roles, and another document relevant
           to your application. Requests for correction
           or deletion should include your reference so staff can locate both
           website and Google records.
@@ -112,7 +114,7 @@ export default function Privacy() {
           information. No application is sold or sent to an employer by this
           preview.
         </p>
-        <p>Preview notice updated 16 October 2026.</p>
+        <p>Preview notice updated 20 October 2026.</p>
       </div>
     </div>
   );

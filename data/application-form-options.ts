@@ -1,5 +1,7 @@
 // Unique experience choices from the reference application form, in its order.
-// The published vacancy selected on our site remains the primary application.
+// These positions are also available in a separate group for primary applications.
+export const destinationCountries = ["Croatia", "Slovenia", "Serbia", "Romania", "North Macedonia", "Montenegro"] as const;
+
 export const referenceJobPositions: readonly string[] = [
   "Waiter/Waitress",
   "Production worker (Concrete Molder)",
@@ -104,6 +106,13 @@ export const referenceJobPositions: readonly string[] = [
   "Dishwasher",
   "Other (enter below)",
   "No other position",
+];
+
+export const secondaryJobPositions: readonly string[] = [
+  ...referenceJobPositions.slice(0, -2),
+  "Press Machine Technician",
+  "Hair Transplant Nurse",
+  ...referenceJobPositions.slice(-2),
 ];
 
 // Fixed English country and territory names keep option labels and ordering

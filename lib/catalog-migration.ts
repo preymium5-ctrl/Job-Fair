@@ -1,6 +1,6 @@
 import { eq, sql } from "drizzle-orm";
 import { randomUUID } from "node:crypto";
-import { proposedJobs, proposalV1Jobs, previousRecruitmentJobs } from "../data/jobs";
+import { proposedJobs, proposalV1Jobs, previousRecruitmentJobs, combinedRoleRecruitmentJobs } from "../data/jobs";
 import { getJobFairRole, jobFair } from "../data/job-fair";
 import { maximumAgeRequirement, minimumExperienceRequirement } from "../data/employment";
 import type { Database } from "./db";
@@ -15,6 +15,7 @@ export const minimumExperienceVersion = "minimum-experience-three-years-2026-10-
 export const hiringWorkerCountsVersion = "employer-worker-counts-2026-10-16-v1";
 export const maximumAgeRequirementVersion = "maximum-age-requirement-2026-10-16-v1";
 export const groupedRoleRollbackVersion = "grouped-role-catalog-2026-10-20-v1";
+export const separatedCleaningRolesVersion = "separate-grinder-cleaner-2026-10-20-v1";
 const employerPositionsVersion = "employer-positions-pdf-2026-10-20-v1";
 export const legacyExampleJobIds = [
   "example-warehouse-01",
@@ -89,6 +90,48 @@ export async function migrateProposedJobCatalog(db: Database) {
   await migrateHiringWorkerCounts(db);
   await migrateMaximumAgeRequirement(db);
   await migrateGroupedRoleCatalog(db);
+  await migrateSeparatedCleaningRoles(db);
+}
+
+/** Split the public role while preserving its primary key, counts, and applicant history. */
+export async function migrateSeparatedCleaningRoles(db: Database) {
+  await db.transaction(async (tx) => {
+    if (process.env.DATABASE_URL) await tx.execute(sql`SELECT pg_advisory_xact_lock(621349133)`);
+    const [applied] = await tx.select().from(settings).where(eq(settings.key, separatedCleaningRolesVersion));
+    if (applied) return;
+    const updatedIds: string[] = [];
+    const addedIds: string[] = [];
+    const preservedIds: string[] = [];
+    const baseline = combinedRoleRecruitmentJobs.find((job) => job.slug === "grinder-and-cleaner")!;
+    const grinder = proposedJobs.find((job) => job.id === baseline.id)!;
+    const cleaner = proposedJobs.find((job) => job.slug === "cleaner")!;
+    const [row] = await tx.select().from(jobs).where(eq(jobs.id, grinder.id)).for("update");
+    if (row && row.slug === grinder.slug && row.data.slug === grinder.slug) {
+      const data = { ...row.data };
+      for (const field of ["title", "summary", "description", "responsibilities", "imageAlt"] as const) {
+        if (JSON.stringify(data[field]) === JSON.stringify(baseline[field]))
+          Object.assign(data, { [field]: grinder[field] });
+      }
+      if (JSON.stringify(data) !== JSON.stringify(row.data)) {
+        await tx.update(jobs).set({ data }).where(eq(jobs.id, row.id));
+        updatedIds.push(row.id);
+      }
+    }
+    const [existingCleaner] = await tx.select().from(jobs).where(eq(jobs.id, cleaner.id));
+    const [cleanerSlugOwner] = await tx.select().from(jobs).where(eq(jobs.slug, cleaner.slug));
+    if (!existingCleaner && !cleanerSlugOwner) {
+      await tx.insert(jobs).values({ id: cleaner.id, slug: cleaner.slug, status: cleaner.status, data: cleaner });
+      addedIds.push(cleaner.id);
+    } else if (existingCleaner?.id !== cleanerSlugOwner?.id || existingCleaner?.slug !== cleaner.slug) {
+      // An existing staff record owns this ID or URL; retain it for staff review.
+      preservedIds.push(existingCleaner?.id ?? cleanerSlugOwner!.id);
+    }
+    await tx.insert(settings).values({ key: separatedCleaningRolesVersion, value: new Date().toISOString() });
+    await tx.insert(audits).values({
+      id: randomUUID(), actorId: "system:catalog-migration", action: "catalog.cleaning-roles-separated",
+      targetId: separatedCleaningRolesVersion, details: { updatedIds, addedIds, preservedIds },
+    });
+  });
 }
 
 /** Undo the employer split once, retaining applications and any subsequent staff edits. */
@@ -195,9 +238,9 @@ export async function migrateMinimumExperience(db: Database) {
     for (const replacement of proposedJobs) {
       const [row] = await tx.select().from(jobs).where(eq(jobs.id, replacement.id)).for("update");
       if (!row || row.slug !== replacement.slug) continue;
-      const baseline = proposalV1Jobs.find((job) => job.id === row.id)!;
+      const baseline = proposalV1Jobs.find((job) => job.id === row.id);
       const data = { ...row.data, requirements: [...new Set([minimumExperienceRequirement, ...row.data.requirements])] };
-      if (data.experience === baseline.experience) data.experience = replacement.experience;
+      if (data.experience === baseline?.experience) data.experience = replacement.experience;
       if (JSON.stringify(data) === JSON.stringify(row.data)) continue;
       await tx.update(jobs).set({ data }).where(eq(jobs.id, row.id));
       updatedIds.push(row.id);

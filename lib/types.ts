@@ -1,4 +1,5 @@
 import type { SupportingDocumentCategory } from "./document-uploads";
+import type { destinationCountries } from "../data/application-form-options";
 export type JobStatus = "published" | "draft" | "closed";
 export interface Job {
   id: string;
@@ -20,6 +21,7 @@ export interface Job {
   status: JobStatus;
   isExample: boolean;
   featured: boolean;
+  applicationOnly?: boolean;
   salary?: string;
   salaryStatus?: "proposed-net";
   schedule?: string;
@@ -47,7 +49,7 @@ export interface ApplicationProfile {
   firstName: string;
   lastName: string;
   gender: "Male" | "Female";
-  nationality: string;
+  nationality?: string;
   address: string;
   street?: string;
   city?: string;
@@ -55,7 +57,7 @@ export interface ApplicationProfile {
   postalCode?: string;
   dateOfBirth: string;
   placeOfBirth: string;
-  destinationCountry: "Croatia";
+  destinationCountry: (typeof destinationCountries)[number];
   currentWorkCountry: string;
   secondaryJobTitle: string;
   englishProficiency: "Yes" | "No";

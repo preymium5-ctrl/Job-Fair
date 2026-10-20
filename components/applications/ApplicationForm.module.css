@@ -19,6 +19,9 @@
 .addressGroup > legend { padding: 0; margin-bottom: 16px; color: #3f5366; font-size: 14px; font-weight: 600; line-height: 1.6; }
 .field { min-width: 0; scroll-margin-top: 120px; }
 .field > label { display: flex; align-items: baseline; gap: 4px; font-size: 14px; font-weight: 500; line-height: 1.6; color: #3f5366; margin-bottom: 9px; }
+.field > label > svg { flex-shrink: 0; align-self: center; margin-right: 3px; }
+.whatsappIcon { color: #128c4a; }
+.telegramIcon { color: #1686b7; }
 .optional { margin-left: auto; font-size: 11px; color: #728091; font-weight: 400; }
 .field > input, .field > select { width: 100%; display: block; min-height: 50px; border: 1px solid #cfd7df; border-radius: 5px; padding: 12px 13px; background: #fff; color: #24394f; font: inherit; font-size: 16px; line-height: 1.5; transition: border-color .15s, box-shadow .15s; }
 .field > select { padding-right: 32px; }

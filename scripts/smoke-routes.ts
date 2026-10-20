@@ -3,6 +3,7 @@ import { createHash } from "node:crypto";
 import path from "node:path";
 import { proposedJobs } from "../data/jobs";
 import { getJobFairRole } from "../data/job-fair";
+import { additionalApplicationJobs } from "../data/application-jobs";
 
 // Read-only integration smoke test. Run against an already-running local server:
 // npx tsx scripts/smoke-routes.ts [http://127.0.0.1:3000]
@@ -25,7 +26,7 @@ const escapeRegex = (value: string) =>
 async function check(
   route: string,
   expectedStatus: number | number[] = 200,
-  validate?: (html: string) => string[],
+  validate?: (html: string, status: number) => string[],
 ) {
   const response = await fetch(new URL(route, base), {
     signal: AbortSignal.timeout(20000),
@@ -41,7 +42,7 @@ async function check(
         `Expected ${acceptedStatuses.join(" or ")}, received ${response.status}`,
       ];
   if (acceptedStatuses.includes(response.status) && validate)
-    errors.push(...validate(html));
+    errors.push(...validate(html, response.status));
   const passed = errors.length === 0;
   results.push({ route, status: response.status, passed, errors });
   console.log(
@@ -62,10 +63,13 @@ async function main() {
       const errors: string[] = [];
       for (const job of proposedJobs)
         if (!html.includes(`href="/jobs/${job.slug}"`)) errors.push(`Missing role: ${job.slug}`);
-      if (!html.includes("17") || !html.includes("11100")) errors.push("Missing current role or slot total");
+      if (!html.includes(String(proposedJobs.length)) || !html.includes("11100")) errors.push("Missing current role or slot total");
       return errors;
     } : undefined);
-  await check("/job-fair", [307, 308]);
+  // A redirect after streaming starts is emitted as a refresh meta tag.
+  await check("/job-fair", [200, 307, 308], (html, status) => status === 200 &&
+    !/<meta[^>]+http-equiv="refresh"[^>]+content="0;url=\/jobs"/.test(html)
+    ? ["Missing streamed redirect to /jobs"] : []);
   for (const job of proposedJobs) {
     await check(`/jobs/${job.slug}`, 200, (html) => {
       const errors: string[] = [];
@@ -98,11 +102,16 @@ async function main() {
       if (!html.includes("Welcome! Please tell us about yourself."))
         errors.push("Missing application form heading");
       const choices = html.match(/<select[^>]*id="jobId"[^>]*>([\s\S]*?)<\/select>/)?.[1] || "";
-      if ((choices.match(/<option\b/g) || []).length !== 17)
-        errors.push("Expected all 17 primary job choices");
+      if ((choices.match(/<option\b/g) || []).length !== proposedJobs.length + additionalApplicationJobs.length)
+        errors.push("Expected every official and additional primary job choice");
+      if (!choices.includes('label="Official listed jobs"') || !choices.includes('label="Other jobs we’re offering"'))
+        errors.push("Missing primary job categories");
       if (!choices.includes(`value="${job.id}" selected=""`) || !choices.includes(job.title))
         errors.push("Missing selected role");
-      if (!html.includes("Document requirements") || !html.includes("Form 18a"))
+      if (html.includes("Please enter your nationality")) errors.push("Nationality field should be removed");
+      for (const label of ["Slovenia", "Serbia", "Romania", "North Macedonia", "Montenegro"])
+        if (!html.includes(`<option value="${label}"`)) errors.push(`Missing destination: ${label}`);
+      if (!html.includes("Documents may be required") || !html.includes("for Croatia applicants"))
         errors.push("Missing document guidance");
       return errors;
     });
@@ -132,7 +141,7 @@ async function main() {
     const errors: string[] = [];
     const locations = [...xml.matchAll(/<loc>(.*?)<\/loc>/g)].map((match) => match[1]);
     // Local noindex previews intentionally return an empty sitemap.
-    if (locations.length !== 0 && locations.length !== 21) errors.push("Expected 21 public sitemap URLs, or an empty noindex preview");
+    if (locations.length !== 0 && locations.length !== proposedJobs.length + 4) errors.push("Expected public sitemap URLs, or an empty noindex preview");
     if (locations.length)
       for (const job of proposedJobs)
         if (!locations.some((location) => location.endsWith(`/jobs/${job.slug}`))) errors.push(`Missing sitemap role: ${job.slug}`);

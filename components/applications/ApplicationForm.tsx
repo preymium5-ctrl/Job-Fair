@@ -1,28 +1,28 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useRef, useState, type ReactNode } from "react";
 import Link from "next/link";
-import { ArrowLeft, ArrowRight, CheckCircle2, ClipboardCheck, FileText, LockKeyhole } from "lucide-react";
+import { ArrowLeft, ArrowRight, CheckCircle2, ClipboardCheck, FileText, LockKeyhole, MessageCircle, Send } from "lucide-react";
 import type { ApplicationInput, ApplicationProfile, Job } from "@/lib/types";
 import { applicationSchema, fieldErrors } from "@/lib/validation";
-import { MAX_PROFILE_UPLOAD_BYTES, MAX_PROFILE_RESUME_BYTES, MAX_SUPPORTING_DOCUMENT_BYTES, SUPPORTING_DOCUMENT_ACCEPT, supportingDocumentTypes, requiredProfileDocumentCategories, type SupportingDocumentCategory } from "@/lib/document-uploads";
-import { countryOptions, referenceJobPositions } from "@/data/application-form-options";
-import { fairDocuments, fairOptionalDocument, fairDocumentTiming, fairNc2Requirements, nc2ElectricalNote } from "@/data/job-fair";
+import { MAX_PROFILE_UPLOAD_BYTES, MAX_PROFILE_RESUME_BYTES, MAX_SUPPORTING_DOCUMENT_BYTES, SUPPORTING_DOCUMENT_ACCEPT, supportingDocumentTypes, getRequiredProfileDocumentCategories, isDriverPosition, type SupportingDocumentCategory } from "@/lib/document-uploads";
+import { countryOptions, destinationCountries, secondaryJobPositions } from "@/data/application-form-options";
+import { fairDocuments, fairDocumentTiming, fairNc2Requirements, nc2ElectricalNote } from "@/data/job-fair";
 import { BrandLockup } from "@/components/ui/Brand";
 import AttachmentUpload from "./AttachmentUpload";
 import styles from "./ApplicationForm.module.css";
 
 type FormErrors = Record<string, string | undefined>;
 type JobOption = Pick<Job, "id" | "title" | "slug">;
-type ProfileTextKey = Exclude<keyof ApplicationProfile, "gender" | "englishProficiency" | "termsAccepted" | "destinationCountry">;
+type ProfileTextKey = Exclude<keyof ApplicationProfile, "gender" | "englishProficiency" | "termsAccepted" | "destinationCountry" | "nationality">;
 const emptyProfile: ApplicationProfile = {
-  firstName: "", lastName: "", gender: "" as ApplicationProfile["gender"], nationality: "", telegram: "",
+  firstName: "", lastName: "", gender: "" as ApplicationProfile["gender"], telegram: "",
   address: "", street: "", city: "", province: "", postalCode: "",
   dateOfBirth: "", placeOfBirth: "", fatherName: "", motherName: "", destinationCountry: "Croatia",
   currentWorkCountry: "", secondaryJobTitle: "", otherJobTitle: "", englishProficiency: "" as ApplicationProfile["englishProficiency"], termsAccepted: false,
 };
 const profileLimits: Partial<Record<ProfileTextKey, number>> = {
-  firstName: 60, lastName: 60, nationality: 80, telegram: 80, street: 140, city: 60, province: 60, postalCode: 20, placeOfBirth: 120,
+  firstName: 60, lastName: 60, telegram: 80, street: 140, city: 60, province: 60, postalCode: 20, placeOfBirth: 120,
   fatherName: 120, motherName: 120, currentWorkCountry: 80, secondaryJobTitle: 160, otherJobTitle: 160,
 };
 const uploadLabels: Partial<Record<SupportingDocumentCategory, string>> = {
@@ -32,11 +32,11 @@ const uploadLabels: Partial<Record<SupportingDocumentCategory, string>> = {
   "employment-certificate": "Please upload your certificate of employment(s)",
   nc2: "Please upload your valid NC2 certificate",
   nbi: "Please upload your NBI clearance with apostille",
-  form18a: "Please upload your Form 18a",
+  form18a: "Please upload your Form 18a (for Croatia applicants)",
   "driver-license": "Please upload your driver’s license(s) from the Philippines (front & back)",
 };
 
-export default function ApplicationForm({ job, jobs = [job] }: { job: Job; jobs?: JobOption[] }) {
+export default function ApplicationForm({ job, jobs = [job], additionalJobs = [] }: { job: Job; jobs?: JobOption[]; additionalJobs?: JobOption[] }) {
   const [values, setValues] = useState<ApplicationInput>({
     jobId: job.id, fullName: "", email: "", phone: "", country: "", recentJobTitle: "", experienceYears: null,
     skills: "", education: "", summary: "", coverLetter: "", nc2Certificate: "", preferredEmployer: "",
@@ -56,11 +56,22 @@ export default function ApplicationForm({ job, jobs = [job] }: { job: Job; jobs?
   const headingRef = useRef<HTMLHeadingElement>(null);
   const submittingRef = useRef(false);
   const idempotencyRef = useRef<string | null>(null);
+  const selectedJob = [...jobs, ...additionalJobs].find(({ id }) => id === values.jobId) || job;
+  const driverApplicant = isDriverPosition(selectedJob.title);
+  const requiredDocumentCategories = getRequiredProfileDocumentCategories(selectedJob.title);
 
   function update<K extends keyof ApplicationInput>(key: K, value: ApplicationInput[K]) {
     idempotencyRef.current = null;
-    setValues((current) => ({ ...current, [key]: value }));
-    setErrors((current) => ({ ...current, [key]: undefined }));
+    setValues((current) => {
+      const next = { ...current, [key]: value };
+      if (key === "jobId" && current.profile) {
+        const title = [...jobs, ...additionalJobs].find(({ id }) => id === value)?.title;
+        if (title?.toLowerCase() === current.profile.secondaryJobTitle.toLowerCase())
+          next.profile = { ...current.profile, secondaryJobTitle: "" };
+      }
+      return next;
+    });
+    setErrors((current) => ({ ...current, [key]: undefined, ...(key === "jobId" ? { "document:driver-license": undefined } : {}) }));
   }
   function updateProfile<K extends keyof ApplicationProfile>(key: K, value: ApplicationProfile[K]) {
     idempotencyRef.current = null;
@@ -93,7 +104,7 @@ export default function ApplicationForm({ job, jobs = [job] }: { job: Job; jobs?
     else if (fileError(resume, true)) nextErrors.resume = fileError(resume, true);
     for (const { id, label } of supportingDocumentTypes) {
       const file = supportingFiles[id];
-      if (!file && requiredProfileDocumentCategories.some((category) => category === id))
+      if (!file && requiredDocumentCategories.includes(id))
         nextErrors[`document:${id}`] = `Please attach your ${label.toLowerCase()}.`;
       else if (file && fileError(file)) nextErrors[`document:${id}`] = fileError(file);
     }
@@ -143,10 +154,10 @@ export default function ApplicationForm({ job, jobs = [job] }: { job: Job; jobs?
     xhr.send(body);
   }
 
-  function textField(key: ProfileTextKey, label: string, options: { optional?: boolean; wide?: boolean; type?: string; autoComplete?: string; placeholder?: string; help?: string } = {}) {
+  function textField(key: ProfileTextKey, label: string, options: { optional?: boolean; wide?: boolean; type?: string; autoComplete?: string; placeholder?: string; help?: string; icon?: ReactNode } = {}) {
     const id = `profile.${key}`;
     return <div className={`${styles.field} ${options.wide ? styles.full : ""}`}>
-      <label htmlFor={id}>{label}{options.optional ? <span className={styles.optional}>Optional</span> : <span className={styles.asterisk}>*</span>}</label>
+      <label htmlFor={id}>{options.icon}{label}{options.optional ? <span className={styles.optional}>Optional</span> : <span className={styles.asterisk}>*</span>}</label>
       <input id={id} name={id} value={String(values.profile?.[key] || "")} type={options.type || "text"}
         autoComplete={options.autoComplete} maxLength={profileLimits[key]} placeholder={options.placeholder}
         max={options.type === "date" ? latestBirthDate : undefined}
@@ -157,13 +168,13 @@ export default function ApplicationForm({ job, jobs = [job] }: { job: Job; jobs?
       {errors[id] && <p className={styles.fieldError} id={`${id}-error`}>{errors[id]}</p>}
     </div>;
   }
-  function profileSelect<K extends "nationality" | "currentWorkCountry" | "secondaryJobTitle">(key: K, label: string, options: readonly string[], wide = true, help?: string) {
+  function profileSelect<K extends "currentWorkCountry" | "secondaryJobTitle" | "destinationCountry">(key: K, label: string, options: readonly string[], wide = true, help?: string) {
     const id = `profile.${key}`;
     return <div className={`${styles.field} ${wide ? styles.full : ""}`}>
       <label htmlFor={id}>{label}<span className={styles.asterisk}>*</span></label>
       <select id={id} name={id} value={values.profile?.[key] || ""} disabled={busy} aria-required="true" aria-invalid={Boolean(errors[id])}
         aria-describedby={[help ? `${id}-help` : "", errors[id] ? `${id}-error` : ""].filter(Boolean).join(" ") || undefined}
-        onChange={(event) => updateProfile(key, event.target.value)}>
+        onChange={(event) => updateProfile(key, event.target.value as ApplicationProfile[K])}>
         <option value="">Select an option</option>
         {options.map((option) => <option key={option} value={option}>{option}</option>)}
       </select>
@@ -182,16 +193,16 @@ export default function ApplicationForm({ job, jobs = [job] }: { job: Job; jobs?
   function upload(category: SupportingDocumentCategory) {
     const hints: Partial<Record<SupportingDocumentCategory, string>> = {
       passport: "A clear copy of your passport, valid for at least 2 years.",
-      "residence-id": "Combine the front and back in one file. Both sides must be readable.",
+      "residence-id": "For Filipinos currently outside the Philippines: upload the valid residence ID issued by your current country of residence. Combine the front and back in one readable file.",
       diploma: "Needed for the work permit application. Upload your high school diploma now if available.",
       "employment-certificate": "A certificate of employment or employment contract showing your experience.",
       nc2: "Needed for the work permit application. Check the position guide above and upload your certificate if available.",
       nbi: "Needed for the work permit application. Combine your NBI clearance and apostille in one file, if available.",
-      form18a: "Needed for the work permit application. Upload your completed Form 18a if available.",
-      "driver-license": "Combine the front and back in one file, if available.",
+      form18a: "For Croatia applicants. Upload your completed Form 18a if available for the work permit application.",
+      "driver-license": driverApplicant ? "Required for driver applicants. Combine the front and back of your valid Philippine driver’s license in one readable file." : "Required for driver applicants; optional for other positions. Combine the front and back in one file, if available.",
     };
     return <AttachmentUpload id={`attachment-${category}`} label={uploadLabels[category] || category}
-      required={requiredProfileDocumentCategories.some((id) => id === category)} hint={hints[category] || "Attach a clear, readable copy."}
+      required={requiredDocumentCategories.includes(category)} hint={hints[category] || "Attach a clear, readable copy."}
       accept={SUPPORTING_DOCUMENT_ACCEPT} maxBytes={MAX_SUPPORTING_DOCUMENT_BYTES} file={supportingFiles[category] || null}
       error={errors[`document:${category}`]} disabled={busy} onChange={(file) => {
         idempotencyRef.current = null;
@@ -202,7 +213,7 @@ export default function ApplicationForm({ job, jobs = [job] }: { job: Job; jobs?
   const totalUploadBytes = Object.values(supportingFiles).reduce((sum, file) => sum + (file?.size || 0), resume?.size || 0);
   const requiredAttachments = [
     { label: "CV / Resume", ready: Boolean(resume && !fileError(resume, true)) },
-    ...requiredProfileDocumentCategories.map((id) => ({ label: supportingDocumentTypes.find((item) => item.id === id)!.label, ready: Boolean(supportingFiles[id] && !fileError(supportingFiles[id]!)) })),
+    ...requiredDocumentCategories.map((id) => ({ label: supportingDocumentTypes.find((item) => item.id === id)!.label, ready: Boolean(supportingFiles[id] && !fileError(supportingFiles[id]!)) })),
   ];
   const readyCount = requiredAttachments.filter(({ ready }) => ready).length;
   const errorCount = Object.values(errors).filter(Boolean).length;
@@ -235,11 +246,10 @@ export default function ApplicationForm({ job, jobs = [job] }: { job: Job; jobs?
             {textField("lastName", "Your last name", { autoComplete: "family-name", placeholder: "Enter your last name" })}
             {choice("gender", "Enter your gender", ["Male", "Female"])}
             <div className={styles.field}><label htmlFor="email">Email<span className={styles.asterisk}>*</span></label><input id="email" name="email" type="email" autoComplete="email" placeholder="you@example.com" maxLength={254} value={values.email} disabled={busy} aria-required="true" aria-invalid={Boolean(errors.email)} aria-describedby={errors.email ? "email-error" : undefined} onChange={(event) => update("email", event.target.value)} />{errors.email && <p id="email-error" className={styles.fieldError}>{errors.email}</p>}</div>
-            {profileSelect("nationality", "Please enter your nationality", ["Filipino", ...countryOptions.filter((country) => country !== "Philippines")], false)}
-            <div className={styles.field}><label htmlFor="phone">WhatsApp number<span className={styles.asterisk}>*</span></label><input id="phone" name="phone" type="tel" autoComplete="tel" placeholder="+63 912 345 6789" maxLength={30} value={values.phone} disabled={busy} aria-required="true" aria-invalid={Boolean(errors.phone)} aria-describedby={`phone-help${errors.phone ? " phone-error" : ""}`} onChange={(event) => update("phone", event.target.value)} /><p id="phone-help" className={styles.help}>Enter your active WhatsApp number with the country code.</p>{errors.phone && <p id="phone-error" className={styles.fieldError}>{errors.phone}</p>}</div>
-            {textField("telegram", "Telegram number", { optional: true, wide: true, type: "tel", placeholder: "Enter your Telegram number", help: "Enter your active Telegram number, if you use Telegram." })}
+            <div className={styles.field}><label htmlFor="phone"><MessageCircle size={18} className={styles.whatsappIcon} aria-hidden="true" />WhatsApp number<span className={styles.asterisk}>*</span></label><input id="phone" name="phone" type="tel" autoComplete="tel" placeholder="+63 912 345 6789" maxLength={30} value={values.phone} disabled={busy} aria-required="true" aria-invalid={Boolean(errors.phone)} aria-describedby={`phone-help${errors.phone ? " phone-error" : ""}`} onChange={(event) => update("phone", event.target.value)} /><p id="phone-help" className={styles.help}>Enter your active WhatsApp number with the country code.</p>{errors.phone && <p id="phone-error" className={styles.fieldError}>{errors.phone}</p>}</div>
+            {textField("telegram", "Telegram number", { optional: true, type: "tel", placeholder: "Enter your Telegram number", help: "Enter your active Telegram number, if you use Telegram.", icon: <Send size={18} className={styles.telegramIcon} aria-hidden="true" /> })}
             <fieldset className={`${styles.addressGroup} ${styles.full}`}>
-              <legend>Your current address</legend>
+              <legend>Your current address / location</legend>
               <div className={styles.grid}>
                 {textField("street", "Street", { autoComplete: "street-address", placeholder: "House / building number and street" })}
                 {textField("city", "City", { autoComplete: "address-level2", placeholder: "Enter your city" })}
@@ -251,22 +261,22 @@ export default function ApplicationForm({ job, jobs = [job] }: { job: Job; jobs?
             {textField("placeOfBirth", "Your place of birth", { placeholder: "City / province and country" })}
             {textField("fatherName", "Your father’s full name", { optional: true })}
             {textField("motherName", "Your mother’s full name", { optional: true })}
-            <div className={`${styles.field} ${styles.full}`}><label htmlFor="destinationCountry">Please select a country where you would like to apply<span className={styles.asterisk}>*</span></label><select id="destinationCountry" value="Croatia" disabled={busy} aria-required="true" onChange={() => {}}><option value="Croatia">Croatia</option></select><p className={styles.help}>Our listed vacancies are in Croatia.</p></div>
+            {profileSelect("destinationCountry", "Please select a country where you would like to apply", destinationCountries, true, "Select your preferred country for your application.")}
           </section>
           <section className={styles.section} aria-labelledby="work-heading">
             <h2 id="work-heading">Work Experience</h2><span className={styles.rule} />
             <div className={styles.grid}>
-              {profileSelect("currentWorkCountry", "Where are you currently working?", countryOptions, true, "Select the country where you currently work or are based.")}
-              <div className={`${styles.field} ${styles.full}`}><label htmlFor="jobId">What job position are you primarily applying for?<span className={styles.asterisk}>*</span></label><select id="jobId" name="jobId" value={values.jobId} disabled={busy} aria-required="true" aria-invalid={Boolean(errors.jobId)} aria-describedby={`job-help${errors.jobId ? " jobId-error" : ""}`} onChange={(event) => update("jobId", event.target.value)}>{jobs.map((option) => <option key={option.id} value={option.id}>{option.title}</option>)}</select><p id="job-help" className={styles.help}>Please select only a position for which you already have relevant work experience.</p>{errors.jobId && <p id="jobId-error" className={styles.fieldError}>{errors.jobId}</p>}</div>
-              {profileSelect("secondaryJobTitle", "Please select another job position in which you have experience", referenceJobPositions, true, "Please select only a position for which you already have relevant work experience.")}
+              {profileSelect("currentWorkCountry", "Country where you are currently working", countryOptions, true, "Select the country where you currently work or are based.")}
+              <div className={`${styles.field} ${styles.full}`}><label htmlFor="jobId">What job position are you primarily applying for?<span className={styles.asterisk}>*</span></label><select id="jobId" name="jobId" value={values.jobId} disabled={busy} aria-required="true" aria-invalid={Boolean(errors.jobId)} aria-describedby={`job-help${errors.jobId ? " jobId-error" : ""}`} onChange={(event) => update("jobId", event.target.value)}><optgroup label="Official listed jobs">{jobs.map((option) => <option key={option.id} value={option.id}>{option.title}</option>)}</optgroup>{additionalJobs.length > 0 && <optgroup label="Other jobs we’re offering">{additionalJobs.map((option) => <option key={option.id} value={option.id}>{option.title}</option>)}</optgroup>}</select><p id="job-help" className={styles.help}>Please select only a position for which you already have relevant work experience.</p>{errors.jobId && <p id="jobId-error" className={styles.fieldError}>{errors.jobId}</p>}</div>
+              {profileSelect("secondaryJobTitle", "Please select an additional role in which you have experience, other than the position you are applying for", secondaryJobPositions.filter((title) => title.toLowerCase() !== selectedJob.title.toLowerCase()), true, "Select another role that matches your experience, or choose ‘No other position’.")}
               {textField("otherJobTitle", "If the job you’re applying for is not listed above, please enter it here", { optional: true, wide: true })}
             </div>
           </section>
           <section className={styles.section} aria-labelledby="requirements-heading">
-            <h2 id="requirements-heading">Document requirements</h2><span className={styles.rule} />
-            <p className={styles.sectionIntro}><strong>All positions:</strong></p>
-            <ul className={styles.documentList}>{fairDocuments.map((document) => <li key={document}>{document}</li>)}</ul>
-            <p className={styles.sectionIntro}>{fairOptionalDocument}</p>
+            <h2 id="requirements-heading">Documents may be required</h2><span className={styles.rule} />
+            <p className={styles.sectionIntro}>Depending on your position and destination country, the following documents may be required:</p>
+            <ul className={styles.documentList}>{fairDocuments.map((document) => <li key={document}>{document === "Form 18a" ? "Form 18a (for Croatia applicants)" : document}</li>)}</ul>
+            <p className={styles.sectionIntro}>A valid Philippine driver’s license (front &amp; back) is required for driver applicants.</p>
             <div className={styles.timingNotice}><strong>IMPORTANT</strong><p>{fairDocumentTiming}</p></div>
             <table className={styles.requirementsTable}>
               <caption>NC2 certificate required by position</caption>
@@ -277,7 +287,7 @@ export default function ApplicationForm({ job, jobs = [job] }: { job: Job; jobs?
           </section>
           <section className={styles.section} aria-labelledby="documents-heading">
             <h2 id="documents-heading">Document Uploads</h2><span className={styles.rule} />
-            <p className={styles.sectionIntro}>For this application, attach your CV, valid passport, and residence ID. Attach the work permit documents below if you have them available.</p>
+            <p className={styles.sectionIntro}>For this application, attach your CV, valid passport, and residence ID.{driverApplicant ? " Driver applicants must also attach a valid Philippine driver’s license (front & back)." : ""} Attach the work permit documents below if you have them available.</p>
             <div className={styles.checklist}><ClipboardCheck size={22} aria-hidden="true" /><div><strong role="status">{readyCount} of {requiredAttachments.length} required documents ready</strong><p>{(totalUploadBytes / 1024 / 1024).toFixed(1)} MB of 4 MB used. Keep all files together within 4 MB; aim for under 1 MB each.</p></div></div>
             <div className={styles.uploads}>
               <AttachmentUpload id="resume" label="Please upload your CV" required hint="Maximum one file. Please make sure your CV is updated." accept=".pdf,.doc,.docx" maxBytes={MAX_PROFILE_RESUME_BYTES} file={resume} error={errors.resume} disabled={busy} onChange={chooseResume} />

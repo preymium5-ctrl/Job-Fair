@@ -15,6 +15,7 @@ import { drainSheetsQueue } from "../lib/sheets-queue";
 import { POST as submit } from "../app/api/applications/route";
 import { POST as signIn } from "../app/api/admin/session/route";
 import { GET as download } from "../app/api/admin/applications/[id]/documents/[documentId]/route";
+import { getJobFairRole } from "../data/job-fair";
 
 const original = { ...process.env };
 const origin = "http://localhost:3000";
@@ -45,7 +46,7 @@ test("supporting uploads validate real bytes and sanitize scans", async () => {
 });
 
 test("applications retain diploma and other files, reject changed retries, authorize downloads and queue private Google delivery", async () => {
-  const job = (await getJobs())[0];
+  const job = (await getJobs()).find((job) => getJobFairRole(job)?.drivingLicenseIsPlus)!;
   const input = { jobId: job.id, fullName: "Document Test Applicant", email: "documents@example.test", phone: "+639171234567", country: "Philippines", recentJobTitle: "Fabricator", experienceYears: 3, skills: "Fabrication", education: "School diploma", summary: "", coverLetter: "", driverLicenseDetails: "Non-professional license, Philippines", consent: true };
   const key = randomUUID();
   function request(changed = false, duplicate = false) {

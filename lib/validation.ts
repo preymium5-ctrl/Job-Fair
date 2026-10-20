@@ -2,6 +2,7 @@ import { z } from "zod";
 import { applicationStatuses, documentStatuses } from "./types";
 import { minimumExperienceYears } from "../data/employment";
 import { referralSources } from "./referral-sources";
+import { destinationCountries } from "../data/application-form-options";
 
 const shortText = (maximum = 160) =>
   z.string().trim().min(2, "Enter at least 2 characters.").max(maximum);
@@ -12,7 +13,7 @@ export const applicationProfileSchema = z.object({
   firstName: profileText(60),
   lastName: profileText(60),
   gender: z.enum(["Male", "Female"], { error: "Please select Male or Female." }),
-  nationality: profileText(80),
+  nationality: profileOptionalText(80),
   address: profileString(300).default(""),
   street: profileText(140).optional(),
   city: profileText(60).optional(),
@@ -23,7 +24,7 @@ export const applicationProfileSchema = z.object({
     return Number.isFinite(date.getTime()) && date.toISOString().slice(0, 10) === value && value < new Date().toISOString().slice(0, 10);
   }, "Enter a real date of birth in the past."),
   placeOfBirth: profileText(120),
-  destinationCountry: z.literal("Croatia"),
+  destinationCountry: z.enum(destinationCountries),
   currentWorkCountry: profileText(80).min(2, "Enter your current work country."),
   secondaryJobTitle: profileText(160),
   englishProficiency: z.enum(["Yes", "No"], { error: "Please select Yes or No." }),
@@ -174,6 +175,7 @@ export const jobSchema = z
     status: z.enum(["published", "draft", "closed"]),
     isExample: z.boolean(),
     featured: z.boolean(),
+    applicationOnly: z.boolean().optional(),
     salary: z.string().trim().max(300).optional(),
     salaryStatus: z.literal("proposed-net").optional(),
     schedule: z.string().trim().max(300).optional(),

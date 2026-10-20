@@ -85,14 +85,14 @@ function history(job: Job, suffix: string): Application {
   };
 }
 
-test("fresh catalog retains the original 17 unique roles and 11,100 grouped slots", async () => {
+test("fresh catalog includes a separate Cleaner and retains 11,100 grouped slots", async () => {
   const db = await getDatabase();
   await migrateProposedJobCatalog(db);
   const rows = await db.select().from(jobs);
-  assert.equal(rows.length, 17);
-  assert.equal(rows.filter((row) => row.status === "published").length, 17);
+  assert.equal(rows.length, proposedJobs.length);
+  assert.equal(rows.filter((row) => row.status === "published").length, proposedJobs.length);
   assert.equal(rows.reduce((total, row) => total + (row.data.openings ?? 0), 0), 11100);
-  assert.equal(new Set(rows.map((row) => row.data.title)).size, 17);
+  assert.equal(new Set(rows.map((row) => row.data.title)).size, proposedJobs.length);
   assert.deepEqual(rows.map((row) => row.id).sort(), proposedJobs.map((job) => job.id).sort());
   assert.equal((await db.select().from(settings).where(eq(settings.key, expansionVersion))).length, 0);
 });
@@ -110,8 +110,8 @@ test("rollback retires six split listings, restores grouped totals and preserves
   await migrateProposedJobCatalog(db);
   const rows = await db.select().from(jobs);
   const published = rows.filter((row) => row.status === "published");
-  assert.equal(rows.length, 23, "Historical job records are retained");
-  assert.equal(published.length, 17);
+  assert.equal(rows.length, proposedJobs.length + 6, "Historical job records are retained");
+  assert.equal(published.length, proposedJobs.length);
   assert.equal(published.reduce((total, row) => total + (row.data.openings ?? 0), 0), 11100);
   assert.deepEqual(await db.select().from(applications), applicationsBefore);
   for (const job of proposedJobs) {

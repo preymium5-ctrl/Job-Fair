@@ -1,0 +1,12 @@
+Tool: built-in image_gen__imagegen
+transparent_background: false
+Project asset: public/images/jobs/filipino/cleaner.webp
+Output: 1440 x 960, WebP quality 84
+
+Use case: photorealistic-natural
+Asset type: recruitment website job card photograph, landscape 3:2 composition
+Primary request: a professional Filipino cleaner at work in a bright modern commercial building.
+Subject: one adult Filipino cleaning professional wearing a tidy navy work uniform, protective gloves, and sensible closed shoes, wiping a clean glass office partition using a microfiber cloth; a modest cleaning trolley with unbranded supplies is nearby.
+Scene: practical well-maintained office corridor, realistic and welcoming workplace, soft natural daylight.
+Style: believable editorial workplace photograph, natural skin detail, restrained colors, subject visible waist up with enough environment for a website card crop.
+Constraints: no text, no logos, no watermark, no invented employer branding. One person only. Avoid glamour styling, hospital or hotel bed setting, and exaggerated promotional posing.

@@ -11,6 +11,12 @@ export const supportingDocumentTypes = [
 ] as const;
 export type SupportingDocumentCategory = (typeof supportingDocumentTypes)[number]["id"];
 export const requiredProfileDocumentCategories = ["passport", "residence-id"] as const;
+export function isDriverPosition(title: string) {
+  return /\bdrivers?\b/i.test(title);
+}
+export function getRequiredProfileDocumentCategories(jobTitle: string): SupportingDocumentCategory[] {
+  return [...requiredProfileDocumentCategories, ...(isDriverPosition(jobTitle) ? ["driver-license" as const] : [])];
+}
 export const privateProfileDocumentCategories = ["passport", "residence-id", "employment-certificate"] as const;
 export const MAX_SUPPORTING_DOCUMENT_BYTES = 3 * 1024 * 1024;
 export const MAX_APPLICATION_UPLOAD_BYTES = 15 * 1024 * 1024;
