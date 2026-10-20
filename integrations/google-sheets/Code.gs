@@ -62,32 +62,35 @@ function doPost(event) {
     chapterPrivateFolder_(config.folderId);
     const application = payload.application;
     const existing = chapterFindRow_(sheet, application.id, application.reference);
-    if (!existing) chapterEnforceSubmissionRate_(sheet, application);
-    const documentFiles = payload.documents.map(function (document) {
-      return { category: document.category, file: chapterGetOrCreateCv_(config, application, document, document.bytes, document.id) };
-    });
-    const documentColumns = CHAPTER_DOCUMENT_CATEGORIES.map(function (category) {
-      const item = documentFiles.find(function (item) { return item.category === category; });
-      return item ? 'https://drive.google.com/file/d/' + item.file.id + '/view' : '';
-    });
     if (existing) {
       const cvLink = String(sheet.getRange(existing, 9).getValue());
-      const match = /^https:\/\/drive\.google\.com\/file\/d\/([A-Za-z0-9_-]+)\/view$/.exec(cvLink);
-      chapterAssert_(match, 'EXISTING_CV_MISSING');
-      const file = chapterDriveGet_(match[1]);
-      chapterVerifyCv_(file, config.folderId, application, payload.resume);
-      chapterPrivatePermissions_(file.id);
+      chapterExistingPrivateFile_(config, application, payload.resume, cvLink);
       const existingDocuments = sheet.getRange(existing, 23, 1, 5).getValues()[0];
-      chapterAssert_(existingDocuments.every(function (value, index) { return value === documentColumns[index]; }), 'EXISTING_DOCUMENT_MISMATCH');
-      chapterAssert_(sheet.getRange(existing, 28).getValue() === (application.driverLicenseDetails || '') &&
-        sheet.getRange(existing, 29).getValue() === documentColumns[5], 'EXISTING_DOCUMENT_MISMATCH');
+      const extended = sheet.getRange(existing, 31, 1, 24).getValues()[0];
+      const storedDocumentLinks = existingDocuments.concat([sheet.getRange(existing, 29).getValue()], extended.slice(20, 23));
+      chapterAssert_(sheet.getRange(existing, 28).getValue() === (application.driverLicenseDetails || ''), 'EXISTING_DOCUMENT_MISMATCH');
+      // The original six document columns must match the stored submission.
+      // Only the appended identity columns permit recovery from an older row.
+      storedDocumentLinks.slice(0, 6).forEach(function (link, index) {
+        const document = payload.documents.find(function (item) { return item.category === CHAPTER_DOCUMENT_CATEGORIES[index]; });
+        chapterAssert_(document ? link !== '' : link === '', 'EXISTING_DOCUMENT_MISMATCH');
+      });
+      const documentColumns = CHAPTER_DOCUMENT_CATEGORIES.map(function (category, index) {
+        const document = payload.documents.find(function (item) { return item.category === category; });
+        if (!document) return '';
+        // Read committed file IDs directly. Drive search can lag immediately
+        // after an upload; searching here could create a second copy on retry.
+        const file = storedDocumentLinks[index] !== ''
+          ? chapterExistingPrivateFile_(config, application, document, storedDocumentLinks[index], document.id)
+          : chapterGetOrCreateCv_(config, application, document, document.bytes, document.id);
+        return 'https://drive.google.com/file/d/' + file.id + '/view';
+      });
       // A delivery may already have been written by an earlier receiver before
       // its acknowledgement was lost. Fill only previously blank extended cells;
       // retain historical answers and refuse conflicting nonempty retry values.
       if (payload.version === 3 || payload.documents.some(function (document) {
         return CHAPTER_DOCUMENT_CATEGORIES.indexOf(document.category) >= 6;
       })) {
-        const extended = sheet.getRange(existing, 31, 1, 24).getValues()[0];
         const expectedExtended = chapterExtendedRow_(application, documentColumns);
         let fill = false;
         const recovered = extended.map(function (value, index) {
@@ -107,6 +110,14 @@ function doPost(event) {
         reference: application.reference, row: existing, duplicate: true, cvUrl: cvLink });
     }
 
+    chapterEnforceSubmissionRate_(sheet, application);
+    const documentFiles = payload.documents.map(function (document) {
+      return { category: document.category, file: chapterGetOrCreateCv_(config, application, document, document.bytes, document.id) };
+    });
+    const documentColumns = CHAPTER_DOCUMENT_CATEGORIES.map(function (category) {
+      const item = documentFiles.find(function (item) { return item.category === category; });
+      return item ? 'https://drive.google.com/file/d/' + item.file.id + '/view' : '';
+    });
     const file = chapterGetOrCreateCv_(config, application, payload.resume, payload.bytes);
     const row = chapterRow_(application, file).concat(documentColumns.slice(0, 5), [
       application.driverLicenseDetails || '', documentColumns[5], application.referralSource || application.discoverySource || ''
@@ -432,6 +443,15 @@ function chapterGetOrCreateCv_(config, application, resume, bytes, documentId) {
       payload: Utilities.newBlob(bytes, resume.mime, resume.name) }, 'CV_UPLOAD_FAILED');
   }
   chapterVerifyCv_(file, config.folderId, application, resume, documentId);
+  chapterPrivatePermissions_(file.id);
+  return file;
+}
+
+function chapterExistingPrivateFile_(config, application, document, link, documentId) {
+  const match = typeof link === 'string' && /^https:\/\/drive\.google\.com\/file\/d\/([A-Za-z0-9_-]+)\/view$/.exec(link);
+  chapterAssert_(match, documentId ? 'EXISTING_DOCUMENT_MISMATCH' : 'EXISTING_CV_MISSING');
+  const file = chapterDriveGet_(match[1]);
+  chapterVerifyCv_(file, config.folderId, application, document, documentId);
   chapterPrivatePermissions_(file.id);
   return file;
 }

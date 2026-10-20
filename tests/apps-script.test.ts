@@ -19,7 +19,7 @@ function fixture() {
   ]);
   const state = {
     rows: [] as unknown[][], files: [] as DriveFile[], calls: [] as { url: string; options: Record<string, unknown> }[],
-    writeFailures: 0, writeWrongAck: false, maxRows: 1000, maxColumns: 54, folderPublic: false, filePublic: false, locks: 0, releases: 0,
+    writeFailures: 0, writeWrongAck: false, hideSearchResults: false, maxRows: 1000, maxColumns: 54, folderPublic: false, filePublic: false, locks: 0, releases: 0,
     validationChanges: [] as { action: string; row: number; column: number; count: number; columns: number; rule?: unknown }[],
     stagedFile: undefined as Omit<DriveFile, "id" | "size" | "trashed"> | undefined,
   };
@@ -97,7 +97,7 @@ function fixture() {
         const applicationId = /key='chapterApplicationId' and value='([^']+)'/.exec(query)?.[1];
         const documentId = /key='chapterDocumentId' and value='([^']+)'/.exec(query)?.[1];
         assert.ok(!/has\s*\{\s*key='[^']+'\s*\}/.test(query), "Drive property searches require key and value");
-        return response({ files: state.files.filter((file) => file.appProperties.chapterApplicationId === applicationId &&
+        return response({ files: state.hideSearchResults ? [] : state.files.filter((file) => file.appProperties.chapterApplicationId === applicationId &&
           (!documentId || file.appProperties.chapterDocumentId === documentId)) });
       }
       if (url.includes("uploadType=resumable")) {
@@ -597,6 +597,46 @@ test("v3 exports every profile answer and all nine document categories in fixed 
   assert.equal(state.rows[1][50], "https://drive.google.com/file/d/private-cv-7/view");
 });
 
+test("an acknowledged v3 retry uses committed private file IDs while Drive search is stale", () => {
+  const { state, post } = fixture();
+  const payload = profileApplication();
+  assert.equal(post(payload).ok, true);
+  const originalRows = structuredClone(state.rows);
+  state.hideSearchResults = true;
+  const callsBefore = state.calls.length;
+  const retry = post(payload);
+  assert.equal(retry.ok, true);
+  assert.equal(retry.duplicate, true);
+  assert.equal(retry.reference, payload.application.reference);
+  assert.deepEqual(state.rows, originalRows);
+  assert.equal(state.files.length, 10);
+  const retryCalls = state.calls.slice(callsBefore);
+  assert.ok(!retryCalls.some(({ url }) => url.includes("/files?q=") || url.includes("uploadType=") || url.includes("upload_id=")));
+  assert.equal(retryCalls.filter(({ url }) => /\/files\/private-cv-\d+\?/.test(url)).length, 10);
+});
+
+test("retries verify committed document ownership, category and privacy before accepting stored links", () => {
+  for (const change of ["application", "reference", "category", "folder", "mime", "trashed", "link", "public"]) {
+    const { state, post } = fixture();
+    const payload = profileApplication();
+    assert.equal(post(payload).ok, true);
+    const document = state.files[0];
+    if (change === "application") document.appProperties.chapterApplicationId = "another-application";
+    if (change === "reference") document.appProperties.chapterReference = "ANOTHER-REFERENCE";
+    if (change === "category") document.appProperties.chapterDocumentId = "another-document";
+    if (change === "folder") document.parents = ["another-private-folder"];
+    if (change === "mime") document.mimeType = "image/jpeg";
+    if (change === "trashed") document.trashed = true;
+    if (change === "link") state.rows[1][22] = "https://hostile.example/private-file";
+    if (change === "public") state.filePublic = true;
+    const callsBefore = state.calls.length;
+    assert.equal(post(payload).code, change === "link" ? "EXISTING_DOCUMENT_MISMATCH" : change === "public" ? "CV_NOT_PRIVATE" : "CV_METADATA_MISMATCH");
+    assert.equal(state.files.length, 10);
+    assert.equal(state.rows.length, 2);
+    assert.ok(!state.calls.slice(callsBefore).some(({ url }) => url.includes("/files?q=") || url.includes("uploadType=")));
+  }
+});
+
 test("v3 profile schema rejects unknown keys, invalid dates, unchecked terms and oversized values before Google access", () => {
   const original = profileApplication();
   const invalidApplications = [
@@ -703,6 +743,7 @@ test("a v3 retry recovers an older 30-column delivery by filling only blank AE:B
     profile: { ...current.application.profile, otherJobTitle: "" },
   } };
   const writesBefore = state.calls.filter(({ url }) => url.includes("/values/")).length;
+  const searchesBefore = state.calls.filter(({ url }) => url.includes("/files?q=")).length;
   assert.equal(post(retry).duplicate, true);
   assert.deepEqual(state.rows[1].slice(0, 30), originalBase);
   assert.equal(state.rows[1][30], "=SUM(1,1)");
@@ -715,8 +756,10 @@ test("a v3 retry recovers an older 30-column delivery by filling only blank AE:B
   assert.match(decodeURIComponent(backfill.url), /'Applications'!AE2:BB2\?valueInputOption=RAW$/);
   assert.equal(JSON.parse(backfill.options.payload as string).values[0].length, 24);
   assert.equal(state.calls.filter(({ url }) => url.includes("/values/")).length, writesBefore + 1);
+  assert.equal(state.calls.filter(({ url }) => url.includes("/files?q=")).length, searchesBefore + 3);
   assert.equal(post(retry).duplicate, true);
   assert.equal(state.calls.filter(({ url }) => url.includes("/values/")).length, writesBefore + 1);
+  assert.equal(state.calls.filter(({ url }) => url.includes("/files?q=")).length, searchesBefore + 3);
   assert.equal(state.files.length, 10);
   assert.equal(state.rows.length, 2);
   assert.equal(post(legacy).duplicate, true);
