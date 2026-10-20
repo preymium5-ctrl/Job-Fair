@@ -1,5 +1,6 @@
 import type { Job } from "../lib/types";
 import { hiringAllocations } from "./hiring-allocations";
+import { getJobPosition, jobPositions } from "./job-positions";
 
 export interface JobFairEmployer {
   name: string;
@@ -31,7 +32,7 @@ export const jobFair = {
   location: "Philippines",
   venue: "Testing centre to be confirmed",
   totalWorkers: 248,
-  roleCount: 17,
+  roleCount: jobPositions.length,
   participationNote: "Participation and employer-specific terms to be confirmed.",
   employers: [
     {
@@ -118,7 +119,7 @@ export const nc2ElectricalNote =
   "The plan accepts NC2 Electrical categories related to electricians, including industrial electrician, building wiring installation and maintenance, power distribution, lineman, electrical installer and electrical assembler. Vertiv's work profile specifically calls for industrial electricians.";
 
 export const jobFairFaqs: [string, string][] = [
-  ["What is Job Fair Philippines 2026?", "It is a recruitment and skills-assessment plan for Filipino applicants exploring work abroad in Croatia. The plan lists 248 workers across 17 role types and six employer groups."],
+  ["What is Job Fair Philippines 2026?", "It is a recruitment and skills-assessment plan for Filipino applicants exploring work abroad in Croatia. The dated plan lists 23 employer-specific positions across 17 role types and six employers. Its original 248-worker allocation is historical; the listings show the current hiring counts."],
   ["When are the online interviews and skills testing?", `Online interviews are scheduled for ${jobFair.interviewDateLabel}. Five full days of skills testing are planned for ${jobFair.testingDateLabel}, Monday to Friday. Confirm your appointment with the recruitment team.`],
   ["Which jobs abroad can I explore?", "The listed roles cover welding, fabrication, pipe fitting, electrical installation and assembly, CNC operation, industrial painting, motor and generator work, robotic welding, and grinding. Open a role to review its salary, experience and certificate guidance."],
   ["Where in the Philippines will the job fair testing take place?", "Testing is planned in the Philippines. The testing-centre address and individual attendance arrangements are to be confirmed by BEI Manpower."],
@@ -160,7 +161,7 @@ const knownRoles: { slug: string; nc2: string; testing?: string[]; focus?: strin
 ];
 
 /** Match source-controlled records by both ID and slug, never unrelated staff jobs. */
-export function getJobFairRole(job: Pick<Job, "id" | "slug">): JobFairRole | undefined {
+export function getGroupedJobFairRole(job: Pick<Job, "id" | "slug">): JobFairRole | undefined {
   const index = knownRoles.findIndex((role) => role.slug === job.slug);
   if (index === -1 || job.id !== `proposed-${job.slug}-${String(index + 1).padStart(2, "0")}`)
     return undefined;
@@ -182,5 +183,21 @@ export function getJobFairRole(job: Pick<Job, "id" | "slug">): JobFairRole | und
     drivingLicenseIsPlus: true,
     testing: role.testing ?? [...new Set(employers.map((employer) => `${employer.name}: ${employer.testing}`))],
     ...(role.focus ? { focus: role.focus } : {}),
+  };
+}
+
+/** Public positions carry only the employer for that listing, with role-family guidance. */
+export function getJobFairRole(job: Pick<Job, "id" | "slug">): JobFairRole | undefined {
+  const position = getJobPosition(job);
+  if (!position) return undefined;
+  const parent = jobPositions.find((item) => item.slug === position.roleSlug)!;
+  const role = getGroupedJobFairRole(parent);
+  if (!role) return undefined;
+  const employers = role.employers.filter((employer) => employer.name === position.employer);
+  return {
+    ...role,
+    employers,
+    testing: knownRoles.find((item) => item.slug === position.roleSlug)?.testing
+      ?? employers.map((employer) => `${employer.name}: ${employer.testing}`),
   };
 }

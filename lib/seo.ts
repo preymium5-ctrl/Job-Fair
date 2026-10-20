@@ -1,6 +1,7 @@
 import type { Metadata, MetadataRoute } from "next";
 import type { Job } from "./types";
 import { site } from "../data/site";
+import { jobPositionLabel } from "../data/job-positions";
 
 type SeoEnvironment = Record<string, string | undefined>;
 
@@ -64,9 +65,10 @@ export function discoverableJob(job: Job) {
 }
 
 export function jobPageMetadata(job: Job): Metadata {
+  const label = jobPositionLabel(job);
   return pageMetadata({
-    title: `${job.title} — Hiring Filipino Workers in Croatia`,
-    description: `${job.title} in Croatia for Filipino applicants. Review the salary range, free accommodation and transportation, no placement fee, requirements and online application.`,
+    title: `${label} — Hiring Filipino Workers in Croatia`,
+    description: `${label} in Croatia for Filipino applicants. Review the salary range, free accommodation and transportation, no placement fee, requirements and online application.`,
     path: `/jobs/${encodeURIComponent(job.slug)}`,
     image: job.image,
     imageAlt: job.imageAlt,
@@ -141,7 +143,7 @@ export function jobDirectoryData(jobs: Job[]) {
     mainEntity: {
       "@type": "ItemList",
       itemListElement: jobs.filter(discoverableJob).map((job, index) => ({
-        "@type": "ListItem", position: index + 1, name: job.title, url: siteUrl(`/jobs/${encodeURIComponent(job.slug)}`),
+        "@type": "ListItem", position: index + 1, name: jobPositionLabel(job), url: siteUrl(`/jobs/${encodeURIComponent(job.slug)}`),
       })),
     },
   };

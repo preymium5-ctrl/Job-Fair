@@ -8,6 +8,7 @@ import { proposedJobs, proposalV1Jobs, previousRecruitmentJobs } from "../data/j
 import { maximumAgeRequirement, maximumApplicantAge, minimumExperienceRequirement, recruitmentBenefits } from "../data/employment";
 import { fairDocuments, fairDocumentTiming, fairNc2Requirements, getJobFairRole, jobFair, nc2ElectricalNote } from "../data/job-fair";
 import { hiringAllocations, hiringWorkerTotal } from "../data/hiring-allocations";
+import { getJobPosition, jobPositionLabel } from "../data/job-positions";
 import {
   legacyExampleJobIds,
   migrateProposedJobCatalog,
@@ -79,7 +80,7 @@ test("the archived 17 operator proposals retain original worker counts and salar
   );
   assert.equal(proposalV1Jobs.reduce((sum, job) => sum + (job.openings ?? 0), 0), 248);
   assert.equal(new Set(proposedJobs.map((job) => job.image)).size, 17);
-  assert.equal(new Set(proposedJobs.map((job) => job.slug)).size, 17);
+  assert.equal(new Set(proposedJobs.map((job) => job.slug)).size, 23);
   for (const job of proposedJobs) {
     assert.equal(jobSchema.safeParse(job).success, true, job.title);
     assert.equal(job.salaryStatus, "proposed-net");
@@ -93,11 +94,15 @@ test("the archived 17 operator proposals retain original worker counts and salar
 });
 
 test("current employer counts vary strictly between 100 and 1200 and reconcile with every job total", () => {
-  assert.equal(Object.keys(hiringAllocations).length, proposedJobs.length);
+  assert.equal(proposedJobs.length, 23);
+  assert.equal(Object.values(hiringAllocations).flatMap(Object.values).length, 23);
   const counts: number[] = [];
   for (const job of proposedJobs) {
     const role = getJobFairRole(job)!;
-    assert.deepEqual(role.employers.map((employer) => employer.name).sort(), Object.keys(hiringAllocations[job.slug]).sort());
+    const position = getJobPosition(job)!;
+    assert.equal(role.employers.length, 1);
+    assert.equal(role.employers[0].name, position.employer);
+    assert.equal(role.employers[0].workers, hiringAllocations[position.roleSlug][position.employer]);
     for (const employer of role.employers) {
       assert.ok(Number.isInteger(employer.workers) && employer.workers > 100 && employer.workers < 1200, `${job.slug}: ${employer.name}`);
       counts.push(employer.workers);
@@ -105,16 +110,16 @@ test("current employer counts vary strictly between 100 and 1200 and reconcile w
     assert.equal(role.employers.reduce((total, employer) => total + employer.workers, 0), job.openings);
     assert.equal(hiringWorkerTotal(job.slug), job.openings);
     assert.ok(job.openings! > 100 && job.openings! < 1200);
-    assert.equal(job.salary, proposalV1Jobs.find((original) => original.id === job.id)!.salary);
+    assert.equal(job.salary, proposalV1Jobs.find((original) => original.slug === position.roleSlug)!.salary);
   }
   assert.ok(new Set(counts).size > 10);
-  assert.deepEqual(getJobFairRole(proposedJobs[0])!.employers.map((employer) => employer.workers), [175, 225, 300, 450]);
-  assert.equal(proposedJobs[0].openings, 1150);
+  assert.deepEqual(proposedJobs.filter((job) => getJobPosition(job)?.roleSlug === "fabricator").map((job) => job.openings), [175, 225, 300, 450]);
+  assert.equal(proposedJobs[0].openings, 175);
   assert.equal(proposedJobs.reduce((total, job) => total + job.openings!, 0), 11100);
   assert.equal(hiringWorkerTotal("unrelated-staff-job"), undefined);
 });
 
-test("the dated fair allocations reconcile six employers and exactly 248 workers across the 17 roles", () => {
+test("all 23 employer positions match the dated PDF rows across six employers and 17 role types", () => {
   assert.equal(jobFair.sourceDate, "2026-09-29");
   assert.equal(jobFair.testingDateLabel, "16–20 November 2026");
   assert.equal(jobFair.interviewDateLabel, "26 October – 14 November 2026");
@@ -125,6 +130,14 @@ test("the dated fair allocations reconcile six employers and exactly 248 workers
     ["Vertiv", 75], ["Novi Ferromont d.o.o.", 30], ["Ferokotao d.o.o.", 78],
   ]);
   assert.equal(jobFair.employers.reduce((total, employer) => total + employer.workers, 0), 248);
+  assert.equal(jobFair.roleCount, 23);
+  assert.equal(new Set(proposedJobs.map((job) => job.title)).size, 17);
+  assert.equal(new Set(proposedJobs.map(jobPositionLabel)).size, 23);
+  assert.deepEqual(jobFair.employers.map((employer) => proposedJobs.filter((job) => getJobPosition(job)?.employer === employer.name).length), [1, 2, 6, 4, 4, 6]);
+  const expectedPositions = jobFair.employers.flatMap((employer) => employer.roles.map((role) => `${employer.name}: ${role.title}`)).sort();
+  assert.deepEqual(proposedJobs.map((job) => `${getJobPosition(job)!.employer}: ${job.title}`).sort(), expectedPositions);
+  for (const original of proposalV1Jobs)
+    assert.equal(proposedJobs.find((job) => job.slug === original.slug)?.id, original.id);
   for (const employer of jobFair.employers)
     assert.equal(employer.roles.reduce((total, role) => total + role.workers, 0), employer.workers, employer.name);
   for (const job of proposedJobs) {
@@ -207,7 +220,7 @@ test("catalog migration preserves applications and custom jobs, resolves old slu
   await migrateProposedJobCatalog(db);
 
   const migrated = await db.select().from(jobs);
-  assert.equal(migrated.filter((row) => row.status === "published").length, 18);
+  assert.equal(migrated.filter((row) => row.status === "published").length, 24);
   for (const id of legacyExampleJobIds) {
     const archived = migrated.find((row) => row.id === id)!;
     assert.equal(archived.status, "closed");

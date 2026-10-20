@@ -1,6 +1,7 @@
 import { eq, sql } from "drizzle-orm";
 import { randomUUID } from "node:crypto";
-import { proposedJobs, proposalV1Jobs, previousRecruitmentJobs } from "../data/jobs";
+import { groupedRecruitmentJobs, proposedJobs, proposalV1Jobs, previousRecruitmentJobs } from "../data/jobs";
+import { jobPositions } from "../data/job-positions";
 import { getJobFairRole, jobFair } from "../data/job-fair";
 import { maximumAgeRequirement, minimumExperienceRequirement } from "../data/employment";
 import type { Database } from "./db";
@@ -13,6 +14,7 @@ export const hiringContentVersion = "croatia-philippines-hiring-2026-10-16-v1";
 export const minimumExperienceVersion = "minimum-experience-three-years-2026-10-16-v1";
 export const hiringWorkerCountsVersion = "employer-worker-counts-2026-10-16-v1";
 export const maximumAgeRequirementVersion = "maximum-age-requirement-2026-10-16-v1";
+export const employerPositionsVersion = "employer-positions-pdf-2026-10-20-v1";
 export const legacyExampleJobIds = [
   "example-warehouse-01",
   "example-bus-02",
@@ -56,7 +58,7 @@ export async function migrateProposedJobCatalog(db: Database) {
 
     // A custom staff record with a requested slug must never be overwritten.
     // Unique-key conflicts roll back the entire replacement for staff review.
-    for (const job of proposedJobs)
+    for (const job of groupedRecruitmentJobs)
       await tx.insert(jobs).values({
         id: job.id,
         slug: job.slug,
@@ -74,8 +76,8 @@ export async function migrateProposedJobCatalog(db: Database) {
       targetId: proposalCatalogVersion,
       details: {
         retiredIds,
-        addedIds: proposedJobs.map((job) => job.id),
-        proposedWorkers: proposedJobs.reduce((total, job) => total + (job.openings ?? 0), 0),
+        addedIds: groupedRecruitmentJobs.map((job) => job.id),
+        proposedWorkers: groupedRecruitmentJobs.reduce((total, job) => total + (job.openings ?? 0), 0),
       },
     });
   });
@@ -85,6 +87,7 @@ export async function migrateProposedJobCatalog(db: Database) {
   await migrateMinimumExperience(db);
   await migrateHiringWorkerCounts(db);
   await migrateMaximumAgeRequirement(db);
+  await migrateEmployerPositions(db);
 }
 
 /** Add the recruitment requirement without altering staff content or historical applicant records. */
@@ -94,7 +97,7 @@ export async function migrateMaximumAgeRequirement(db: Database) {
     const [applied] = await tx.select().from(settings).where(eq(settings.key, maximumAgeRequirementVersion));
     if (applied) return;
     const updatedIds: string[] = [];
-    for (const replacement of proposedJobs) {
+    for (const replacement of groupedRecruitmentJobs) {
       const [row] = await tx.select().from(jobs).where(eq(jobs.id, replacement.id)).for("update");
       if (!row || row.slug !== replacement.slug || row.data.requirements.includes(maximumAgeRequirement)) continue;
       await tx.update(jobs).set({ data: { ...row.data, requirements: [maximumAgeRequirement, ...row.data.requirements] } }).where(eq(jobs.id, row.id));
@@ -112,7 +115,7 @@ export async function migrateHiringWorkerCounts(db: Database) {
     const [applied] = await tx.select().from(settings).where(eq(settings.key, hiringWorkerCountsVersion));
     if (applied) return;
     const updatedIds: string[] = [];
-    for (const replacement of proposedJobs) {
+    for (const replacement of groupedRecruitmentJobs) {
       const [row] = await tx.select().from(jobs).where(eq(jobs.id, replacement.id)).for("update");
       if (!row || row.slug !== replacement.slug || row.data.openings === replacement.openings) continue;
       await tx.update(jobs).set({ data: { ...row.data, openings: replacement.openings } }).where(eq(jobs.id, row.id));
@@ -129,7 +132,7 @@ export async function migrateMinimumExperience(db: Database) {
     const [applied] = await tx.select().from(settings).where(eq(settings.key, minimumExperienceVersion));
     if (applied) return;
     const updatedIds: string[] = [];
-    for (const replacement of proposedJobs) {
+    for (const replacement of groupedRecruitmentJobs) {
       const [row] = await tx.select().from(jobs).where(eq(jobs.id, replacement.id)).for("update");
       if (!row || row.slug !== replacement.slug) continue;
       const baseline = proposalV1Jobs.find((job) => job.id === row.id)!;
@@ -152,7 +155,7 @@ export async function migrateHiringContent(db: Database) {
     const [applied] = await tx.select().from(settings).where(eq(settings.key, hiringContentVersion));
     if (applied) return;
     const updatedIds: string[] = [];
-    for (const replacement of proposedJobs) {
+    for (const replacement of groupedRecruitmentJobs) {
       const [row] = await tx.select().from(jobs).where(eq(jobs.id, replacement.id)).for("update");
       if (!row || row.slug !== replacement.slug) continue;
       const baselines = [...proposalV1Jobs, ...previousRecruitmentJobs].filter((job) => job.id === row.id);
@@ -181,7 +184,7 @@ export async function migrateFilipinoWorkerImages(db: Database) {
     const [applied] = await tx.select().from(settings).where(eq(settings.key, filipinoWorkerImageVersion));
     if (applied) return;
     const updatedIds: string[] = [];
-    for (const replacement of proposedJobs) {
+    for (const replacement of groupedRecruitmentJobs) {
       const [row] = await tx.select().from(jobs).where(eq(jobs.id, replacement.id)).for("update");
       const originalImage = `/images/jobs/proposed/${replacement.slug}.webp`;
       if (!row || row.slug !== replacement.slug || row.data.image !== originalImage) continue;
@@ -208,7 +211,7 @@ export async function migrateJobFairCatalog(db: Database) {
     if (applied) return;
     const updatedIds: string[] = [];
     for (const baseline of proposalV1Jobs) {
-      const replacement = proposedJobs.find((job) => job.id === baseline.id)!;
+      const replacement = groupedRecruitmentJobs.find((job) => job.id === baseline.id)!;
       const [row] = await tx.select().from(jobs).where(eq(jobs.id, baseline.id)).for("update");
       if (!row || row.slug !== baseline.slug || !getJobFairRole(row.data)) continue;
       const data = { ...row.data };
@@ -231,6 +234,61 @@ export async function migrateJobFairCatalog(db: Database) {
       id: randomUUID(), actorId: "system:catalog-migration", action: "catalog.enriched",
       targetId: jobFairCatalogVersion,
       details: { sourceDate: jobFair.sourceDate, updatedIds, fields: ["description", "requirements"] },
+    });
+  });
+}
+
+/** Split employer listings without changing existing IDs, staff content, or applicant history. */
+export async function migrateEmployerPositions(db: Database) {
+  await db.transaction(async (tx) => {
+    if (process.env.DATABASE_URL)
+      await tx.execute(sql`SELECT pg_advisory_xact_lock(621349133)`);
+    const [applied] = await tx.select().from(settings).where(eq(settings.key, employerPositionsVersion));
+    if (applied) return;
+
+    const addedIds: string[] = [];
+    const updatedIds: string[] = [];
+    const preservedIds: string[] = [];
+    for (const replacement of proposedJobs) {
+      const baseline = groupedRecruitmentJobs.find((job) => job.id === replacement.id);
+      const [row] = await tx.select().from(jobs).where(eq(jobs.id, replacement.id)).for("update");
+      if (baseline) {
+        // Only the four formerly grouped roles need their totals divided. A staff
+        // count or renamed listing is deliberately left exactly as it was.
+        if (baseline.openings === replacement.openings) continue;
+        if (!row || row.slug !== baseline.slug || row.data.slug !== baseline.slug || row.data.openings !== baseline.openings) {
+          if (row) preservedIds.push(row.id);
+          continue;
+        }
+        await tx.update(jobs).set({ data: { ...row.data, openings: replacement.openings } }).where(eq(jobs.id, row.id));
+        updatedIds.push(row.id);
+        continue;
+      }
+      // Respect an existing canonical ID even if staff have renamed or closed it.
+      if (row) {
+        preservedIds.push(row.id);
+        continue;
+      }
+      const position = jobPositions.find((item) => item.id === replacement.id);
+      if (!position) throw new Error(`Missing employer position mapping for ${replacement.id}`);
+      const parent = groupedRecruitmentJobs.find((job) => job.slug === position.roleSlug);
+      const [parentRow] = parent
+        ? await tx.select().from(jobs).where(eq(jobs.id, parent.id)).for("update")
+        : [];
+      const status = parentRow?.status === "closed" || parentRow?.status === "draft"
+        ? parentRow.status
+        : replacement.status;
+      const data = { ...replacement, status };
+      // A custom record owning this slug causes a unique-key error. The entire
+      // split, including earlier inserts/count changes, then rolls back.
+      await tx.insert(jobs).values({ id: data.id, slug: data.slug, status, data });
+      addedIds.push(data.id);
+    }
+    await tx.insert(settings).values({ key: employerPositionsVersion, value: new Date().toISOString() });
+    await tx.insert(audits).values({
+      id: randomUUID(), actorId: "system:catalog-migration", action: "catalog.employer-positions-expanded",
+      targetId: employerPositionsVersion,
+      details: { sourceDate: jobFair.sourceDate, addedIds, updatedIds, preservedIds, fields: ["openings"], catalogPositions: proposedJobs.length },
     });
   });
 }

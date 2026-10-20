@@ -12,7 +12,8 @@ import { drainSheetsQueue, sheetsQueueStatus } from "../lib/sheets-queue";
 import { buildSheetsPayload, sendApplicationToSheets, sheetsConfiguration, SheetsDeliveryError, type SheetsPayload } from "../lib/sheets-transport";
 import { applicationSchema } from "../lib/validation";
 import type { Application, ApplicationProfile, Job } from "../lib/types";
-import { getJobFairRole } from "../data/job-fair";
+import { getGroupedJobFairRole, getJobFairRole } from "../data/job-fair";
+import { proposedJobs } from "../data/jobs";
 import { NextRequest } from "next/server";
 import { POST as submit } from "../app/api/applications/route";
 import { GET as integrationStatus, POST as integrationRetry } from "../app/api/admin/integrations/google-sheets/route";
@@ -72,6 +73,33 @@ test("legacy applications export complete document readiness and empty certifica
   assert.equal(payload.application.nc2Certificate, "");
   assert.equal(payload.application.preferredEmployer, "");
   assert.equal(payload.application.referralSource, "");
+});
+
+test("each of the 23 selected positions persists and exports its own employer", async () => {
+  const catalog = await getJobs();
+  for (const position of proposedJobs) {
+    const selected = catalog.find((item) => item.id === position.id)!;
+    assert.ok(selected, position.slug);
+    const input = { ...applicant(), jobId: selected.id, jobTitle: "Untrusted browser title" };
+    const { application: stored } = await createApplication(input, randomUUID(), "employer-position-test");
+    const employer = getJobFairRole(selected)!.employers[0];
+    assert.equal(stored.jobId, selected.id);
+    assert.equal(stored.jobTitle, selected.title);
+    assert.equal(stored.preferredEmployer, employer.name);
+    const payload = buildSheetsPayload(stored, resume, selected);
+    assert.equal(payload.application.preferredEmployer, employer.name);
+    assert.deepEqual(payload.application.employers, [{ name: employer.name, workers: employer.workers }]);
+  }
+});
+
+test("queued grouped applications retain blank or explicit employer preferences after the split", () => {
+  const fabricator = proposedJobs.find((item) => item.slug === "fabricator")!;
+  const expected = getGroupedJobFairRole(fabricator)!.employers.map(({ name, workers }) => ({ name, workers }));
+  for (const preferredEmployer of ["", "Vertiv", "Ferokotao d.o.o."]) {
+    const payload = buildSheetsPayload({ ...applicant(), jobId: fabricator.id, preferredEmployer }, resume, fabricator);
+    assert.equal(payload.application.preferredEmployer, preferredEmployer);
+    assert.deepEqual(payload.application.employers, expected);
+  }
 });
 
 test("all bounded profile answers and private filenames fit the existing Sheets summary without new receiver keys", () => {
@@ -220,7 +248,7 @@ test("webhook signing, destination restrictions, private data boundary and exact
   const application = applicant();
   const payload = buildSheetsPayload(application, resume, job);
   assert.equal("resumeKey" in payload.application, false);
-  assert.deepEqual(payload.application.employers, getJobFairRole(job)?.employers.map(({ name, workers }) => ({ name, workers })) || []);
+  assert.deepEqual(payload.application.employers, getGroupedJobFairRole(job)?.employers.map(({ name, workers }) => ({ name, workers })) || []);
   assert.equal(payload.resume.base64, resume.toString("base64"));
   const originalFetch = globalThis.fetch;
   try {

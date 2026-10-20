@@ -1,8 +1,9 @@
 import { mkdir, writeFile } from "node:fs/promises";
 import { createHash } from "node:crypto";
 import path from "node:path";
-import { proposedJobs } from "../data/jobs";
-import { getJobFairRole, jobFair } from "../data/job-fair";
+import { proposedJobs, proposalV1Jobs } from "../data/jobs";
+import { getJobFairRole } from "../data/job-fair";
+import { jobPositionLabel } from "../data/job-positions";
 
 // Read-only integration smoke test. Run against an already-running local server:
 // npx tsx scripts/smoke-routes.ts [http://127.0.0.1:3000]
@@ -53,20 +54,19 @@ async function main() {
   for (const route of [
     "/",
     "/jobs",
-    "/job-fair",
     "/about",
     "/contact",
     "/privacy",
     "/terms",
   ])
-    await check(route, 200, route === "/job-fair" ? (html) => {
+    await check(route, 200, route === "/jobs" ? (html) => {
       const errors: string[] = [];
-      for (const employer of jobFair.employers)
-        if (!html.includes(employer.name)) errors.push(`Missing employer: ${employer.name}`);
-      if (!html.includes(jobFair.testingDateLabel) || !html.includes("248")) errors.push("Missing testing date or position total");
-      if (!html.includes("18a") || !html.includes("apostille")) errors.push("Missing candidate document guide");
+      for (const job of proposedJobs)
+        if (!html.includes(`href="/jobs/${job.slug}"`)) errors.push(`Missing position: ${job.slug}`);
+      if (!html.includes("23") || !html.includes("11100")) errors.push("Missing current position or slot total");
       return errors;
     } : undefined);
+  await check("/job-fair", [307, 308]);
   for (const job of proposedJobs) {
     await check(`/jobs/${job.slug}`, 200, (html) => {
       const errors: string[] = [];
@@ -74,12 +74,8 @@ async function main() {
         errors.push("Missing correct role heading");
       if (!html.includes(`href="/jobs/${job.slug}/apply"`))
         errors.push("Missing role-specific application link");
-      if (!/proposed/i.test(html) || !/NET/.test(html) || !html.includes(job.salary!))
-        errors.push("Missing proposed NET salary");
-      if (!/not confirmed employer offers/i.test(html))
-        errors.push("Missing unconfirmed employer offer disclosure");
-      if (html.includes("Not a confirmed employer offer."))
-        errors.push("Removed per-salary sentence has returned");
+      if (!html.includes("Salary range") || !html.includes(job.salary!) || !html.includes("EUR / month"))
+        errors.push("Missing listed monthly salary range");
       const fairRole = getJobFairRole(job);
       if (fairRole) {
         for (const employer of fairRole.employers)
@@ -100,10 +96,15 @@ async function main() {
     await check(`/jobs/${job.slug}/apply`, 200, (html) => {
       const errors: string[] = [];
       if (!html.includes(job.title)) errors.push("Missing selected role title");
-      if (!html.includes("Your details"))
-        errors.push("Missing initial application step");
-      if (!/proposed/i.test(html) || !/not confirmed/i.test(html))
-        errors.push("Missing proposal disclosure before application");
+      if (!html.includes("Welcome! Please tell us about yourself."))
+        errors.push("Missing application form heading");
+      const choices = html.match(/<select[^>]*id="jobId"[^>]*>([\s\S]*?)<\/select>/)?.[1] || "";
+      if ((choices.match(/<option\b/g) || []).length !== 23)
+        errors.push("Expected all 23 primary job choices");
+      if (!choices.includes(`value="${job.id}" selected=""`) || !choices.includes(jobPositionLabel(job)))
+        errors.push("Missing selected employer-specific position");
+      if (!html.includes("Document requirements") || !html.includes("Form 18a"))
+        errors.push("Missing document guidance");
       return errors;
     });
   }
@@ -121,9 +122,9 @@ async function main() {
   };
   await check("/jobs/not-a-real-role", [404, 200], validateNotFound);
   await check("/jobs/not-a-real-role/apply", [404, 200], validateNotFound);
-  const imagePaths = proposedJobs.map((job) => job.image);
-  if (new Set(imagePaths).size !== proposedJobs.length)
-    throw new Error("Proposed roles share image paths.");
+  const imagePaths = [...new Set(proposedJobs.map((job) => job.image))];
+  if (imagePaths.length !== proposalV1Jobs.length)
+    throw new Error("Expected one existing illustration per distinct trade.");
   const imageHashes: string[] = [];
   const { readFile } = await import("node:fs/promises");
   for (const image of imagePaths) {
@@ -139,7 +140,7 @@ async function main() {
         .digest("hex"),
     );
   }
-  if (new Set(imageHashes).size !== proposedJobs.length)
+  if (new Set(imageHashes).size !== proposalV1Jobs.length)
     throw new Error("Proposed roles share duplicate image bytes.");
   const summary = {
     checkedAt: new Date().toISOString(),

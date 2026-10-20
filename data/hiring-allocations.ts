@@ -1,3 +1,5 @@
+import { jobPositions } from "./job-positions";
+
 // Current recruitment counts set for the owner's 16 October 2026 update.
 // These replace the displayed counts, not the archived September PDF figures.
 export const hiringAllocations: Record<string, Record<string, number>> = {
@@ -25,7 +27,12 @@ export const hiringAllocations: Record<string, Record<string, number>> = {
   "grinder-and-cleaner": { "Ferokotao d.o.o.": 150 },
 };
 
-export function hiringWorkerTotal(slug: string): number | undefined {
+export function hiringRoleWorkerTotal(slug: string): number | undefined {
   const allocations = hiringAllocations[slug];
   return allocations ? Object.values(allocations).reduce((total, workers) => total + workers, 0) : undefined;
+}
+
+export function hiringWorkerTotal(slug: string): number | undefined {
+  const position = jobPositions.find((item) => item.slug === slug);
+  return position ? hiringAllocations[position.roleSlug]?.[position.employer] : undefined;
 }

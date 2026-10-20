@@ -2,7 +2,7 @@ import { createHmac } from "node:crypto";
 import type { Application } from "./types";
 import type { SupportingDocumentCategory } from "./document-uploads";
 import { documentLabel, privateProfileDocumentCategories } from "./document-uploads";
-import { getJobFairRole } from "../data/job-fair";
+import { getGroupedJobFairRole, getJobFairRole } from "../data/job-fair";
 import type { Job } from "./types";
 
 export const TARGET_SPREADSHEET_ID = "1v9-lAvpJPUCxCqr03EkVwKKAfedEDtckHir4ro6cyeU";
@@ -91,7 +91,12 @@ export function buildSheetsPayload(application: Application, resume: Buffer, job
     const originalSummary = summary.length <= remaining ? summary : `${summary.slice(0, Math.max(0, remaining - truncationNote.length))}${truncationNote}`;
     summary = [supplementalSummary, originalSummary].filter(Boolean).join("\n\n");
   }
-  const fair = job ? getJobFairRole(job) : undefined;
+  // Old grouped applications may leave the preference blank or name another
+  // employer. Retain their routing on retries; new submissions store one employer.
+  const currentFair = job ? getJobFairRole(job) : undefined;
+  const fair = !details.preferredEmployer || !currentFair?.employers.some((employer) => employer.name === details.preferredEmployer)
+    ? (job ? getGroupedJobFairRole(job) : undefined) ?? currentFair
+    : currentFair;
   return {
     version: exportedDocuments.length ? 2 : 1,
     ...(exportedDocuments.length ? { documents: exportedDocuments } : {}),

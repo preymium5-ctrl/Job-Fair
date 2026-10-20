@@ -124,13 +124,15 @@ export async function createApplication(
       .where(eq(jobs.id, application.jobId))
       .for("share");
     if (!job || job.status !== "published") throw new Error("JOB_NOT_OPEN");
-    if (application.preferredEmployer && !getJobFairRole(job.data)?.employers.some((employer) => employer.name === application.preferredEmployer))
+    const fairRole = getJobFairRole(job.data);
+    if (application.preferredEmployer && !fairRole?.employers.some((employer) => employer.name === application.preferredEmployer))
       throw new Error("INVALID_EMPLOYER");
     if (!application.profile && (application.driverLicenseDetails || application.documents?.some((document) => document.category === "driver-license")) && !getJobFairRole(job.data)?.drivingLicenseIsPlus)
       throw new Error("INVALID_DRIVER_LICENSE");
     const currentApplication = {
       ...application,
       jobTitle: job.data.title,
+      preferredEmployer: fairRole?.employers.length === 1 ? fairRole.employers[0].name : application.preferredEmployer,
       isExample: job.data.isExample,
     };
     const [row] = await tx

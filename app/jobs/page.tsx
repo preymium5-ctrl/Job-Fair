@@ -59,7 +59,7 @@ export default async function JobsPage() {
             <div className="jobs-photo-tag">
               <span>{String(jobs.length).padStart(2, "0")}</span>
               <div>
-                {proposedJobs.length === jobs.length ? "Available roles" : "Published opportunities"}
+                {proposedJobs.length === jobs.length ? "Job positions" : "Published opportunities"}
                 <br />
                 {proposedJobs.length > 0
                   ? `${workers} available ${workers === 1 ? "slot" : "slots"}`
