@@ -19,6 +19,11 @@ function fixture() {
   ]);
   const state = {
     rows: [] as unknown[][], files: [] as DriveFile[], calls: [] as { url: string; options: Record<string, unknown> }[],
+    notes: [] as string[][],
+    columnMetadata: Array.from({ length: 54 }, (_, index) => ({ format: `format-${index}`, validation: `validation-${index}` })),
+    backups: [] as { name: string; hidden: boolean; rows: unknown[][]; notes: string[][]; columnMetadata: { format: string; validation: string }[] }[],
+    failBackup: false, corruptBackup: false, frozenRows: 1, frozenColumns: 3,
+    filter: { row: 1, column: 1, rows: 1000, columns: 54, criteria: {} as Record<number, unknown> } as { row: number; column: number; rows: number; columns: number; criteria: Record<number, unknown> } | null,
     writeFailures: 0, writeWrongAck: false, hideSearchResults: false, maxRows: 1000, maxColumns: 54, folderPublic: false, filePublic: false, locks: 0, releases: 0,
     validationChanges: [] as { action: string; row: number; column: number; count: number; columns: number; rule?: unknown }[],
     stagedFile: undefined as Omit<DriveFile, "id" | "size" | "trashed"> | undefined,
@@ -26,12 +31,32 @@ function fixture() {
   const response = (data: unknown, status = 200, headers = {}) => ({
     getResponseCode: () => status, getContentText: () => JSON.stringify(data), getAllHeaders: () => headers,
   });
+  const filterHandle = () => ({
+    getRange: () => ({ getColumn: () => state.filter!.column, getNumColumns: () => state.filter!.columns }),
+    getColumnFilterCriteria: (column: number) => state.filter!.criteria[column] ?? null,
+    setColumnFilterCriteria: (column: number, criterion: unknown) => { state.filter!.criteria[column] = criterion; },
+    remove: () => { state.filter = null; },
+  });
   const sheet = {
+    getName: () => "Applications", getSheetId: () => 0, getParent: (): object => spreadsheet,
+    setFrozenRows: (count: number) => { state.frozenRows = count; },
+    setFrozenColumns: (count: number) => { state.frozenColumns = count; },
+    getFilter: () => state.filter ? filterHandle() : null,
+    copyTo: (parent: unknown) => {
+      assert.equal(parent, spreadsheet);
+      assert.ok(state.locks > state.releases, "Backups and migration must hold the writer lock");
+      const backup = { name: "Copy of Applications", hidden: false, rows: structuredClone(state.rows), notes: structuredClone(state.notes), columnMetadata: structuredClone(state.columnMetadata) };
+      if (state.corruptBackup && backup.rows.length > 1) backup.rows[1][2] = "Corrupted backup value";
+      state.backups.push(backup);
+      return backupHandle(backup);
+    },
     getLastRow: () => state.rows.length,
     getMaxRows: () => state.maxRows,
     getMaxColumns: () => state.maxColumns,
     deleteColumns: (column: number, count: number) => {
       state.rows.forEach((row) => row.splice(column - 1, count)); state.maxColumns -= count;
+      state.notes.forEach((row) => row.splice(column - 1, count));
+      state.columnMetadata.splice(column - 1, count);
     },
     insertRowsAfter: (after: number, count: number) => { assert.equal(after, state.maxRows); state.maxRows += count; },
     insertColumnsAfter: (after: number, count: number) => { assert.equal(after, state.maxColumns); state.maxColumns += count; },
@@ -40,6 +65,14 @@ function fixture() {
       getValues: () => Array.from({ length: count }, (_, index) =>
         Array.from({ length: columns }, (_, offset) => state.rows[row - 1 + index]?.[column - 1 + offset] ?? "")),
       getValue: () => state.rows[row - 1]?.[column - 1] ?? "",
+      getNote: () => state.notes[row - 1]?.[column - 1] ?? "",
+      getNotes: () => Array.from({ length: count }, (_, index) =>
+        Array.from({ length: columns }, (_, offset) => state.notes[row - 1 + index]?.[column - 1 + offset] ?? "")),
+      setNotes: (values: string[][]) => values.forEach((cells, index) => {
+        const target = state.notes[row - 1 + index] ??= [];
+        cells.forEach((value, offset) => { target[column - 1 + offset] = value; });
+      }),
+      setValue: (value: unknown) => { (state.rows[row - 1] ??= [])[column - 1] = value; },
       setValues: (values: unknown[][]) => {
         values.forEach((cells, index) => {
           const target = state.rows[row - 1 + index] ??= [];
@@ -48,8 +81,23 @@ function fixture() {
       },
       clearDataValidations: () => { state.validationChanges.push({ action: "clear", row, column, count, columns }); },
       setDataValidation: (rule: unknown) => { state.validationChanges.push({ action: "set", row, column, count, columns, rule }); },
+      createFilter: () => { state.filter = { row, column, rows: count, columns, criteria: {} }; return filterHandle(); },
     }),
   };
+  function backupHandle(backup: (typeof state.backups)[number]) {
+    return {
+      setName: (name: string) => { backup.name = name; return backupHandle(backup); },
+      hideSheet: () => { if (!state.failBackup) backup.hidden = true; },
+      isSheetHidden: () => backup.hidden,
+      getLastRow: () => backup.rows.length,
+      getLastColumn: () => Math.max(0, ...backup.rows.map((row) => row.length)),
+      getRange: (row: number, column: number, count: number, columns: number) => ({
+        getValues: () => Array.from({ length: count }, (_, index) => Array.from({ length: columns }, (_, offset) => backup.rows[row - 1 + index]?.[column - 1 + offset] ?? "")),
+        getNotes: () => Array.from({ length: count }, (_, index) => Array.from({ length: columns }, (_, offset) => backup.notes[row - 1 + index]?.[column - 1 + offset] ?? "")),
+      }),
+    };
+  }
+  const spreadsheet = { getSheetByName: (name: string): unknown => name === "Applications" ? sheet : state.backups.find((backup) => backup.name === name) };
   const context = vm.createContext({
     PropertiesService: { getScriptProperties: () => ({
       getProperty: (key: string) => properties.get(key) ?? null,
@@ -68,7 +116,7 @@ function fixture() {
       tryLock: () => { state.locks++; return true; }, releaseLock: () => { state.releases++; },
     }) },
     SpreadsheetApp: {
-      openById: () => ({ getSheetByName: () => sheet }),
+      openById: () => spreadsheet,
       newDataValidation: () => {
         const rule = { choices: [] as string[], showDropdown: false, allowInvalid: true };
         const builder = {
@@ -110,6 +158,30 @@ function fixture() {
           size: String((options.payload as Buffer).length), trashed: false };
         state.files.push(file);
         return response(file);
+      }
+      if (url.endsWith(":batchUpdate")) {
+        assert.equal(options.method, "post");
+        const requests = JSON.parse(options.payload as string).requests;
+        assert.equal(requests.length, 2);
+        const write = requests[0].updateCells;
+        const note = requests[1].updateCells;
+        assert.equal(write.fields, "userEnteredValue");
+        assert.equal(note.fields, "note");
+        assert.equal(write.start.sheetId, 0);
+        assert.equal(note.start.sheetId, 0);
+        assert.equal(note.start.rowIndex, write.start.rowIndex);
+        assert.equal(note.start.columnIndex, 0);
+        assert.equal(note.rows[0].values.length, 1);
+        assert.ok([0, 14].includes(write.start.columnIndex));
+        assert.equal(write.rows[0].values.length, 35 - write.start.columnIndex);
+        if (state.writeFailures-- > 0) return response({ error: "Private Google failure detail" }, 503);
+        const target = state.rows[write.start.rowIndex] ??= [];
+        write.rows[0].values.forEach((cell: { userEnteredValue: { stringValue?: string; numberValue?: number; formulaValue?: string } }, index: number) => {
+          assert.ok(!("formulaValue" in cell.userEnteredValue));
+          target[write.start.columnIndex + index] = cell.userEnteredValue.stringValue ?? cell.userEnteredValue.numberValue;
+        });
+        (state.notes[note.start.rowIndex] ??= [])[0] = note.rows[0].values[0].note;
+        return response({ spreadsheetId: "1v9-lAvpJPUCxCqr03EkVwKKAfedEDtckHir4ro6cyeU", replies: state.writeWrongAck ? [] : [{}, {}] });
       }
       if (url.includes("/values/")) {
         assert.equal(options.method, "put");
@@ -369,7 +441,7 @@ test("Apps Script stops on changed headers, conflicting references, or public CV
 test("Apps Script health endpoint has no applicant data or secret", () => {
   const { context, properties } = fixture();
   properties.clear();
-  assert.deepEqual(vm.runInContext("doGet()", context), { ok: true, service: "chapter-applications", version: 1, schemaVersion: 5, columns: 54 });
+  assert.deepEqual(vm.runInContext("doGet()", context), { ok: true, service: "chapter-applications", version: 1, schemaVersion: 6, columns: 35, supportedColumns: [35, 54] });
 });
 
 test("referral sources append after every existing recruiter column and legacy payloads leave AD blank", () => {
@@ -473,13 +545,11 @@ test("owner setup appends the referral header to a 29-column sheet without chang
   state.rows.push([...oldRow]);
   assert.equal(post().code, "HEADER_MISMATCH");
   assert.equal(state.calls.length, 0);
-  assert.deepEqual({ ...vm.runInContext("setupChapterSync()", context) }, {
-    ok: true, sheetName: "Applications", cvFolderUrl: "https://drive.google.com/drive/folders/" + folderId,
-  });
+  vm.runInContext("chapterEnsureLegacyLayout_(chapterGetSheet_(chapterConfig_(true), true))", context);
   assert.equal(state.maxColumns, 54);
   assert.equal(state.rows[0][29], "Where did you hear about us?");
   assert.deepEqual(state.rows[1], oldRow);
-  vm.runInContext("setupChapterSync()", context);
+  vm.runInContext("chapterEnsureLegacyLayout_(chapterGetSheet_(chapterConfig_(true), true))", context);
   assert.deepEqual(state.rows[1], oldRow);
   assert.equal(post().ok, true);
   assert.equal(state.rows[2][29], "");
@@ -671,12 +741,12 @@ test("shared receiver preserves both original senders and the existing AD header
     const originalHeaders = [...state.rows[0]];
     const oldRow = [...state.rows[1]];
     assert.equal(post().code, "HEADER_MISMATCH");
-    vm.runInContext("setupChapterSync()", context);
+    vm.runInContext("chapterEnsureLegacyLayout_(chapterGetSheet_(chapterConfig_(true), true))", context);
     assert.equal(state.maxColumns, 54);
     assert.deepEqual(state.rows[0].slice(0, 30), originalHeaders);
     assert.deepEqual(state.rows[1], oldRow);
     assert.equal(post().duplicate, true);
-    vm.runInContext("setupChapterSync()", context);
+    vm.runInContext("chapterEnsureLegacyLayout_(chapterGetSheet_(chapterConfig_(true), true))", context);
     assert.deepEqual(state.rows[1], oldRow);
     const base = application();
     const discoveryPayload = { ...base, version: 2, documents: [], application: {
@@ -736,7 +806,7 @@ test("a v3 retry recovers an older 30-column delivery by filling only blank AE:B
   state.rows = state.rows.map((row) => row.slice(0, 30));
   state.maxColumns = 30;
   const originalBase = [...state.rows[1]];
-  vm.runInContext("setupChapterSync()", context);
+  vm.runInContext("chapterEnsureLegacyLayout_(chapterGetSheet_(chapterConfig_(true), true))", context);
   // An existing recruiter entry is retained when the retry does not supply it.
   state.rows[1][46] = "Existing recruiter note";
   const retry = { ...current, application: { ...current.application,
@@ -807,7 +877,7 @@ test("owner setup clears inherited referral validation only from new fields and 
   assert.equal(post(profileApplication()).ok, true);
   state.rows[0][29] = "How did you hear about us?";
   const originalRows = structuredClone(state.rows);
-  vm.runInContext("setupChapterSync()", context);
+  vm.runInContext("chapterEnsureLegacyLayout_(chapterGetSheet_(chapterConfig_(true), true))", context);
   assert.deepEqual(state.rows, originalRows);
   assert.deepEqual(state.validationChanges[0], { action: "clear", row: 2, column: 31, count: 999, columns: 24 });
   assert.deepEqual(state.validationChanges[1], {
@@ -817,4 +887,225 @@ test("owner setup clears inherited referral validation only from new fields and 
   });
   assert.equal(state.validationChanges.length, 2);
   assert.ok(state.validationChanges.every(({ row, column }) => row === 2 && column >= 30));
+});
+
+test("owner compaction preserves applicant values, links, notes and native column formatting behind a verified hidden backup", () => {
+  const { state, post, context } = fixture();
+  const payload = profileApplication();
+  assert.equal(post(payload).ok, true);
+  state.notes[1] = [];
+  state.notes[1][0] = "Recruiter original note";
+  state.notes[1][3] = "Email verified";
+  state.notes[1][36] = "City verified";
+  state.filter!.criteria[37] = { city: "Manila" };
+  state.filter!.criteria[12] = { retiredCountry: "Philippines" };
+  const originalRows = structuredClone(state.rows);
+  const originalNotes = structuredClone(state.notes);
+  const originalColumns = structuredClone(state.columnMetadata);
+  const kept = [...vm.runInContext("CHAPTER_FORM_COLUMNS", context)] as number[];
+  const result = vm.runInContext("setupChapterSync()", context);
+  assert.equal(result.columns, 35);
+  assert.match(result.backupSheetName, /^Applications backup \d{4}-\d{2}-\d{2}$/);
+  assert.equal(state.backups.length, 1);
+  assert.equal(state.backups[0].hidden, true);
+  assert.deepEqual(state.backups[0].rows, originalRows);
+  assert.deepEqual(state.backups[0].notes, originalNotes);
+  assert.deepEqual(state.backups[0].columnMetadata, originalColumns);
+  assert.equal(state.maxColumns, 35);
+  assert.deepEqual(state.rows[1], kept.map((index) => originalRows[1][index]));
+  assert.deepEqual(state.columnMetadata, kept.map((index) => originalColumns[index]));
+  assert.equal(state.rows[0][4], "WhatsApp number");
+  assert.equal(state.rows[0][7], "CV document");
+  assert.equal(state.rows[0][8], "Privacy consent");
+  assert.equal(state.notes[1][3], "Email verified");
+  assert.equal(state.notes[1][kept.indexOf(36)], "City verified");
+  assert.match(state.notes[1][0], /^Recruiter original note\n\nCHAPTER_RECEIVER_METADATA_V1\n/);
+  const metadata = JSON.parse(state.notes[1][0].split("CHAPTER_RECEIVER_METADATA_V1\n")[1]);
+  assert.deepEqual(metadata, { source: "Jobs in Croatia", otherDocumentUrl: originalRows[1][26], driverLicenseDetails: payload.application.driverLicenseDetails });
+  assert.equal(state.filter!.columns, 35);
+  assert.deepEqual(state.filter!.criteria, { [kept.indexOf(36) + 1]: { city: "Manila" } });
+  assert.equal(state.frozenRows, 1);
+  assert.equal(state.frozenColumns, 3);
+  assert.equal(state.validationChanges.length, 0);
+  const compactRows = structuredClone(state.rows);
+  const compactNotes = structuredClone(state.notes);
+  vm.runInContext("setupChapterSync()", context);
+  assert.equal(state.backups.length, 1);
+  assert.deepEqual(state.rows, compactRows);
+  assert.deepEqual(state.notes, compactNotes);
+  assert.equal(state.validationChanges.length, 0);
+  state.hideSearchResults = true;
+  const callsBefore = state.calls.length;
+  assert.equal(post(payload).duplicate, true);
+  assert.deepEqual(state.rows, compactRows);
+  assert.equal(state.files.length, 10);
+  assert.ok(!state.calls.slice(callsBefore).some(({ url }) => url.includes("/files?q=") || url.includes("uploadType=") || url.endsWith(":batchUpdate")));
+});
+
+test("compact submissions atomically save exactly the current form fields and private links with literal cell values", () => {
+  const { state, post, context } = fixture();
+  vm.runInContext("setupChapterSync()", context);
+  state.notes[1] = ["Existing ID comment", "Existing reference comment"];
+  const payload = profileApplication();
+  assert.equal(post(payload).ok, true);
+  assert.deepEqual(state.rows[0], [
+    "Application ID", "Reference", "Full name", "Email", "WhatsApp number", "Job position", "Submitted at (UTC)", "CV document", "Privacy consent",
+    "Diploma / education document", "NC2 document", "NBI / apostille document", "Form 18a document", "Driver license document", "First name", "Last name", "Gender",
+    "Street", "City", "Province / State", "Postal code", "Date of birth", "Place of birth", "Father’s full name", "Mother’s full name", "Destination country",
+    "Current work country", "Additional experienced role", "Other job choice", "English proficiency", "Telegram number", "Terms accepted", "Passport document",
+    "Residence ID document", "Employment certificate document",
+  ]);
+  assert.equal(state.rows[1].length, 35);
+  assert.equal(state.rows[1][2], "=SUM(1,1)");
+  assert.equal(state.rows[1][4], "+63 917 123 4567");
+  assert.equal(state.rows[1][7], "https://drive.google.com/file/d/private-cv-10/view");
+  assert.equal(state.rows[1][8], "Yes");
+  assert.equal(state.rows[1][13], "https://drive.google.com/file/d/private-cv-6/view");
+  assert.deepEqual(state.rows[1].slice(14, 32), [
+    "=SUM(1,1)", "Applicant", "Female", "17 Sample Street", "Manila", "Metro Manila", "0017", "1990-01-01", "Manila", "Applicant Father", "Applicant Mother",
+    "Macedonia", "Philippines", "Welder", "Warehouse operator", "Yes", "+63 917 123 4567", "Yes",
+  ]);
+  assert.deepEqual(state.rows[1].slice(32), [7, 8, 9].map((id) => `https://drive.google.com/file/d/private-cv-${id}/view`));
+  assert.equal(state.notes[1][1], "Existing reference comment");
+  assert.match(state.notes[1][0], /^Existing ID comment/);
+  assert.match(state.notes[1][0], /private-cv-5/);
+  assert.ok(!state.rows[0].some((header) => /^(Nationality|Country|Current address|Expected NC2|Application source|Other document)/.test(String(header))));
+  const write = state.calls.find(({ url }) => url.endsWith(":batchUpdate"))!;
+  assert.ok(write);
+  const requests = JSON.parse(write.options.payload as string).requests;
+  assert.equal(requests[0].updateCells.fields, "userEnteredValue");
+  assert.deepEqual(requests[0].updateCells.rows[0].values[2], { userEnteredValue: { stringValue: "=SUM(1,1)" } });
+  assert.equal(requests[1].updateCells.fields, "note");
+  state.hideSearchResults = true;
+  const callsBefore = state.calls.length;
+  assert.equal(post(payload).duplicate, true);
+  assert.equal(state.rows.length, 2);
+  assert.equal(state.files.length, 10);
+  assert.ok(!state.calls.slice(callsBefore).some(({ url }) => url.includes("/files?q=") || url.includes("uploadType=")));
+});
+
+test("compact layout accepts legacy Jobstreet payloads without inventing missing profile answers", () => {
+  const { state, post, context } = fixture();
+  vm.runInContext("setupChapterSync()", context);
+  const legacy = application();
+  const payload = { ...legacy, version: 2, application: { ...legacy.application, driverLicenseDetails: "Legacy professional driver" },
+    documents: [{ ...legacy.resume, id: "legacy-other", category: "other" }] };
+  assert.equal(post(payload).ok, true);
+  assert.equal(state.rows[1][3], legacy.application.email);
+  assert.equal(state.rows[1][5], "Fabricator");
+  assert.ok(state.rows[1].slice(14).every((value) => value === ""));
+  assert.match(state.notes[1][0], /private-cv-1/);
+  assert.match(state.notes[1][0], /Legacy professional driver/);
+  state.hideSearchResults = true;
+  const callsBefore = state.calls.length;
+  assert.equal(post(payload).duplicate, true);
+  assert.equal(state.files.length, 2);
+  assert.ok(!state.calls.slice(callsBefore).some(({ url }) => url.includes("/files?q=") || url.includes("uploadType=")));
+});
+
+test("compact quotas retain migrated source attribution and gs-prefix recovery without affecting Jobstreet", () => {
+  for (const quota of ["total", "email", "gs-prefix"]) {
+    const { state, post, context } = fixture();
+    const count = quota === "total" ? 20 : 3;
+    for (let index = 0; index < count; index++) seedRateRow(state.rows, index, {
+      email: quota === "total" ? `existing-${index}@example.test` : " Applicant@Example.Test ",
+    });
+    vm.runInContext("setupChapterSync()", context);
+    if (quota === "gs-prefix") {
+      for (let row = 1; row < state.rows.length; row++) {
+        state.rows[row][0] = "gs-" + state.rows[row][0];
+        state.notes[row][0] = "";
+      }
+    }
+    assert.equal(post(profileApplication()).code, "SUBMISSION_RATE_LIMIT");
+    assert.equal(state.files.length, 0);
+    assert.equal(post(application()).ok, true);
+  }
+});
+
+test("compact legacy recovery fills only retained profile columns and new identity links once", () => {
+  const { state, post, context } = fixture();
+  const current = profileApplication();
+  const legacy = { ...application(), version: 2, application: { ...application().application, driverLicenseDetails: current.application.driverLicenseDetails }, documents: current.documents.slice(0, 6) };
+  assert.equal(post(legacy).ok, true);
+  state.rows = state.rows.map((row) => row.slice(0, 30));
+  state.maxColumns = 30;
+  vm.runInContext("setupChapterSync()", context);
+  const preservedBase = [...state.rows[1].slice(0, 14)];
+  const callsBefore = state.calls.length;
+  assert.equal(post(current).duplicate, true);
+  assert.deepEqual(state.rows[1].slice(0, 14), preservedBase);
+  assert.equal(state.rows[1][14], current.application.profile.firstName);
+  assert.equal(state.rows[1][18], "Manila");
+  assert.equal(state.rows[1][25], "Macedonia");
+  assert.ok(state.rows[1].slice(32).every((link) => /^https:\/\/drive\.google\.com\/file\/d\//.test(String(link))));
+  assert.equal(state.rows[1].length, 35);
+  assert.equal(state.files.length, 10);
+  assert.equal(state.calls.slice(callsBefore).filter(({ url }) => url.includes("/files?q=")).length, 3);
+  const write = state.calls.slice(callsBefore).find(({ url }) => url.endsWith(":batchUpdate"))!;
+  assert.equal(JSON.parse(write.options.payload as string).requests[0].updateCells.start.columnIndex, 14);
+  state.hideSearchResults = true;
+  const duplicateCalls = state.calls.length;
+  assert.equal(post(current).duplicate, true);
+  assert.ok(!state.calls.slice(duplicateCalls).some(({ url }) => url.includes("/files?q=") || url.endsWith(":batchUpdate") || url.includes("uploadType=")));
+  assert.equal(state.files.length, 10);
+  assert.equal(post(legacy).duplicate, true);
+});
+
+test("compact writes retry safely after failed persistence or a lost acknowledgement", () => {
+  for (const failure of ["write", "acknowledgement"]) {
+    const { state, post, context } = fixture();
+    vm.runInContext("setupChapterSync()", context);
+    const payload = profileApplication();
+    if (failure === "write") state.writeFailures = 1;
+    else state.writeWrongAck = true;
+    assert.equal(post(payload).code, failure === "write" ? "SHEET_WRITE_FAILED" : "SHEET_WRITE_UNCONFIRMED");
+    assert.equal(state.files.length, 10);
+    if (failure === "write") {
+      assert.equal(state.rows.length, 1);
+      assert.equal(state.notes[1]?.[0] ?? "", "");
+    } else {
+      assert.equal(state.rows.length, 2);
+      assert.match(state.notes[1][0], /Jobs in Croatia/);
+      state.hideSearchResults = true;
+    }
+    state.writeWrongAck = false;
+    assert.equal(post(payload).ok, true);
+    assert.equal(state.rows.length, 2);
+    assert.equal(state.files.length, 10);
+  }
+});
+
+test("compaction refuses changed headers or an unverified backup before removing any columns", () => {
+  for (const failure of ["header", "hidden", "values"]) {
+    const { state, post, context } = fixture();
+    assert.equal(post(profileApplication()).ok, true);
+    if (failure === "header") state.rows[0][29] = "Unrelated recruiter notes";
+    if (failure === "hidden") state.failBackup = true;
+    if (failure === "values") state.corruptBackup = true;
+    const original = structuredClone(state.rows);
+    const metadata = structuredClone(state.columnMetadata);
+    assert.throws(() => vm.runInContext("setupChapterSync()", context), failure === "header" ? /HEADER_MISMATCH/ : /BACKUP_FAILED/);
+    assert.deepEqual(state.rows, original);
+    assert.deepEqual(state.columnMetadata, metadata);
+    assert.equal(state.maxColumns, 54);
+    assert.equal(state.locks, state.releases);
+    if (failure === "header") assert.equal(state.backups.length, 0);
+  }
+});
+
+test("owner setup chooses a unique native backup title and initializes a blank compact sheet", () => {
+  const populated = fixture();
+  populated.state.backups.push({ name: `Applications backup ${new Date().toISOString().slice(0, 10)}`, hidden: true, rows: [], notes: [], columnMetadata: [] });
+  const result = vm.runInContext("setupChapterSync()", populated.context);
+  assert.match(result.backupSheetName, / \(2\)$/);
+  const blank = fixture();
+  blank.state.rows = [];
+  blank.state.filter = null;
+  vm.runInContext("setupChapterSync()", blank.context);
+  assert.equal(blank.state.rows[0].length, 35);
+  assert.equal(blank.state.maxColumns, 35);
+  assert.equal(blank.state.backups.length, 0);
+  assert.equal(blank.state.filter!.columns, 35);
+  assert.equal(blank.post(profileApplication()).ok, true);
 });
