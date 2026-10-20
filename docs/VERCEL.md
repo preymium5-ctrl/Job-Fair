@@ -28,7 +28,7 @@ Provision an external PostgreSQL database and a private S3-compatible bucket. Th
 | `S3_SECRET_ACCESS_KEY` | Server-only storage credential |
 | `S3_ENDPOINT` | Required for providers with a custom S3-compatible endpoint |
 | `S3_FORCE_PATH_STYLE` | `true` only if required by the storage provider |
-| `SEED_PROPOSED_JOBS` | `true` to populate and migrate the current 23 employer-specific positions / 11,100 displayed slots once per catalogue version; the original PDF's 248 workers remain archived source data |
+| `SEED_PROPOSED_JOBS` | `true` to populate and migrate the current 17 grouped roles / 11,100 displayed slots once per catalogue version; the PDF's 248 workers remain archived source figures |
 | `INDEX_SITE` | `true` for the public production site; `false` explicitly pauses indexing. Local mode and Vercel previews always remain noindex. |
 | `GOOGLE_SITE_VERIFICATION` | Optional Search Console HTML-tag content value; see [SEO.md](SEO.md) |
 | `GOOGLE_SHEETS_WEBHOOK_URL` | Existing authorized Apps Script deployment URL ending in `/exec` |
@@ -68,4 +68,4 @@ Before launch, configure a persistent external worker to run `npm run applicatio
 
 ## Verify the deployment
 
-After configuring the services and resolving the transport and retry requirements, verify all 23 employer-specific listings, employer filters, detail/application links and the 27-URL catalog sitemap. Check that the employer appears in repeated trade titles and application choices and that the current allocations still total 11,100 slots. With PostgreSQL configured, retain `SEED_PROPOSED_JOBS=true` so the versioned expansion runs for existing catalog records. Also verify staff login, a complete application with all supported attachment sizes, private staff downloads, Google Sheet delivery, and retry delivery after a temporary receiver outage. Test with fictitious applicant details and remove those records afterward. External production PostgreSQL/S3 are not validated by the local test suite.
+After configuring the services and resolving the transport and retry requirements, verify the 17-role catalogue, 11,100 grouped slots, application choices and 21-URL catalog sitemap. Keep `SEED_PROPOSED_JOBS=true` for configured databases so the versioned rollback can retire the six employer-specific additions while preserving applications and staff changes. Also verify staff login, a complete application with all supported attachment sizes, private staff downloads, Google Sheet delivery, and retry delivery after a temporary receiver outage. Test with fictitious applicant details and remove those records afterward. External production PostgreSQL/S3 are not validated by the local test suite.

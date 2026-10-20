@@ -1,7 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { proposedJobs } from "../data/jobs";
-import { getJobPosition, jobPositionLabel } from "../data/job-positions";
 import { site } from "../data/site";
 import { getPublicJobBySlug, getPublicJobs, usesPublishedCatalog } from "../lib/public-jobs";
 import config from "../next.config";
@@ -23,7 +22,7 @@ test("production indexing is enabled while local, preview and explicit pauses st
   assert.equal(privatePage.index, false);
 });
 
-test("sitemap includes all 23 employer positions and excludes retired event pages, examples, closed jobs and applications", () => {
+test("sitemap includes all 17 hiring roles and excludes retired event pages, examples, closed jobs and applications", () => {
   const base = proposedJobs[0];
   const jobs = [...proposedJobs,
     { ...base, slug: "example-role", isExample: true },
@@ -31,8 +30,8 @@ test("sitemap includes all 23 employer positions and excludes retired event page
     { ...base, slug: "draft-role", status: "draft" as const },
   ];
   const sitemap = buildSitemap(jobs, { VERCEL_ENV: "production" });
-  assert.equal(sitemap.length, 27);
-  assert.equal(new Set(sitemap.map(({ url }) => url)).size, 27);
+  assert.equal(sitemap.length, 21);
+  assert.equal(new Set(sitemap.map(({ url }) => url)).size, 21);
   assert.ok(sitemap.every(({ url }) => !url.includes("/job-fair")));
   for (const job of proposedJobs) assert.ok(sitemap.some(({ url }) => url === siteUrl(`/jobs/${job.slug}`)));
   assert.ok(sitemap.every(({ url }) => url.startsWith(site.url) && !/apply|example-role|closed-role|draft-role|localhost/.test(url)));
@@ -50,33 +49,15 @@ test("role metadata uses unique canonical URLs and Philippines hiring descriptio
   const role = proposedJobs.find(({ slug }) => slug === "electrical-installer")!;
   const metadata = jobPageMetadata(role);
   assert.match(String(metadata.title), /Electrical Installer.*Hiring Filipino Workers in Croatia/);
-  assert.match(String(metadata.title), /Vertiv/);
   assert.match(metadata.description!, /salary range.*no placement fee/);
   assert.doesNotMatch(JSON.stringify(metadata), /job fair|proposed net salary/i);
   assert.equal(metadata.alternates?.canonical, siteUrl("/jobs/electrical-installer"));
   assert.equal(metadata.openGraph?.url, siteUrl("/jobs/electrical-installer"));
-  const fabricators = proposedJobs.filter(({ title }) => title === "Fabricator");
-  assert.equal(fabricators.length, 4);
-  assert.equal(new Set(fabricators.map((job) => String(jobPageMetadata(job).title))).size, 4);
-  for (const job of fabricators) {
-    const employer = getJobPosition(job)!.employer;
-    const positionMetadata = jobPageMetadata(job);
-    assert.ok(String(positionMetadata.title).includes(employer));
-    assert.ok(positionMetadata.description!.includes(employer));
-    assert.equal(positionMetadata.alternates?.canonical, siteUrl(`/jobs/${job.slug}`));
-  }
-  assert.equal(jobPositionLabel({ ...role, id: "staff-position", slug: "staff-position" }), role.title);
 });
 
 test("structured data describes published content and escapes untrusted script text", () => {
   const data = jobDirectoryData([...proposedJobs, { ...proposedJobs[0], slug: "example", isExample: true }]);
-  assert.equal(data.mainEntity.itemListElement.length, 23);
-  assert.equal(new Set(data.mainEntity.itemListElement.map(({ name }) => name)).size, 23);
-  for (const job of proposedJobs) {
-    const item = data.mainEntity.itemListElement.find(({ url }) => url === siteUrl(`/jobs/${job.slug}`));
-    assert.equal(item?.name, jobPositionLabel(job));
-    assert.ok(item?.name.includes(getJobPosition(job)!.employer));
-  }
+  assert.equal(data.mainEntity.itemListElement.length, 17);
   assert.equal(data["@type"], "CollectionPage");
   const serialized = serializeJsonLd({ name: "</script><script>alert(1)</script>" });
   assert.equal(serialized.includes("<"), false);
@@ -108,7 +89,7 @@ test("database-free production renders the published fair catalog without touchi
     process.env = { ...original, NODE_ENV: "production" };
     delete process.env.DATABASE_URL;
     delete process.env.CHAPTER_LOCAL_MODE;
-    assert.equal((await getPublicJobs()).length, 23);
+    assert.equal((await getPublicJobs()).length, 17);
     assert.equal((await getPublicJobBySlug("electrical-installer"))?.title, "Electrical Installer");
     assert.equal(await getPublicJobBySlug("missing-job"), undefined);
   } finally {

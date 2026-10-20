@@ -1,9 +1,8 @@
 import { mkdir, writeFile } from "node:fs/promises";
 import { createHash } from "node:crypto";
 import path from "node:path";
-import { proposedJobs, proposalV1Jobs } from "../data/jobs";
+import { proposedJobs } from "../data/jobs";
 import { getJobFairRole } from "../data/job-fair";
-import { jobPositionLabel } from "../data/job-positions";
 
 // Read-only integration smoke test. Run against an already-running local server:
 // npx tsx scripts/smoke-routes.ts [http://127.0.0.1:3000]
@@ -62,8 +61,8 @@ async function main() {
     await check(route, 200, route === "/jobs" ? (html) => {
       const errors: string[] = [];
       for (const job of proposedJobs)
-        if (!html.includes(`href="/jobs/${job.slug}"`)) errors.push(`Missing position: ${job.slug}`);
-      if (!html.includes("23") || !html.includes("11100")) errors.push("Missing current position or slot total");
+        if (!html.includes(`href="/jobs/${job.slug}"`)) errors.push(`Missing role: ${job.slug}`);
+      if (!html.includes("17") || !html.includes("11100")) errors.push("Missing current role or slot total");
       return errors;
     } : undefined);
   await check("/job-fair", [307, 308]);
@@ -99,10 +98,10 @@ async function main() {
       if (!html.includes("Welcome! Please tell us about yourself."))
         errors.push("Missing application form heading");
       const choices = html.match(/<select[^>]*id="jobId"[^>]*>([\s\S]*?)<\/select>/)?.[1] || "";
-      if ((choices.match(/<option\b/g) || []).length !== 23)
-        errors.push("Expected all 23 primary job choices");
-      if (!choices.includes(`value="${job.id}" selected=""`) || !choices.includes(jobPositionLabel(job)))
-        errors.push("Missing selected employer-specific position");
+      if ((choices.match(/<option\b/g) || []).length !== 17)
+        errors.push("Expected all 17 primary job choices");
+      if (!choices.includes(`value="${job.id}" selected=""`) || !choices.includes(job.title))
+        errors.push("Missing selected role");
       if (!html.includes("Document requirements") || !html.includes("Form 18a"))
         errors.push("Missing document guidance");
       return errors;
@@ -122,9 +121,26 @@ async function main() {
   };
   await check("/jobs/not-a-real-role", [404, 200], validateNotFound);
   await check("/jobs/not-a-real-role/apply", [404, 200], validateNotFound);
-  const imagePaths = [...new Set(proposedJobs.map((job) => job.image))];
-  if (imagePaths.length !== proposalV1Jobs.length)
-    throw new Error("Expected one existing illustration per distinct trade.");
+  for (const slug of [
+    "fabricator-vertiv", "fabricator-novi-ferromont", "fabricator-ferokotao",
+    "mig-mag-tig-rel-welder-ferokotao", "cnc-operator-ferokotao", "industrial-spray-painter-ferokotao",
+  ]) {
+    await check(`/jobs/${slug}`, [404, 200], validateNotFound);
+    await check(`/jobs/${slug}/apply`, [404, 200], validateNotFound);
+  }
+  await check("/sitemap.xml", 200, (xml) => {
+    const errors: string[] = [];
+    const locations = [...xml.matchAll(/<loc>(.*?)<\/loc>/g)].map((match) => match[1]);
+    // Local noindex previews intentionally return an empty sitemap.
+    if (locations.length !== 0 && locations.length !== 21) errors.push("Expected 21 public sitemap URLs, or an empty noindex preview");
+    if (locations.length)
+      for (const job of proposedJobs)
+        if (!locations.some((location) => location.endsWith(`/jobs/${job.slug}`))) errors.push(`Missing sitemap role: ${job.slug}`);
+    return errors;
+  });
+  const imagePaths = proposedJobs.map((job) => job.image);
+  if (new Set(imagePaths).size !== proposedJobs.length)
+    throw new Error("Proposed roles share image paths.");
   const imageHashes: string[] = [];
   const { readFile } = await import("node:fs/promises");
   for (const image of imagePaths) {
@@ -140,7 +156,7 @@ async function main() {
         .digest("hex"),
     );
   }
-  if (new Set(imageHashes).size !== proposalV1Jobs.length)
+  if (new Set(imageHashes).size !== proposedJobs.length)
     throw new Error("Proposed roles share duplicate image bytes.");
   const summary = {
     checkedAt: new Date().toISOString(),

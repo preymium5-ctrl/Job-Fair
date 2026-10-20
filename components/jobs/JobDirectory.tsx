@@ -146,7 +146,7 @@ export function JobDirectory({ jobs }: { jobs: Job[] }) {
           {result.length === 1 ? "opportunity" : "opportunities"}{" "}
           <span className="muted">
             / {jobs.length} published{" "}
-            {jobs.every((j) => j.isExample) ? "examples" : "positions"}
+            {jobs.every((j) => j.isExample) ? "examples" : "roles"}
             {result.some((j) => typeof j.openings === "number") && (
               <> · {availableSlots} available {availableSlots === 1 ? "slot" : "slots"}
               </>

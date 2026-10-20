@@ -1,8 +1,7 @@
 import type { Job } from "@/lib/types";
-import { getGroupedJobFairRole } from "./job-fair";
+import { getJobFairRole } from "./job-fair";
 import { maximumAgeRequirement, minimumExperienceRequirement, recruitmentBenefits } from "./employment";
-import { hiringRoleWorkerTotal, hiringWorkerTotal } from "./hiring-allocations";
-import { jobPositions } from "./job-positions";
+import { hiringWorkerTotal } from "./hiring-allocations";
 
 type Proposal = Pick<
   Job,
@@ -299,7 +298,7 @@ export const proposalV1Jobs: Job[] = proposals.map((proposal, index) => ({
 }));
 
 export const previousRecruitmentJobs: Job[] = proposalV1Jobs.map((job) => {
-  const fairRole = getGroupedJobFairRole(job);
+  const fairRole = getJobFairRole(job);
   if (!fairRole) return job;
   return {
     ...job,
@@ -314,9 +313,9 @@ export const previousRecruitmentJobs: Job[] = proposalV1Jobs.map((job) => {
   };
 });
 
-export const groupedRecruitmentJobs: Job[] = previousRecruitmentJobs.map((job) => ({
+export const proposedJobs: Job[] = previousRecruitmentJobs.map((job) => ({
   ...job,
-  openings: hiringRoleWorkerTotal(job.slug) ?? job.openings,
+  openings: hiringWorkerTotal(job.slug) ?? job.openings,
   location: "Croatia",
   experience: "Minimum 3 years of relevant work experience",
   description: `${job.summary} We are hiring skilled Filipino workers for this position in Croatia. Review the responsibilities, qualifications, salary range and benefits below, then apply with your CV and relevant supporting documents.`,
@@ -325,18 +324,6 @@ export const groupedRecruitmentJobs: Job[] = previousRecruitmentJobs.map((job) =
     .replace(" in the plan", ""))],
   benefits: [...recruitmentBenefits],
 }));
-
-export const proposedJobs: Job[] = jobPositions.map((position) => {
-  const role = groupedRecruitmentJobs.find((job) => job.slug === position.roleSlug)!;
-  return {
-    ...role,
-    id: position.id,
-    slug: position.slug,
-    openings: hiringWorkerTotal(position.slug),
-    // All employer listings of the same trade share its existing illustrative image.
-    featured: position.slug === position.roleSlug && role.featured,
-  };
-});
 
 // Kept for the existing read-only route smoke script and other catalog consumers.
 export const sampleJobs = proposedJobs;

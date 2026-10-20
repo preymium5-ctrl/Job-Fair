@@ -156,7 +156,6 @@ export async function POST(request: NextRequest) {
     const reference = `CH-${date.toISOString().slice(2, 7).replace("-", "")}-${randomBytes(8).toString("hex").toUpperCase()}`;
     const application: Application = {
       ...result.data,
-      preferredEmployer: fairRole?.employers.length === 1 ? fairRole.employers[0].name : result.data.preferredEmployer,
       id: randomUUID(),
       reference,
       jobTitle: job.title,

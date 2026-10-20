@@ -9,7 +9,6 @@ import { MAX_PROFILE_UPLOAD_BYTES, MAX_PROFILE_RESUME_BYTES, MAX_SUPPORTING_DOCU
 import { countryOptions, referenceJobPositions } from "@/data/application-form-options";
 import { fairDocuments, fairOptionalDocument, fairDocumentTiming, fairNc2Requirements, nc2ElectricalNote } from "@/data/job-fair";
 import { BrandLockup } from "@/components/ui/Brand";
-import { jobPositionLabel } from "@/data/job-positions";
 import AttachmentUpload from "./AttachmentUpload";
 import styles from "./ApplicationForm.module.css";
 
@@ -258,7 +257,7 @@ export default function ApplicationForm({ job, jobs = [job] }: { job: Job; jobs?
             <h2 id="work-heading">Work Experience</h2><span className={styles.rule} />
             <div className={styles.grid}>
               {profileSelect("currentWorkCountry", "Where are you currently working?", countryOptions, true, "Select the country where you currently work or are based.")}
-              <div className={`${styles.field} ${styles.full}`}><label htmlFor="jobId">What job position are you primarily applying for?<span className={styles.asterisk}>*</span></label><select id="jobId" name="jobId" value={values.jobId} disabled={busy} aria-required="true" aria-invalid={Boolean(errors.jobId)} aria-describedby={`job-help${errors.jobId ? " jobId-error" : ""}`} onChange={(event) => update("jobId", event.target.value)}>{jobs.map((option) => <option key={option.id} value={option.id}>{jobPositionLabel(option)}</option>)}</select><p id="job-help" className={styles.help}>Choose the position and employer you want to apply for. Please select only a position for which you already have relevant work experience.</p>{errors.jobId && <p id="jobId-error" className={styles.fieldError}>{errors.jobId}</p>}</div>
+              <div className={`${styles.field} ${styles.full}`}><label htmlFor="jobId">What job position are you primarily applying for?<span className={styles.asterisk}>*</span></label><select id="jobId" name="jobId" value={values.jobId} disabled={busy} aria-required="true" aria-invalid={Boolean(errors.jobId)} aria-describedby={`job-help${errors.jobId ? " jobId-error" : ""}`} onChange={(event) => update("jobId", event.target.value)}>{jobs.map((option) => <option key={option.id} value={option.id}>{option.title}</option>)}</select><p id="job-help" className={styles.help}>Please select only a position for which you already have relevant work experience.</p>{errors.jobId && <p id="jobId-error" className={styles.fieldError}>{errors.jobId}</p>}</div>
               {profileSelect("secondaryJobTitle", "Please select another job position in which you have experience", referenceJobPositions, true, "Please select only a position for which you already have relevant work experience.")}
               {textField("otherJobTitle", "If the job you’re applying for is not listed above, please enter it here", { optional: true, wide: true })}
             </div>

@@ -12,7 +12,7 @@ import { drainSheetsQueue, sheetsQueueStatus } from "../lib/sheets-queue";
 import { buildSheetsPayload, sendApplicationToSheets, sheetsConfiguration, SheetsDeliveryError, type SheetsPayload } from "../lib/sheets-transport";
 import { applicationSchema } from "../lib/validation";
 import type { Application, ApplicationProfile, Job } from "../lib/types";
-import { getGroupedJobFairRole, getJobFairRole } from "../data/job-fair";
+import { getJobFairRole } from "../data/job-fair";
 import { proposedJobs } from "../data/jobs";
 import { NextRequest } from "next/server";
 import { POST as submit } from "../app/api/applications/route";
@@ -73,33 +73,6 @@ test("legacy applications export complete document readiness and empty certifica
   assert.equal(payload.application.nc2Certificate, "");
   assert.equal(payload.application.preferredEmployer, "");
   assert.equal(payload.application.referralSource, "");
-});
-
-test("each of the 23 selected positions persists and exports its own employer", async () => {
-  const catalog = await getJobs();
-  for (const position of proposedJobs) {
-    const selected = catalog.find((item) => item.id === position.id)!;
-    assert.ok(selected, position.slug);
-    const input = { ...applicant(), jobId: selected.id, jobTitle: "Untrusted browser title" };
-    const { application: stored } = await createApplication(input, randomUUID(), "employer-position-test");
-    const employer = getJobFairRole(selected)!.employers[0];
-    assert.equal(stored.jobId, selected.id);
-    assert.equal(stored.jobTitle, selected.title);
-    assert.equal(stored.preferredEmployer, employer.name);
-    const payload = buildSheetsPayload(stored, resume, selected);
-    assert.equal(payload.application.preferredEmployer, employer.name);
-    assert.deepEqual(payload.application.employers, [{ name: employer.name, workers: employer.workers }]);
-  }
-});
-
-test("queued grouped applications retain blank or explicit employer preferences after the split", () => {
-  const fabricator = proposedJobs.find((item) => item.slug === "fabricator")!;
-  const expected = getGroupedJobFairRole(fabricator)!.employers.map(({ name, workers }) => ({ name, workers }));
-  for (const preferredEmployer of ["", "Vertiv", "Ferokotao d.o.o."]) {
-    const payload = buildSheetsPayload({ ...applicant(), jobId: fabricator.id, preferredEmployer }, resume, fabricator);
-    assert.equal(payload.application.preferredEmployer, preferredEmployer);
-    assert.deepEqual(payload.application.employers, expected);
-  }
 });
 
 test("all bounded profile answers and private filenames fit the existing Sheets summary without new receiver keys", () => {
@@ -164,6 +137,21 @@ test("Sheets payload preserves each referral source and normalizes an unanswered
     assert.ok(!("isExample" in payload.application));
   }
   assert.equal(buildSheetsPayload({ ...applicant(), referralSource: "" }, resume, job).application.referralSource, "");
+});
+
+test("retired employer listings retain NC2 and employer context on historical Sheets retries", () => {
+  const parent = proposedJobs.find((item) => item.slug === "fabricator")!;
+  const retired: Job = { ...parent, id: "proposed-fabricator-vertiv-18", slug: "fabricator-vertiv", status: "closed", openings: 225 };
+  const application = { ...applicant(), jobId: retired.id, preferredEmployer: "Vertiv", referralSource: "TikTok" };
+  const payload = buildSheetsPayload(application, resume, retired);
+  assert.equal(getJobFairRole(retired), undefined, "Retired rows do not rejoin the public role catalog");
+  assert.equal(payload.application.expectedNc2, "NC2 Fabricator");
+  assert.deepEqual(payload.application.employers, [{ name: "Vertiv", workers: 225 }]);
+  assert.equal(payload.application.preferredEmployer, "Vertiv");
+  assert.equal(payload.application.referralSource, "TikTok");
+  const unrelated = buildSheetsPayload(application, resume, { ...retired, id: "staff-custom" });
+  assert.equal(unrelated.application.expectedNc2, "");
+  assert.deepEqual(unrelated.application.employers, []);
 });
 
 test("new applications atomically queue exactly once and remain queued without configuration", async () => {
@@ -248,7 +236,7 @@ test("webhook signing, destination restrictions, private data boundary and exact
   const application = applicant();
   const payload = buildSheetsPayload(application, resume, job);
   assert.equal("resumeKey" in payload.application, false);
-  assert.deepEqual(payload.application.employers, getGroupedJobFairRole(job)?.employers.map(({ name, workers }) => ({ name, workers })) || []);
+  assert.deepEqual(payload.application.employers, getJobFairRole(job)?.employers.map(({ name, workers }) => ({ name, workers })) || []);
   assert.equal(payload.resume.base64, resume.toString("base64"));
   const originalFetch = globalThis.fetch;
   try {
