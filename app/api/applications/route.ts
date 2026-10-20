@@ -25,17 +25,27 @@ import type { Application } from "@/lib/types";
 import { getJobFairRole } from "@/data/job-fair";
 import { drainSheetsQueue } from "@/lib/sheets-queue";
 import { documentLabel, getRequiredProfileDocumentCategories, isDriverPosition, MAX_APPLICATION_UPLOAD_BYTES, MAX_PROFILE_RESUME_BYTES, MAX_PROFILE_UPLOAD_BYTES, supportingDocumentTypes } from "@/lib/document-uploads";
+import { saveApplicationToGoogle, usesGoogleApplicationStorage } from "@/lib/google-application-storage";
+import { sheetsConfiguration, SheetsDeliveryError } from "@/lib/sheets-transport";
+import { proposedJobs } from "@/data/jobs";
+import { additionalApplicationJobs } from "@/data/application-jobs";
 
 export const runtime = "nodejs";
+export const maxDuration = 120;
 export async function POST(request: NextRequest) {
   const stagedKeys: string[] = [];
   try {
     if (!sameOrigin(request))
       return failure("Submit your application from this website.", 403);
-    if (!(await rateLimit(request, "application", 20, 3600)))
-      return failure("Too many attempts. Please try again in an hour.", 429);
-    requireStorageConfiguration();
-    await requireApplicationConfiguration();
+    const googleStorage = usesGoogleApplicationStorage();
+    if (googleStorage) {
+      if (!sheetsConfiguration().valid) throw new Error("Google application storage is not configured.");
+    } else {
+      if (!(await rateLimit(request, "application", 20, 3600)))
+        return failure("Too many attempts. Please try again in an hour.", 429);
+      requireStorageConfiguration();
+      await requireApplicationConfiguration();
+    }
     const form = await limitedFormData(request, MAX_APPLICATION_UPLOAD_BYTES + 1024 * 1024);
     if (String(form.get("website") || "").trim())
       return failure("The application could not be accepted.", 400);
@@ -60,6 +70,8 @@ export async function POST(request: NextRequest) {
       return failure("Check the highlighted application details.", 422, {
         fieldErrors: fieldErrors(result.error),
       });
+    if (googleStorage && !result.data.profile)
+      return failure("Complete the current website application form.", 422);
     const file = form.get("resume");
     if (!(file instanceof File))
       return failure("Attach your resume.", 422, {
@@ -68,7 +80,9 @@ export async function POST(request: NextRequest) {
     if (result.data.profile && file.size > MAX_PROFILE_RESUME_BYTES)
       return failure("Your CV must be 3 MB or smaller.", 422, { fieldErrors: { resume: "Your CV must be 3 MB or smaller." } });
     const resume = await validateResume(file);
-    const job = await getJobById(result.data.jobId);
+    const job = googleStorage
+      ? [...proposedJobs, ...additionalApplicationJobs].find(({ id }) => id === result.data.jobId)
+      : await getJobById(result.data.jobId);
     const requiredDocuments = result.data.profile
       ? getRequiredProfileDocumentCategories(job?.title || "")
       : isDriverPosition(job?.title || "") ? ["driver-license"] : [];
@@ -109,9 +123,10 @@ export async function POST(request: NextRequest) {
     const requestDigest = createHash("sha256")
       .update(JSON.stringify(result.data))
       .update(resume.bytes);
+    if (googleStorage) requestDigest.update(JSON.stringify({ name: resume.name, mime: resume.mime }));
     for (const { category, document } of documents) requestDigest.update(JSON.stringify({ category, name: document.name, mime: document.mime, size: document.bytes.length })).update(document.bytes);
     const requestHash = requestDigest.digest("hex");
-    const existing = await findApplicationByKey(key);
+    const existing = googleStorage ? undefined : await findApplicationByKey(key);
     if (existing) {
       if (existing.requestHash !== requestHash)
         return failure(
@@ -124,7 +139,7 @@ export async function POST(request: NextRequest) {
       });
     }
     if (
-      !(await rateLimit(
+      !googleStorage && !(await rateLimit(
         request,
         "application-email",
         3,
@@ -147,6 +162,10 @@ export async function POST(request: NextRequest) {
       return failure("Choose an employer listed for this position.", 422, {
         fieldErrors: { preferredEmployer: "Choose an employer listed for this position, or no preference." },
       });
+    if (googleStorage) {
+      const saved = await saveApplicationToGoogle(result.data, job, key, requestHash, resume, documents);
+      return json({ reference: saved.reference, jobTitle: saved.jobTitle }, saved.duplicate ? 200 : 201);
+    }
     const resumeKey = await storeResume(resume);
     stagedKeys.push(resumeKey);
     const storedDocuments: NonNullable<Application["documents"]> = [];
@@ -198,6 +217,11 @@ export async function POST(request: NextRequest) {
       return failure(error.message, 422, {
         fieldErrors: { resume: error.message },
       });
+    if (error instanceof SheetsDeliveryError) {
+      if (error.code === "SUBMISSION_RATE_LIMIT") return failure("Too many applications have been submitted recently. Please try again in an hour.", 429);
+      if (error.code === "DUPLICATE_CONFLICT") return failure("This submission ID was already used. Refresh the form before sending a different application.", 409);
+      return failure("We couldn’t confirm your application with Google Sheets. Please try again; your reference will be recovered if it was received.", 503);
+    }
     if (error instanceof Error && error.message === "BODY_TOO_LARGE")
       return failure(
         "The upload is too large. Keep all files together within 15 MB.",

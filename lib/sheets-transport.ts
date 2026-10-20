@@ -7,7 +7,7 @@ import type { Job } from "./types";
 import { getRetiredEmployerContext } from "./catalog-history";
 
 export const TARGET_SPREADSHEET_ID = "1v9-lAvpJPUCxCqr03EkVwKKAfedEDtckHir4ro6cyeU";
-export type SheetsErrorCode = "NOT_CONFIGURED" | "CONFIGURATION_INVALID" | "WEBHOOK_UNAVAILABLE" | "WEBHOOK_REJECTED" | "INVALID_ACKNOWLEDGEMENT" | "RESUME_UNAVAILABLE";
+export type SheetsErrorCode = "NOT_CONFIGURED" | "CONFIGURATION_INVALID" | "WEBHOOK_UNAVAILABLE" | "WEBHOOK_REJECTED" | "INVALID_ACKNOWLEDGEMENT" | "RESUME_UNAVAILABLE" | "SUBMISSION_RATE_LIMIT" | "DUPLICATE_CONFLICT";
 export class SheetsDeliveryError extends Error {
   constructor(public readonly code: SheetsErrorCode) { super(code); }
 }
@@ -126,7 +126,7 @@ export function signedSheetsBody(payload: SheetsPayload, secret: string, timesta
   });
 }
 
-async function readAcknowledgement(response: Response, payload: SheetsPayload) {
+async function readAcknowledgement(response: Response, payload: SheetsPayload): Promise<SheetsAcknowledgement> {
   if (!response.ok) throw new SheetsDeliveryError("WEBHOOK_REJECTED");
   const reader = response.body?.getReader();
   if (!reader) throw new SheetsDeliveryError("INVALID_ACKNOWLEDGEMENT");
@@ -142,12 +142,15 @@ async function readAcknowledgement(response: Response, payload: SheetsPayload) {
     }
     chunks.push(item.value);
   }
-  let answer: Partial<SheetsAcknowledgement>;
+  let answer: Record<string, unknown>;
   try { answer = JSON.parse(Buffer.concat(chunks).toString("utf8")); }
   catch { throw new SheetsDeliveryError("INVALID_ACKNOWLEDGEMENT"); }
-  if (!answer || answer.ok !== true || answer.applicationId !== payload.application.id || answer.reference !== payload.application.reference || !Number.isSafeInteger(answer.row) || (answer.row || 0) < 2 || typeof answer.duplicate !== "boolean")
+  if (answer && answer.ok === false && (answer.code === "SUBMISSION_RATE_LIMIT" || answer.code === "DUPLICATE_CONFLICT"))
+    throw new SheetsDeliveryError(answer.code);
+  if (!answer || answer.ok !== true || answer.applicationId !== payload.application.id || answer.reference !== payload.application.reference || typeof answer.row !== "number" || !Number.isSafeInteger(answer.row) || answer.row < 2 || typeof answer.duplicate !== "boolean")
     throw new SheetsDeliveryError("INVALID_ACKNOWLEDGEMENT");
-  return answer as SheetsAcknowledgement;
+  return { ok: true, applicationId: payload.application.id, reference: payload.application.reference,
+    row: answer.row, duplicate: answer.duplicate };
 }
 
 export const sendApplicationToSheets: SheetsTransport = async (payload, options) => {

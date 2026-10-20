@@ -177,6 +177,104 @@ function profileApplication() {
   } };
 }
 
+function seedRateRow(rows: unknown[][], index: number, options: { email?: string; source?: string; submittedAt?: string | Date } = {}) {
+  const row = Array<unknown>(54).fill("");
+  row[0] = `rate-limit-id-${index}`;
+  row[1] = `RATE-LIMIT-REF-${index}`;
+  row[3] = options.email ?? `existing-${index}@example.test`;
+  row[7] = options.submittedAt ?? new Date(Date.now() - 60_000).toISOString();
+  row[53] = options.source ?? "Jobs in Croatia";
+  rows.push(row);
+}
+
+test("Apps Script limits new Jobs in Croatia submissions to twenty per hour before creating files", () => {
+  const { state, post } = fixture();
+  for (let index = 0; index < 20; index++) seedRateRow(state.rows, index);
+  assert.deepEqual(post(profileApplication()), { ok: false, code: "SUBMISSION_RATE_LIMIT" });
+  assert.equal(state.files.length, 0);
+  assert.equal(state.rows.length, 21);
+  assert.ok(!state.calls.some(({ url }) => url.includes("uploadType=")));
+  assert.equal(state.locks, state.releases);
+});
+
+test("Apps Script accepts the twentieth Jobs in Croatia application and persists the limit for the next request", () => {
+  const { state, post } = fixture();
+  for (let index = 0; index < 19; index++) seedRateRow(state.rows, index);
+  const first = profileApplication();
+  first.application.submittedAt = new Date().toISOString();
+  assert.equal(post(first).ok, true);
+  const next = profileApplication();
+  next.application.id += "-next";
+  next.application.reference += "-next";
+  next.application.email = "next@example.test";
+  const fileCount = state.files.length;
+  assert.deepEqual(post(next), { ok: false, code: "SUBMISSION_RATE_LIMIT" });
+  assert.equal(state.files.length, fileCount);
+  assert.equal(state.rows.length, 21);
+});
+
+test("Apps Script limits a normalized email to three applications per hour", () => {
+  const { state, post } = fixture();
+  seedRateRow(state.rows, 0, { email: " Applicant@Example.Test " });
+  seedRateRow(state.rows, 1, { email: "applicant@example.test", submittedAt: new Date(Date.now() - 60_000) });
+  const third = profileApplication();
+  third.application.submittedAt = new Date().toISOString();
+  assert.equal(post(third).ok, true);
+  const fourth = profileApplication();
+  fourth.application.id += "-fourth";
+  fourth.application.reference += "-fourth";
+  const fileCount = state.files.length;
+  assert.deepEqual(post(fourth), { ok: false, code: "SUBMISSION_RATE_LIMIT" });
+  assert.equal(state.files.length, fileCount);
+  assert.equal(state.rows.length, 4);
+});
+
+test("Apps Script excludes other sources and records outside the hourly window", () => {
+  const { state, post } = fixture();
+  const email = profileApplication().application.email;
+  for (let index = 0; index < 20; index++) seedRateRow(state.rows, index, {
+    email, source: index % 2 ? "Jobstreet Croatia" : "",
+  });
+  seedRateRow(state.rows, 20, { email, submittedAt: new Date(Date.now() - 61 * 60_000).toISOString() });
+  seedRateRow(state.rows, 21, { email, submittedAt: "invalid historical timestamp" });
+  seedRateRow(state.rows, 22, { email, submittedAt: new Date(Date.now() + 60_000).toISOString() });
+  assert.equal(post(profileApplication()).ok, true);
+  assert.equal(state.rows.length, 25);
+});
+
+test("Apps Script preserves legacy Jobstreet deliveries after Jobs in Croatia reaches its limit", () => {
+  const { state, post } = fixture();
+  for (let index = 0; index < 20; index++) seedRateRow(state.rows, index, {
+    email: application().application.email,
+  });
+  assert.equal(post(application()).ok, true);
+  assert.equal(state.rows.length, 22);
+  const otherSource = profileApplication();
+  otherSource.application.id += "-other-source";
+  otherSource.application.reference += "-other-source";
+  otherSource.application.applicationSource = "Jobstreet Croatia";
+  assert.equal(post(otherSource).ok, true);
+  assert.equal(state.rows.length, 23);
+});
+
+test("Apps Script recovers duplicate references after submission limits are reached", () => {
+  const { state, post } = fixture();
+  const original = profileApplication();
+  original.application.submittedAt = new Date().toISOString();
+  assert.equal(post(original).ok, true);
+  for (let index = 0; index < 20; index++) seedRateRow(state.rows, index, {
+    email: original.application.email,
+  });
+  const rowCount = state.rows.length;
+  const fileCount = state.files.length;
+  const result = post(original);
+  assert.equal(result.ok, true);
+  assert.equal(result.duplicate, true);
+  assert.equal(result.reference, original.application.reference);
+  assert.equal(state.rows.length, rowCount);
+  assert.equal(state.files.length, fileCount);
+});
+
 test("Apps Script signed delivery writes RAW recruiter columns and retry deduplicates row and private CV", () => {
   const { state, post } = fixture();
   assert.deepEqual(post(), { ok: true, applicationId: application().application.id,

@@ -13,7 +13,7 @@ export default function Privacy() {
         <span>/</span>
         <span>Privacy</span>
       </div>
-      <span className="eyebrow">Development preview / Data handling</span>
+      <span className="eyebrow">Application privacy / Data handling</span>
       <h1 className="page-heading">
         Your information.
         <br />
@@ -21,18 +21,17 @@ export default function Privacy() {
       </h1>
       <div className="legal-content">
         <p>
-          This notice describes how this development installation handles
-          application information. It is a preview notice, not a final
-          recruitment agency privacy policy. The site owner must provide the
-          responsible organization, privacy contact, retention schedule, and any
-          applicable legal basis before accepting real applicants.
+          This notice describes how Jobs in Croatia handles the information
+          you submit through its application form. For questions about your
+          application or the organization responsible for handling it, use the
+          contact details on <Link href="/contact">Application help</Link>.
         </p>
         <h2>Information you choose to provide</h2>
         <p>
           The application form collects your first and last names, gender,
           address, date and place of birth, email address, telephone
           number, country of residence, current work country, destination country,
-          job choices, English-language response, professional background, resume,
+          job choices, English proficiency, professional background, resume,
           optional Telegram contact and parents’ names, terms acknowledgement,
           employer preference, NC2 certificate details, driver’s license
           details and a license copy where applicable, passport, residence ID,
@@ -47,16 +46,16 @@ export default function Privacy() {
           The information is associated with the position you select and made
           available to authorized recruitment staff for reviewing that
           application. Applications can express interest in work in Croatia,
-          Slovenia, Serbia, Romania, Macedonia or Montenegro. This local
-          installation stores applications for authorized staff review and does
-          not automatically forward them to employers. Submission records your
+          Slovenia, Serbia, Romania, Macedonia or Montenegro. Applications are
+          stored for authorized recruitment staff review. Submission records your
           interest and does not guarantee an interview or employment.
         </p>
         <h2>Recruitment records in Google</h2>
         <p>
-          Application details, including optional driver’s license information, may be copied
-          to the recruiting team’s Google Sheets tracker. A private copy of your
-          CV and supporting documents may be stored in the team’s Google Drive, with links in that
+          Application details, including optional driver’s license information,
+          are sent to the recruiting team’s Google Sheets tracker when Google
+          delivery is enabled. Your CV and supporting documents are stored in
+          the team’s private Google Drive, with links in that
           tracker. The website sends this information through its authorized
           server connection. Uploaded files are not shared publicly; only Google
           accounts authorized by the recruiting team can open them.
@@ -73,27 +72,37 @@ export default function Privacy() {
           website and Google records.
         </p>
         <p>
-          Passport, residence ID and employment-certificate files remain in the
-          website’s private storage and are also copied to the recruiting team’s
-          private Google Drive. The tracker includes separate columns for each
-          form answer and document link. These files require authorized access.
+          Passport, residence ID and employment-certificate files are included
+          in this private document storage. The tracker includes separate
+          columns for each form answer and document link. These files require
+          authorized access.
         </p>
         <h2>Storage and access</h2>
         <p>
-          In local development, applications are stored in a durable database on
-          the host computer, and uploaded files are stored outside the public
-          website directory. In a configured production installation, a
-          PostgreSQL database and private object storage are used. Recruitment
-          staff must sign in to view applicant records and download resumes.
-          Administrative changes and resume downloads are recorded in the audit
-          log.
+          When this website uses Google Sheets storage, authorized recruitment
+          staff review your information in the private tracker and Drive folder.
+          The website confirms your application reference only after Google
+          acknowledges the saved application. If submission fails, keep the
+          form open and retry; your selected files remain in the form during
+          that retry. Repeating an unchanged submission reuses its application
+          identity to prevent a second row after a lost confirmation.
+        </p>
+        <p>
+          Installations using the database backend also retain application
+          records in a database and uploads in private object storage. Staff
+          must sign in to use that installation’s recruitment workspace;
+          administrative changes and file downloads are recorded in its audit
+          log. Local development keeps test records and files on the host
+          computer, outside the public website directory.
         </p>
         <h2>Cookies and security records</h2>
         <p>
           The public website does not use advertising or analytics cookies.
           Staff sign-in uses an essential HTTP-only session cookie. Security
           rate limiting stores a hashed identifier for requests and a time
-          window to help prevent automated abuse. Submitted information is
+          window to help prevent automated abuse. The Google receiver also
+          checks submission frequency using application records and email
+          addresses. Submitted information and uploaded file formats are
           validated on the server.
         </p>
         <h2>Your choices and retention</h2>
@@ -101,20 +110,19 @@ export default function Privacy() {
           Keep the reference number displayed after submission. To request
           access, correction, or deletion, contact the site owner or the
           confirmed recruitment contact on{" "}
-          <Link href="/contact">Application help</Link>. This preview does not
-          implement a published automatic retention schedule; the site owner
-          must establish one before processing real applicant information. Use
-          fictitious details when testing.
+          <Link href="/contact">Application help</Link>. There is no automatic
+          deletion schedule implemented by the website. The recruiting team
+          handles retention and deletion requests for its application records
+          and private document copies. Use fictitious details when testing.
         </p>
-        <h2>Before live recruitment</h2>
+        <h2>About your submission</h2>
         <p>
-          The operator must finalize this notice for its organization and
-          jurisdiction, configure HTTPS and private storage, set a retention and
-          deletion policy, and confirm the purpose and recipients of applicant
-          information. No application is sold or sent to an employer by this
-          preview.
+          Submitting this form provides your information to the recruiting
+          team for reviewing your application. It does not automatically send
+          an application to an employer. Contact the recruiting team for
+          information about any later sharing with an employer.
         </p>
-        <p>Preview notice updated 20 October 2026.</p>
+        <p>Notice updated 20 October 2026.</p>
       </div>
     </div>
   );

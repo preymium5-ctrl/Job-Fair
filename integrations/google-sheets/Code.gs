@@ -62,6 +62,7 @@ function doPost(event) {
     chapterPrivateFolder_(config.folderId);
     const application = payload.application;
     const existing = chapterFindRow_(sheet, application.id, application.reference);
+    if (!existing) chapterEnforceSubmissionRate_(sheet, application);
     const documentFiles = payload.documents.map(function (document) {
       return { category: document.category, file: chapterGetOrCreateCv_(config, application, document, document.bytes, document.id) };
     });
@@ -245,6 +246,30 @@ function chapterFindRow_(sheet, id, reference) {
     }
   });
   return found;
+}
+
+/** The script lock makes these persisted limits shared by every website instance. */
+function chapterEnforceSubmissionRate_(sheet, application) {
+  // Legacy Jobstreet Croatia deliveries retain their existing contract. An
+  // acknowledged delivery can always be retried, even after the limit is met.
+  if (application.applicationSource !== 'Jobs in Croatia') return;
+  const count = sheet.getLastRow() - 1;
+  if (count < 1) return;
+  const contacts = sheet.getRange(2, 4, count, 5).getValues();
+  const sources = sheet.getRange(2, 54, count, 1).getValues();
+  const now = Date.now();
+  const cutoff = now - 60 * 60 * 1000;
+  const email = application.email.trim().toLowerCase();
+  let total = 0;
+  let matchingEmail = 0;
+  contacts.forEach(function (row, index) {
+    if (sources[index][0] !== 'Jobs in Croatia') return;
+    const submittedAt = new Date(row[4]).getTime();
+    if (!Number.isFinite(submittedAt) || submittedAt < cutoff || submittedAt > now) return;
+    total++;
+    if (String(row[0]).trim().toLowerCase() === email) matchingEmail++;
+  });
+  chapterAssert_(total < 20 && matchingEmail < 3, 'SUBMISSION_RATE_LIMIT');
 }
 
 function chapterValidatePayload_(payload) {

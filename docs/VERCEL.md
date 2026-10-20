@@ -1,6 +1,6 @@
 # Deploying Jobs in Croatia to Vercel
 
-The repository can be imported as a Next.js project. Public pages and the sitemap use the built-in fair catalog when no production database is configured. The current complete application flow runs locally or on a persistent Node.js server. A GitHub import alone does not connect the live application backend, private uploads, or Google Sheets.
+The repository can be imported as a Next.js project. Public pages and the sitemap use the built-in fair catalog when no production database is configured. On Vercel, the application form can save directly to the authorized Google Sheet and private Google Drive folder, or use the database/S3 backend. Importing GitHub source does not copy the private local environment; configure the selected storage mode before accepting submissions.
 
 ## Import settings
 
@@ -11,9 +11,28 @@ The repository can be imported as a Next.js project. Public pages and the sitema
 
 Vercel's built-in Next.js support handles routing and static assets; this project needs no custom rewrite or static-export configuration. See [Next.js on Vercel](https://vercel.com/docs/frameworks/full-stack/nextjs) and [environment variables](https://vercel.com/docs/environment-variables).
 
-## Production services and environment variables
+## Google Sheets storage mode
 
-Provision an external PostgreSQL database and a private S3-compatible bucket. The local `.data` directory is not uploaded and cannot serve as persistent storage on Vercel. The deployment database user must be allowed to create the application tables and indexes; migrations run on the first database connection.
+Use this mode when recruitment staff work in the private Google tracker and Drive folder. It does not require PostgreSQL, S3 or a website staff account. Set these production environment variables, then redeploy:
+
+| Variable | Production value |
+| --- | --- |
+| `APPLICATION_STORAGE` | `google-sheets` |
+| `CHAPTER_LOCAL_MODE` | `false` |
+| `APP_ORIGIN` | `https://www.jobsincroatiaa.com`, without a trailing slash; must exactly match the submitting browser's origin |
+| `NEXT_PUBLIC_SITE_URL` | `https://www.jobsincroatiaa.com` |
+| `GOOGLE_SHEETS_WEBHOOK_URL` | Existing authorized Apps Script deployment URL ending in `/exec` |
+| `GOOGLE_SHEETS_WEBHOOK_SECRET` | Existing matching receiver secret, kept server-only |
+
+`APP_ORIGIN` is also a security setting. A missing or mismatched value rejects submission with **Submit your application from this website.** before any Google delivery. Redirect alternate domains to the canonical origin. Do not disable the origin check to work around configuration errors.
+
+The server validates the job, form fields and files, signs the complete request, and waits for Google to acknowledge the same application ID and reference. Only that acknowledgement produces a successful submission and confirmed reference. This mode accepts the current profile form, with a 4 MiB combined file limit; legacy API submissions without a profile are rejected. If the receiver is unavailable or rejects delivery, the applicant sees a retry message; the open form retains the selected files and retry key. Retrying the unchanged application reuses its identity so a lost acknowledgement does not create another row. There is no database-backed outbox or automatic background retry in this mode. Staff use the private Google Sheet and Drive; the website's `/admin` application workspace requires the database backend.
+
+Deploy the receiver and run its header setup before enabling this mode. The current contract is `schemaVersion: 5` with 54 columns. See [Google Sheets setup](GOOGLE_SHEETS_SETUP.md) for the private folder, source compatibility and verification procedure.
+
+## Database storage mode
+
+This remains the default when `APPLICATION_STORAGE` is unset; `APPLICATION_STORAGE=database` selects it explicitly. Provision an external PostgreSQL database and a private S3-compatible bucket. The local `.data` directory is not uploaded and cannot serve as persistent storage on Vercel. The deployment database user must be allowed to create the application tables and indexes; migrations run on the first database connection.
 
 | Variable | Production value |
 | --- | --- |
@@ -31,10 +50,10 @@ Provision an external PostgreSQL database and a private S3-compatible bucket. Th
 | `SEED_PROPOSED_JOBS` | `true` to populate and migrate the current 17 grouped roles / 11,100 displayed slots once per catalogue version; the PDF's 248 workers remain archived source figures |
 | `INDEX_SITE` | `true` for the public production site; `false` explicitly pauses indexing. Local mode and Vercel previews always remain noindex. |
 | `GOOGLE_SITE_VERIFICATION` | Optional Search Console HTML-tag content value; see [SEO.md](SEO.md) |
-| `GOOGLE_SHEETS_WEBHOOK_URL` | Existing authorized Apps Script deployment URL ending in `/exec` |
-| `GOOGLE_SHEETS_WEBHOOK_SECRET` | Existing matching receiver secret, kept server-only |
+| `GOOGLE_SHEETS_WEBHOOK_URL` | Optional authorized Apps Script deployment URL ending in `/exec`, for queued Google exports |
+| `GOOGLE_SHEETS_WEBHOOK_SECRET` | Matching receiver secret when Google exports are enabled, kept server-only |
 
-Keep `TRUST_PROXY=false` unless the deployment's proxy behavior has been verified against the backend's IP-header handling. Set `NEXT_PUBLIC_CONTACT_EMAIL` once a public recruitment contact is confirmed. Preview deployments need their own matching origin, database, bucket, and test receiver to avoid sending test applications to production.
+Keep `TRUST_PROXY=false` unless the deployment's proxy behavior has been verified against the backend's IP-header handling. Set `NEXT_PUBLIC_CONTACT_EMAIL` once a public recruitment contact is confirmed. Preview deployments need their own matching origin and test receiver; database mode also needs isolated database and bucket settings to avoid sending test applications to production.
 
 The primary public origin is `https://www.jobsincroatiaa.com`; use it for both origin variables. `jobstreetcroatia.com` redirects to this domain. See [SEO.md](SEO.md) for canonical URLs, search visibility and Search Console setup.
 
@@ -42,7 +61,7 @@ The legacy `CHAPTER_` setting names are internal compatibility identifiers. The 
 
 Set secrets directly in Vercel's environment settings. The existing private `.env.local`, database, uploads, and generated Apps Script configuration are excluded from Git. The safe receiver template is in `integrations/google-sheets/`; the live receiver must retain its existing matching secret.
 
-## Provision the staff account
+## Provision the database-mode staff account
 
 From an authorized terminal with the **production** `DATABASE_URL` in its environment, run:
 
@@ -52,7 +71,7 @@ npm run admin:setup -- --email your-email@example.com
 
 The script prompts for a password without displaying it. Provisioning is a one-time administrative step, not a build command. Never commit the password or leave `ADMIN_SETUP_PASSWORD` configured on the website. Local staff accounts and application records are not automatically copied to PostgreSQL.
 
-## Work required before live applications on Vercel
+## File-size limits and database-mode delivery workers
 
 ### File upload and download transport
 
@@ -60,14 +79,16 @@ The script prompts for a password without displaying it. Provisioning is a one-t
 
 To support larger application files or the existing staff-photo limit on Vercel, implement authenticated, short-lived direct-to-storage uploads and private signed downloads (or route file handling through a suitable external service). Preserve server validation, ownership checks, duplicate protection, and cleanup of abandoned files. Configuring an S3 bucket alone does not bypass the Vercel request limit. Increasing a Next.js body-size setting also does not change Vercel's platform limit.
 
-### Google Sheets delivery retries
+### Google Sheets delivery retries in database mode
 
 The expanded profile sender requires the shared Apps Script receiver's schema-5 source and 54-column `A:BB` layout. Preserve its existing deployment URL, matching secret and private folder, run the checked header migration, and update the existing deployment before sending version-3 profile requests. The receiver retains the original `A:AD` positions and accepts legacy Jobstreet Croatia requests. Verify all profile columns and supplied private document links with a synthetic submission; saving receiver source or reading health alone does not confirm delivery. See [Google Sheets setup](GOOGLE_SHEETS_SETUP.md).
 
-Each application attempts delivery during its request and persists a retry queue in the database. The existing `setInterval` worker is designed for a persistent Node.js server. Serverless instances may stop between requests, so it cannot guarantee automatic retries on Vercel.
+In database mode, each application attempts delivery during its request and persists a retry queue in the database. The existing `setInterval` worker is designed for a persistent Node.js server. Serverless instances may stop between requests, so it cannot guarantee automatic retries on Vercel.
 
-Before launch, configure a persistent external worker to run `npm run applications:sync` on a schedule with the same production database, storage, and Sheets credentials, or implement an authenticated scheduled function that drains the existing queue. No public cron endpoint or Vercel cron job is currently included. The protected `/admin` workspace also exposes integration status and manual retries.
+For automatic database-mode retries on Vercel, configure a persistent external worker to run `npm run applications:sync` on a schedule with the same production database, storage, and Sheets credentials, or implement an authenticated scheduled function that drains the existing queue. No public cron endpoint or Vercel cron job is currently included. The protected `/admin` workspace also exposes integration status and manual retries. Google Sheets storage mode waits for delivery in the submission request and asks the applicant to retry failures, so this worker does not apply to that mode.
 
 ## Verify the deployment
 
-After configuring the services and resolving the transport and retry requirements, verify the 17-role catalogue, 11,100 grouped slots, application choices and 21-URL catalog sitemap. Keep `SEED_PROPOSED_JOBS=true` for configured databases so the versioned rollback can retire the six employer-specific additions while preserving applications and staff changes. Also verify staff login, a complete application with all supported attachment sizes, private staff downloads, Google Sheet delivery, and retry delivery after a temporary receiver outage. Test with fictitious applicant details and remove those records afterward. External production PostgreSQL/S3 are not validated by the local test suite.
+After configuring the selected mode and redeploying, submit a complete application with fictitious details from the canonical production origin. Verify that the form displays a reference, the same reference appears once in **Applications**, every profile answer and supplied document link is present, and private document access works for authorized staff. Verify unchanged retries after a temporary receiver failure remain a single application, then remove the synthetic row and files. A successful public-page load or receiver health response does not prove that the production form is configured.
+
+Verify the catalogue, application choices and sitemap. In database mode, keep `SEED_PROPOSED_JOBS=true` for versioned catalogue migrations and also verify staff login, private website downloads, application persistence and queued retry delivery. External production PostgreSQL/S3 are not validated by the local test suite.
