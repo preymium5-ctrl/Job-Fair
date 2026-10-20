@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { additionalApplicationJobs, additionalApplicationJobOptions } from "../data/application-jobs";
-import { destinationCountries, referenceJobPositions } from "../data/application-form-options";
+import { countryOptions, destinationCountries, referenceJobPositions } from "../data/application-form-options";
 import { proposedJobs } from "../data/jobs";
 import { getRequiredProfileDocumentCategories, isDriverPosition } from "../lib/document-uploads";
 
@@ -155,7 +155,9 @@ test("imported role names stay application-only without invented pay or vacancy 
 });
 
 test("application destinations offer Croatia and the five requested countries", () => {
-  assert.deepEqual(destinationCountries, ["Croatia", "Slovenia", "Serbia", "Romania", "North Macedonia", "Montenegro"]);
+  assert.deepEqual(destinationCountries, ["Croatia", "Slovenia", "Serbia", "Romania", "Macedonia", "Montenegro"]);
+  assert.equal(countryOptions.filter((country) => country === "Macedonia").length, 1);
+  assert.equal(countryOptions.includes("North Macedonia"), false);
 });
 
 test("every offered driver role requires a license through the shared helper", () => {

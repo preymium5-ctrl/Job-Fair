@@ -24,7 +24,8 @@ export const applicationProfileSchema = z.object({
     return Number.isFinite(date.getTime()) && date.toISOString().slice(0, 10) === value && value < new Date().toISOString().slice(0, 10);
   }, "Enter a real date of birth in the past."),
   placeOfBirth: profileText(120),
-  destinationCountry: z.enum(destinationCountries),
+  // Preserve legacy values so retries retain the same submission digest.
+  destinationCountry: z.enum([...destinationCountries, "North Macedonia"]),
   currentWorkCountry: profileText(80).min(2, "Enter your current work country."),
   secondaryJobTitle: profileText(160),
   englishProficiency: z.enum(["Yes", "No"], { error: "Please select Yes or No." }),

@@ -47,7 +47,7 @@ export default function Privacy() {
           The information is associated with the position you select and made
           available to authorized recruitment staff for reviewing that
           application. Applications can express interest in work in Croatia,
-          Slovenia, Serbia, Romania, North Macedonia or Montenegro. This local
+          Slovenia, Serbia, Romania, Macedonia or Montenegro. This local
           installation stores applications for authorized staff review and does
           not automatically forward them to employers. Submission records your
           interest and does not guarantee an interview or employment.
@@ -74,9 +74,9 @@ export default function Privacy() {
         </p>
         <p>
           Passport, residence ID and employment-certificate files remain in the
-          website’s private storage for authorized recruitment staff. Their
-          filenames are listed in the Google tracker; these files are not copied
-          to Google Drive by the existing connection.
+          website’s private storage and are also copied to the recruiting team’s
+          private Google Drive. The tracker includes separate columns for each
+          form answer and document link. These files require authorized access.
         </p>
         <h2>Storage and access</h2>
         <p>

@@ -14,7 +14,7 @@ import { drainSheetsQueue } from "../lib/sheets-queue";
 import { POST as submit } from "../app/api/applications/route";
 import { destinationCountries } from "../data/application-form-options";
 import { additionalApplicationJobs } from "../data/application-jobs";
-import { getRequiredProfileDocumentCategories, isDriverPosition } from "../lib/document-uploads";
+import { getRequiredProfileDocumentCategories, isDriverPosition, supportingDocumentTypes } from "../lib/document-uploads";
 
 const original = { ...process.env };
 const origin = "http://localhost:3000";
@@ -101,6 +101,16 @@ test("the form accepts every offered destination without collecting or inventing
   assert.equal(applicationSchema.parse(referenceInput()).profile?.nationality, "Filipino", "Legacy nationality answers remain readable");
 });
 
+test("legacy Macedonia destination and work country values remain unchanged for retries", () => {
+  const parsed = applicationSchema.parse({
+    ...referenceInput(),
+    profile: { ...profile, destinationCountry: "North Macedonia", currentWorkCountry: "North Macedonia" },
+  });
+  assert.equal(parsed.profile?.destinationCountry, "North Macedonia");
+  assert.equal(parsed.profile?.currentWorkCountry, "North Macedonia");
+  assert.equal(parsed.country, "North Macedonia");
+});
+
 test("structured addresses trim and normalize every part, preserve postal text and require all four pieces", () => {
   const structured = { ...profile, address: "Stale combined address", street: " 17 Sample Street ", city: " Manila ", province: " Metro Manila ", postalCode: " 0017 " };
   const parsed = applicationSchema.parse({ ...referenceInput(), profile: structured }).profile!;
@@ -145,7 +155,7 @@ test("structured addresses trim and normalize every part, preserve postal text a
   }
 });
 
-test("profile submissions require individual files, retain private categories, recover retries and deliver legacy-compatible Sheets payloads", async () => {
+test("profile submissions require individual files, recover retries and deliver every document category in Sheets version 3", async () => {
   const job = (await getJobs())[0];
   const values = input(job.id);
   const key = randomUUID();
@@ -165,7 +175,7 @@ test("profile submissions require individual files, retain private categories, r
   const duplicate = await submit(request(["passport", "passport", "residence-id", "diploma"]));
   assert.equal(duplicate.status, 422);
   assert.ok((await duplicate.json()).fieldErrors["document:passport"]);
-  const categories = ["passport", "residence-id", "diploma", "employment-certificate"];
+  const categories = supportingDocumentTypes.map(({ id }) => id);
   const accepted = await submit(request(categories));
   assert.equal(accepted.status, 201);
   const receipt = await accepted.json();
@@ -177,8 +187,16 @@ test("profile submissions require individual files, retain private categories, r
   assert.deepEqual(stored.documents?.map(({ category }) => category).sort(), [...categories].sort());
   for (const document of stored.documents || []) assert.deepEqual(await readObject(document.key), pdf);
   const delivery = await drainSheetsQueue({ applicationId: stored.id }, { transport: async (payload) => {
-    assert.equal("profile" in payload.application, false);
-    assert.deepEqual(payload.documents?.map(({ category }) => category), ["diploma"]);
+    assert.equal(payload.version, 3);
+    assert.deepEqual(payload.application.profile, stored.profile);
+    assert.equal(payload.application.applicationSource, "Jobs in Croatia");
+    assert.equal(payload.application.applicationFormVersion, "profile-v1");
+    assert.deepEqual(payload.documents?.map(({ category }) => category), categories);
+    assert.equal(payload.documents?.length, 9);
+    for (const document of payload.documents || []) {
+      assert.equal(document.base64, pdf.toString("base64"));
+      assert.equal(document.id, stored.documents?.find(({ category }) => category === document.category)?.id);
+    }
     assert.match(payload.application.summary, /Gender: Female/);
     assert.match(payload.application.summary, /Speaks and understands English: No/);
     assert.match(payload.application.summary, /Passport: passport.pdf/);
@@ -259,12 +277,14 @@ test("reference-only applications persist structured addresses and blank experie
   assert.equal(stored.driverLicenseDetails, "Category B");
   assert.ok(stored.documents?.some(({ category }) => category === "driver-license"));
   const delivery = await drainSheetsQueue({ applicationId: stored.id }, { transport: async (payload) => {
+    assert.equal(payload.version, 3);
+    assert.deepEqual(payload.application.profile, stored.profile);
     assert.equal(payload.application.experienceYears, null);
     assert.equal(payload.application.recentJobTitle, "");
     assert.equal(payload.application.skills, "");
     assert.match(payload.application.summary, /reference form does not collect most recent role, years of experience or a separate skills statement/);
     assert.match(payload.application.summary, /Street: 17 Sample Street\nCity: Manila\nProvince: Metro Manila\nPostal code: 0017/);
-    assert.deepEqual(payload.documents?.map(({ category }) => category).sort(), ["diploma", "driver-license"]);
+    assert.deepEqual(payload.documents?.map(({ category }) => category).sort(), ["diploma", "driver-license", "passport", "residence-id"]);
     return { ok: true, applicationId: stored.id, reference: stored.reference, row: 2, duplicate: false };
   } });
   assert.equal(delivery.delivered, 1);
@@ -287,8 +307,9 @@ test("work-permit documents may be absent initially and available NBI and Form 1
     assert.ok(!stored.documents?.some(({ category }) => category === "diploma" || category === "nc2"));
     for (const document of stored.documents || []) assert.deepEqual(await readObject(document.key), pdf);
     const delivery = await drainSheetsQueue({ applicationId: stored.id }, { transport: async (payload) => {
-      assert.equal(payload.version, permitDocuments.length ? 2 : 1);
-      assert.deepEqual(payload.documents?.map(({ category }) => category) || [], permitDocuments);
+      assert.equal(payload.version, 3);
+      assert.deepEqual(payload.application.profile, stored.profile);
+      assert.deepEqual(payload.documents?.map(({ category }) => category).sort(), [...categories].sort());
       for (const document of payload.documents || []) {
         assert.equal(document.base64, pdf.toString("base64"));
         assert.equal(document.id, stored.documents?.find(({ category }) => category === document.category)?.id);

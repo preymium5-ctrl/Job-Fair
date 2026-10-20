@@ -1,6 +1,6 @@
 // Unique experience choices from the reference application form, in its order.
 // These positions are also available in a separate group for primary applications.
-export const destinationCountries = ["Croatia", "Slovenia", "Serbia", "Romania", "North Macedonia", "Montenegro"] as const;
+export const destinationCountries = ["Croatia", "Slovenia", "Serbia", "Romania", "Macedonia", "Montenegro"] as const;
 
 export const referenceJobPositions: readonly string[] = [
   "Waiter/Waitress",
@@ -249,6 +249,7 @@ export const countryOptions: readonly string[] = [
   "Lithuania",
   "Luxembourg",
   "Macao SAR China",
+  "Macedonia",
   "Madagascar",
   "Malawi",
   "Malaysia",
@@ -282,7 +283,6 @@ export const countryOptions: readonly string[] = [
   "Niue",
   "Norfolk Island",
   "North Korea",
-  "North Macedonia",
   "Northern Mariana Islands",
   "Norway",
   "Oman",

@@ -57,7 +57,7 @@ export interface ApplicationProfile {
   postalCode?: string;
   dateOfBirth: string;
   placeOfBirth: string;
-  destinationCountry: (typeof destinationCountries)[number];
+  destinationCountry: (typeof destinationCountries)[number] | "North Macedonia";
   currentWorkCountry: string;
   secondaryJobTitle: string;
   englishProficiency: "Yes" | "No";

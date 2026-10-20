@@ -62,6 +62,8 @@ To support larger application files or the existing staff-photo limit on Vercel,
 
 ### Google Sheets delivery retries
 
+The expanded profile sender requires the shared Apps Script receiver's schema-5 source and 54-column `A:BB` layout. Preserve its existing deployment URL, matching secret and private folder, run the checked header migration, and update the existing deployment before sending version-3 profile requests. The receiver retains the original `A:AD` positions and accepts legacy Jobstreet Croatia requests. Verify all profile columns and supplied private document links with a synthetic submission; saving receiver source or reading health alone does not confirm delivery. See [Google Sheets setup](GOOGLE_SHEETS_SETUP.md).
+
 Each application attempts delivery during its request and persists a retry queue in the database. The existing `setInterval` worker is designed for a persistent Node.js server. Serverless instances may stop between requests, so it cannot guarantee automatic retries on Vercel.
 
 Before launch, configure a persistent external worker to run `npm run applications:sync` on a schedule with the same production database, storage, and Sheets credentials, or implement an authenticated scheduled function that drains the existing queue. No public cron endpoint or Vercel cron job is currently included. The protected `/admin` workspace also exposes integration status and manual retries.

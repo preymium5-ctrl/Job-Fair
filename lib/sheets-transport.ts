@@ -1,5 +1,5 @@
 import { createHmac } from "node:crypto";
-import type { Application } from "./types";
+import type { Application, ApplicationProfile } from "./types";
 import type { SupportingDocumentCategory } from "./document-uploads";
 import { documentLabel, privateProfileDocumentCategories } from "./document-uploads";
 import { getJobFairRole } from "../data/job-fair";
@@ -13,10 +13,13 @@ export class SheetsDeliveryError extends Error {
 }
 export interface SheetsDocument { id: string; category: SupportingDocumentCategory; name: string; mime: string; base64: string; }
 export interface SheetsPayload {
-  version: 1 | 2;
+  version: 1 | 2 | 3;
   application: Omit<Application, "resumeKey" | "resumeName" | "resumeMime" | "isExample" | "documents" | "profile"> & {
     expectedNc2: string;
     employers: { name: string; workers: number }[];
+    profile?: ApplicationProfile;
+    applicationSource?: string;
+    applicationFormVersion?: string;
   };
   resume: { name: string; mime: string; base64: string };
   documents?: SheetsDocument[];
@@ -54,7 +57,8 @@ export function buildSheetsPayload(application: Application, resume: Buffer, job
   void _key;
   void _example;
   const privateDocuments = (_documents || []).filter(({ category }) => privateProfileDocumentCategories.some((item) => item === category));
-  const exportedDocuments = documents.filter(({ category }) => !privateProfileDocumentCategories.some((item) => item === category));
+  const exportedDocuments = documents;
+  const expandedPayload = Boolean(profile || exportedDocuments.some(({ category }) => privateProfileDocumentCategories.some((item) => item === category)));
   const profileSummary = profile ? [
     "Application profile",
     ...(!details.recentJobTitle && details.experienceYears == null && !details.skills
@@ -83,8 +87,8 @@ export function buildSheetsPayload(application: Application, resume: Buffer, job
     ...privateDocuments.map(({ category, name }) => `${documentLabel(category)}: ${name}`),
   ].join("\n") : "";
   const supplementalSummary = [profileSummary, documentsSummary].filter(Boolean).join("\n\n");
-  // The unchanged receiver accepts at most 4,000 summary characters and six unique legacy categories.
-  // Profile submissions reserve room by limiting the applicant's own summary to 1,000 characters.
+  // Retain the readable summary for earlier records and recruiter searches.
+  // Version 3 also sends each profile answer separately, without summary truncation.
   let summary = details.summary;
   if (supplementalSummary) {
     const remaining = Math.max(0, 4000 - supplementalSummary.length - 2);
@@ -94,10 +98,11 @@ export function buildSheetsPayload(application: Application, resume: Buffer, job
   }
   const fair = job ? getJobFairRole(job) ?? getRetiredEmployerContext(job) : undefined;
   return {
-    version: exportedDocuments.length ? 2 : 1,
-    ...(exportedDocuments.length ? { documents: exportedDocuments } : {}),
+    version: expandedPayload ? 3 : exportedDocuments.length ? 2 : 1,
+    ...(expandedPayload || exportedDocuments.length ? { documents: exportedDocuments } : {}),
     application: {
       ...details,
+      ...(profile ? { profile, applicationSource: "Jobs in Croatia", applicationFormVersion: "profile-v1" } : {}),
       summary,
       referralSource: details.referralSource || "",
       nc2Certificate: details.nc2Certificate || "",

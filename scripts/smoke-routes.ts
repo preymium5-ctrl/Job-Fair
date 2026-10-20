@@ -109,7 +109,7 @@ async function main() {
       if (!choices.includes(`value="${job.id}" selected=""`) || !choices.includes(job.title))
         errors.push("Missing selected role");
       if (html.includes("Please enter your nationality")) errors.push("Nationality field should be removed");
-      for (const label of ["Slovenia", "Serbia", "Romania", "North Macedonia", "Montenegro"])
+      for (const label of ["Slovenia", "Serbia", "Romania", "Macedonia", "Montenegro"])
         if (!html.includes(`<option value="${label}"`)) errors.push(`Missing destination: ${label}`);
       if (!html.includes("Documents may be required") || !html.includes("for Croatia applicants"))
         errors.push("Missing document guidance");

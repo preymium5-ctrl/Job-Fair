@@ -17,6 +17,7 @@ import { proposedJobs } from "../data/jobs";
 import { NextRequest } from "next/server";
 import { POST as submit } from "../app/api/applications/route";
 import { GET as integrationStatus, POST as integrationRetry } from "../app/api/admin/integrations/google-sheets/route";
+import { supportingDocumentTypes } from "../lib/document-uploads";
 
 const originalEnv = { ...process.env };
 let temporaryDirectory = "";
@@ -73,9 +74,18 @@ test("legacy applications export complete document readiness and empty certifica
   assert.equal(payload.application.nc2Certificate, "");
   assert.equal(payload.application.preferredEmployer, "");
   assert.equal(payload.application.referralSource, "");
+  assert.equal(payload.version, 1);
+  assert.equal(payload.documents, undefined);
+  for (const field of ["profile", "applicationSource", "applicationFormVersion"])
+    assert.equal(field in payload.application, false);
+  const document = { id: randomUUID(), category: "diploma" as const, name: "diploma.pdf", mime: "application/pdf", base64: resume.toString("base64") };
+  const withDocument = buildSheetsPayload(legacy, resume, job, [document]);
+  assert.equal(withDocument.version, 2);
+  assert.deepEqual(withDocument.documents, [document]);
+  assert.deepEqual(withDocument.application, payload.application);
 });
 
-test("all bounded profile answers and private filenames fit the existing Sheets summary without new receiver keys", () => {
+test("bounded profile answers and private filenames keep the readable summary alongside the full version 3 profile", () => {
   const profile: ApplicationProfile = {
     firstName: "F".repeat(59), lastName: "L".repeat(60), gender: "Female", nationality: "N".repeat(80),
     address: "A".repeat(300), dateOfBirth: "1990-01-01", placeOfBirth: "P".repeat(120), destinationCountry: "Croatia",
@@ -88,9 +98,11 @@ test("all bounded profile answers and private filenames fit the existing Sheets 
   const payload = buildSheetsPayload(application, resume, job, application.documents.map(({ key: _key, size: _size, ...document }) => {
     void _key; void _size; return { ...document, base64: resume.toString("base64") };
   }));
-  assert.equal(payload.version, 1);
-  assert.equal(payload.documents, undefined);
-  assert.equal("profile" in payload.application, false);
+  assert.equal(payload.version, 3);
+  assert.deepEqual(payload.documents?.map(({ category }) => category), categories);
+  assert.deepEqual(payload.application.profile, profile);
+  assert.equal(payload.application.applicationSource, "Jobs in Croatia");
+  assert.equal(payload.application.applicationFormVersion, "profile-v1");
   assert.ok(payload.application.summary.length <= 4000);
   for (const value of Object.values(profile))
     if (typeof value === "string") assert.ok(payload.application.summary.includes(value));
@@ -105,7 +117,8 @@ test("all bounded profile answers and private filenames fit the existing Sheets 
   for (const [label, value] of [["Street", structuredProfile.street], ["City", structuredProfile.city], ["Province", structuredProfile.province], ["Postal code", structuredProfile.postalCode]])
     assert.ok(structuredPayload.application.summary.includes(`${label}: ${value}`));
   assert.ok(!structuredPayload.application.summary.includes(`Address: ${structuredProfile.address}`));
-  assert.equal("profile" in structuredPayload.application, false);
+  assert.equal(structuredPayload.version, 3);
+  assert.deepEqual(structuredPayload.application.profile, structuredProfile);
   const legacy = { ...application, profile: undefined, summary: "L".repeat(4000) };
   const legacyPayload = buildSheetsPayload(legacy, resume, job);
   assert.equal(legacy.summary.length, 4000);
@@ -114,19 +127,51 @@ test("all bounded profile answers and private filenames fit the existing Sheets 
   for (const document of application.documents) assert.ok(legacyPayload.application.summary.includes(document.name));
 });
 
-test("Sheets address export retains the combined legacy value and labels structured pieces without changing receiver fields", () => {
+test("Sheets address export retains the combined legacy value and each structured address answer", () => {
   const profile: ApplicationProfile = { firstName: "Test", lastName: "Applicant", gender: "Female", nationality: "Filipino",
     address: "Legacy full address", dateOfBirth: "1990-01-01", placeOfBirth: "Manila", destinationCountry: "Croatia",
     currentWorkCountry: "Philippines", secondaryJobTitle: "Welder", englishProficiency: "Yes", termsAccepted: true };
   const legacy = buildSheetsPayload({ ...applicant(), profile }, resume, job);
   assert.match(legacy.application.summary, /Address: Legacy full address/);
   assert.doesNotMatch(legacy.application.summary, /Street:|Postal code:/);
-  const structured = buildSheetsPayload({ ...applicant(), profile: { ...profile, address: "17 Sample Street, Manila, Metro Manila, 0017",
-    street: "17 Sample Street", city: "Manila", province: "Metro Manila", postalCode: "0017" } }, resume, job);
+  assert.deepEqual(legacy.application.profile, profile);
+  const structuredProfile = { ...profile, address: "17 Sample Street, Manila, Metro Manila, 0017",
+    street: "17 Sample Street", city: "Manila", province: "Metro Manila", postalCode: "0017" };
+  const structured = buildSheetsPayload({ ...applicant(), profile: structuredProfile }, resume, job);
   assert.match(structured.application.summary, /Street: 17 Sample Street\nCity: Manila\nProvince: Metro Manila\nPostal code: 0017/);
   assert.doesNotMatch(structured.application.summary, /Address:/);
   assert.deepEqual(Object.keys(structured.application).sort(), Object.keys(legacy.application).sort());
   assert.equal("street" in structured.application, false);
+  assert.deepEqual(structured.application.profile, structuredProfile);
+});
+
+test("version 3 round-trips every profile answer and all nine uploaded document categories", () => {
+  const profile: ApplicationProfile = {
+    firstName: "María", lastName: "Santos", gender: "Female", nationality: "Filipino",
+    address: "17 Sample Street, Manila, Metro Manila, 0017", street: "17 Sample Street", city: "Manila",
+    province: "Metro Manila", postalCode: "0017", dateOfBirth: "1990-01-01", placeOfBirth: "Quezon City",
+    destinationCountry: "Macedonia", currentWorkCountry: "Philippines", secondaryJobTitle: "Welder",
+    englishProficiency: "No", termsAccepted: true, telegram: "@maria_santos", fatherName: "Juan Santos",
+    motherName: "Ana Santos", otherJobTitle: "Fabricator",
+  };
+  const application: Application = { ...applicant(), fullName: "María Santos", profile, referralSource: "TikTok",
+    driverLicenseDetails: "Category B", summary: "Detailed experience", education: "Vocational diploma" };
+  const documents = supportingDocumentTypes.map(({ id: category }) => ({
+    id: randomUUID(), category, name: `${category}.pdf`, mime: "application/pdf", base64: resume.toString("base64"),
+  }));
+  const payload = JSON.parse(JSON.stringify(buildSheetsPayload(application, resume, job, documents))) as SheetsPayload;
+  assert.equal(payload.version, 3);
+  assert.deepEqual(payload.application.profile, profile);
+  assert.deepEqual(payload.documents, documents);
+  assert.equal(payload.documents?.length, 9);
+  assert.equal(payload.application.applicationSource, "Jobs in Croatia");
+  assert.equal(payload.application.applicationFormVersion, "profile-v1");
+  for (const field of ["fullName", "email", "phone", "country", "referralSource", "driverLicenseDetails", "education", "coverLetter", "skills", "consent"] as const)
+    assert.equal(payload.application[field], application[field], field);
+  assert.ok(payload.application.summary.includes(application.summary));
+  assert.equal("resumeKey" in payload.application, false);
+  assert.equal("documents" in payload.application, false);
+  assert.equal("isExample" in payload.application, false);
 });
 
 test("Sheets payload preserves each referral source and normalizes an unanswered source", () => {

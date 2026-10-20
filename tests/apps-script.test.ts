@@ -19,7 +19,8 @@ function fixture() {
   ]);
   const state = {
     rows: [] as unknown[][], files: [] as DriveFile[], calls: [] as { url: string; options: Record<string, unknown> }[],
-    writeFailures: 0, maxRows: 1000, maxColumns: 30, folderPublic: false, filePublic: false, locks: 0, releases: 0,
+    writeFailures: 0, writeWrongAck: false, maxRows: 1000, maxColumns: 54, folderPublic: false, filePublic: false, locks: 0, releases: 0,
+    validationChanges: [] as { action: string; row: number; column: number; count: number; columns: number; rule?: unknown }[],
     stagedFile: undefined as Omit<DriveFile, "id" | "size" | "trashed"> | undefined,
   };
   const response = (data: unknown, status = 200, headers = {}) => ({
@@ -45,6 +46,8 @@ function fixture() {
           cells.forEach((value, offset) => { target[column - 1 + offset] = value; });
         });
       },
+      clearDataValidations: () => { state.validationChanges.push({ action: "clear", row, column, count, columns }); },
+      setDataValidation: (rule: unknown) => { state.validationChanges.push({ action: "set", row, column, count, columns, rule }); },
     }),
   };
   const context = vm.createContext({
@@ -64,7 +67,18 @@ function fixture() {
     LockService: { getScriptLock: () => ({
       tryLock: () => { state.locks++; return true; }, releaseLock: () => { state.releases++; },
     }) },
-    SpreadsheetApp: { openById: () => ({ getSheetByName: () => sheet }) },
+    SpreadsheetApp: {
+      openById: () => ({ getSheetByName: () => sheet }),
+      newDataValidation: () => {
+        const rule = { choices: [] as string[], showDropdown: false, allowInvalid: true };
+        const builder = {
+          requireValueInList: (choices: string[], showDropdown: boolean) => { rule.choices = [...choices]; rule.showDropdown = showDropdown; return builder; },
+          setAllowInvalid: (allowInvalid: boolean) => { rule.allowInvalid = allowInvalid; return builder; },
+          build: () => rule,
+        };
+        return builder;
+      },
+    },
     ScriptApp: { getOAuthToken: () => "mock-google-access-token" },
     UrlFetchApp: { fetch: (url: string, options: Record<string, unknown>) => {
       state.calls.push({ url, options });
@@ -99,12 +113,20 @@ function fixture() {
       }
       if (url.includes("/values/")) {
         assert.equal(options.method, "put");
-        assert.match(decodeURIComponent(url), new RegExp("/values/'Applications'!A" + (state.rows.length + 1) + ":AD" + (state.rows.length + 1) + "\\?valueInputOption=RAW$"));
+        const match = /\/values\/'Applications'!(A|AE)(\d+):BB(\d+)\?valueInputOption=RAW$/.exec(decodeURIComponent(url));
+        assert.ok(match);
+        const rowNumber = Number(match[2]);
+        assert.equal(rowNumber, Number(match[3]));
+        const firstColumn = match[1] === "A" ? 0 : 30;
+        if (firstColumn === 0) assert.equal(rowNumber, state.rows.length + 1);
+        else assert.ok(rowNumber >= 2 && rowNumber <= state.rows.length);
         if (state.writeFailures-- > 0) return response({ error: "Private Google failure detail" }, 503);
         const row = JSON.parse(options.payload as string).values[0];
-        assert.equal(row.length, 30);
-        state.rows.push(row);
-        return response({ updatedRows: 1, updatedColumns: 30, updatedRange: "'Applications'!A" + state.rows.length + ":AD" + state.rows.length });
+        assert.equal(row.length, 54 - firstColumn);
+        const target = state.rows[rowNumber - 1] ??= [];
+        row.forEach((value: unknown, index: number) => { target[firstColumn + index] = value; });
+        return response({ updatedRows: 1, updatedColumns: state.writeWrongAck ? 1 : row.length,
+          updatedRange: "'Applications'!" + match[1] + rowNumber + ":BB" + rowNumber });
       }
       const file = state.files.find((item) => url.includes("/files/" + item.id + "?"));
       if (file) return response(file);
@@ -139,6 +161,20 @@ function application() {
     },
     resume: { name: "CV.pdf", mime: "application/pdf", base64: Buffer.from("%PDF-1.4\nTest CV\n%%EOF").toString("base64") },
   };
+}
+
+function profileApplication() {
+  const original = application();
+  return { ...original, version: 3, documents: ["diploma", "nc2", "nbi", "form18a", "other", "driver-license", "passport", "residence-id", "employment-certificate"].map((category) => ({
+    ...original.resume, id: `profile-${category}`, category, name: `${category}.pdf`,
+  })), application: { ...original.application, recentJobTitle: "", experienceYears: null, skills: "",
+    referralSource: "Google Search", driverLicenseDetails: "Professional, Philippines", applicationSource: "Jobs in Croatia", applicationFormVersion: "profile-v1",
+    profile: { firstName: "=SUM(1,1)", lastName: "Applicant", gender: "Female", nationality: "Filipino", address: "17 Sample Street, Manila, Metro Manila, 0017",
+      street: "17 Sample Street", city: "Manila", province: "Metro Manila", postalCode: "0017", dateOfBirth: "1990-01-01", placeOfBirth: "Manila",
+      fatherName: "Applicant Father", motherName: "Applicant Mother", destinationCountry: "Macedonia", currentWorkCountry: "Philippines",
+      secondaryJobTitle: "Welder", otherJobTitle: "Warehouse operator", englishProficiency: "Yes", telegram: "+63 917 123 4567", termsAccepted: true,
+    },
+  } };
 }
 
 test("Apps Script signed delivery writes RAW recruiter columns and retry deduplicates row and private CV", () => {
@@ -200,7 +236,7 @@ test("Apps Script reuses uploaded CV after failed sheet write and returns saniti
   assert.equal(state.rows.length, 2);
 });
 
-test("Apps Script writes fixed A:AD coordinates without append table detection and expands a full sheet", () => {
+test("Apps Script writes fixed A:BB coordinates without append table detection and expands a full sheet", () => {
   const { state, post } = fixture();
   state.maxRows = 1;
   assert.equal(post().ok, true);
@@ -209,7 +245,7 @@ test("Apps Script writes fixed A:AD coordinates without append table detection a
   assert.equal(state.rows[1][21], "Yes");
   const write = state.calls.find(({ url }) => url.includes("/values/"));
   assert.ok(write);
-  assert.match(decodeURIComponent(write.url), /'Applications'!A2:AD2\?valueInputOption=RAW$/);
+  assert.match(decodeURIComponent(write.url), /'Applications'!A2:BB2\?valueInputOption=RAW$/);
   assert.ok(!write.url.includes(":append"));
 });
 
@@ -235,7 +271,7 @@ test("Apps Script stops on changed headers, conflicting references, or public CV
 test("Apps Script health endpoint has no applicant data or secret", () => {
   const { context, properties } = fixture();
   properties.clear();
-  assert.deepEqual(vm.runInContext("doGet()", context), { ok: true, service: "chapter-applications", version: 1, schemaVersion: 4, columns: 30 });
+  assert.deepEqual(vm.runInContext("doGet()", context), { ok: true, service: "chapter-applications", version: 1, schemaVersion: 5, columns: 54 });
 });
 
 test("referral sources append after every existing recruiter column and legacy payloads leave AD blank", () => {
@@ -271,7 +307,7 @@ test("complete website payload writes a literal referral answer through signed d
   assert.equal(state.rows.length, 2);
 });
 
-test("reference profile answers and private identity filenames deliver through the updated receiver without new columns or duplicate categories", () => {
+test("website profile and every uploaded identity document deliver into distinct private links and answer columns", () => {
   const { state, post } = fixture();
   const original = application();
   const documents = ["passport", "residence-id", "employment-certificate", "diploma"].map((category) => ({
@@ -288,22 +324,21 @@ test("reference profile answers and private identity filenames deliver through t
   } as Application;
   const payload = buildSheetsPayload(record, Buffer.from(original.resume.base64, "base64"), undefined,
     documents.map(({ key: _key, size: _size, ...document }) => { void _key; void _size; return { ...document, base64: original.resume.base64 }; }));
-  assert.equal("profile" in payload.application, false);
-  assert.deepEqual(payload.documents?.map(({ category }) => category), ["diploma"]);
+  assert.equal(payload.version, 3);
+  assert.deepEqual(payload.application.profile, record.profile);
+  assert.deepEqual(payload.documents?.map(({ category }) => category), documents.map(({ category }) => category));
   assert.equal(post(payload).ok, true);
-  assert.equal(state.rows[0].length, 30);
-  assert.equal(state.rows[1].length, 30);
+  assert.equal(state.rows[0].length, 54);
+  assert.equal(state.rows[1].length, 54);
   assert.equal(state.rows[1][12], "");
   assert.equal(state.rows[1][13], "");
   assert.equal(state.rows[1][14], "");
-  assert.match(String(state.rows[1][18]), /reference form does not collect/);
-  assert.match(String(state.rows[1][18]), /First name: Test/);
-  assert.match(String(state.rows[1][18]), /Street: 17 Sample Street\nCity: Manila\nProvince: Metro Manila\nPostal code: 0017/);
-  assert.match(String(state.rows[1][18]), /Speaks and understands English: No/);
-  assert.match(String(state.rows[1][18]), /Passport: passport.pdf/);
-  assert.match(String(state.rows[1][18]), /Residence ID: residence-id.pdf/);
-  assert.match(String(state.rows[1][18]), /Certificate of employment: employment-certificate.pdf/);
-  assert.equal(state.files.length, 2); // Only the CV and the existing diploma category go to Drive.
+  assert.deepEqual(state.rows[1].slice(30, 41), ["Test", "Applicant", "Male", "Filipino", record.profile!.address,
+    "17 Sample Street", "Manila", "Metro Manila", "0017", "1990-01-01", "Manila"]);
+  assert.deepEqual(state.rows[1].slice(43, 50), ["Croatia", "Philippines", "Welder", "", "No", "", "Yes"]);
+  assert.ok(state.rows[1].slice(50, 53).every((link) => /^https:\/\/drive.google.com\/file\/d\/private-cv-\d+\/view$/.test(String(link))));
+  assert.equal(state.rows[1][53], "Jobs in Croatia");
+  assert.equal(state.files.length, 5);
   assert.equal(post(payload).duplicate, true);
   assert.equal(state.rows.length, 2);
 });
@@ -343,7 +378,7 @@ test("owner setup appends the referral header to a 29-column sheet without chang
   assert.deepEqual({ ...vm.runInContext("setupChapterSync()", context) }, {
     ok: true, sheetName: "Applications", cvFolderUrl: "https://drive.google.com/drive/folders/" + folderId,
   });
-  assert.equal(state.maxColumns, 30);
+  assert.equal(state.maxColumns, 54);
   assert.equal(state.rows[0][29], "Where did you hear about us?");
   assert.deepEqual(state.rows[1], oldRow);
   vm.runInContext("setupChapterSync()", context);
@@ -431,4 +466,214 @@ test("driver license details and all six optional documents align, remain privat
   assert.equal(state.rows.length, 2);
   assert.equal(post({ ...payload, application: { ...payload.application, driverLicenseDetails: "Different category" } }).code, "EXISTING_DOCUMENT_MISMATCH");
   assert.equal(post({ ...payload, application: { ...payload.application, driverLicenseDetails: "x".repeat(201) } }).code, "INVALID_APPLICATION");
+});
+
+test("v3 exports every profile answer and all nine document categories in fixed positions with private RAW writes", () => {
+  const { state, post } = fixture();
+  const payload = profileApplication();
+  assert.equal(post(payload).ok, true);
+  assert.deepEqual(state.rows[0].slice(30), [
+    "First name", "Last name", "Gender", "Nationality", "Current address / location", "Street", "City", "Province / State", "Postal code",
+    "Date of birth", "Place of birth", "Father’s full name", "Mother’s full name", "Destination country", "Current work country",
+    "Additional experienced role", "Other job choice", "English proficiency", "Telegram number", "Terms accepted", "Passport document",
+    "Residence ID document", "Employment certificate document", "Application source",
+  ]);
+  assert.deepEqual(state.rows[1].slice(30, 50), [
+    "=SUM(1,1)", "Applicant", "Female", "Filipino", "17 Sample Street, Manila, Metro Manila, 0017", "17 Sample Street", "Manila", "Metro Manila", "0017",
+    "1990-01-01", "Manila", "Applicant Father", "Applicant Mother", "Macedonia", "Philippines", "Welder", "Warehouse operator", "Yes", "+63 917 123 4567", "Yes",
+  ]);
+  for (const [index, fileNumber] of [[22, 1], [23, 2], [24, 3], [25, 4], [26, 5], [28, 6], [50, 7], [51, 8], [52, 9]])
+    assert.equal(state.rows[1][index], `https://drive.google.com/file/d/private-cv-${fileNumber}/view`);
+  assert.equal(state.rows[1][8], "https://drive.google.com/file/d/private-cv-10/view");
+  assert.equal(state.rows[1][53], "Jobs in Croatia");
+  assert.equal(state.files.length, 10);
+  assert.equal(post(payload).duplicate, true);
+  assert.equal(state.files.length, 10);
+  assert.equal(state.rows.length, 2);
+  assert.ok(state.calls.filter(({ url }) => url.includes("/drive/v3/files?q=")).every(({ url }) => url.includes("pageSize=11")));
+  assert.ok(state.calls.every(({ url }) => !url.includes("permissions.create")));
+  assert.equal(post({ ...payload, application: { ...payload.application, profile: { ...payload.application.profile, city: "Cebu" } } }).code, "EXISTING_PROFILE_MISMATCH");
+  assert.equal(post({ ...payload, application: { ...payload.application, applicationSource: "Changed source" } }).code, "EXISTING_PROFILE_MISMATCH");
+  const missingPassport = { ...payload, documents: payload.documents.filter(({ category }) => category !== "passport") };
+  assert.equal(post(missingPassport).duplicate, true);
+  assert.equal(state.rows[1][50], "https://drive.google.com/file/d/private-cv-7/view");
+});
+
+test("v3 profile schema rejects unknown keys, invalid dates, unchecked terms and oversized values before Google access", () => {
+  const original = profileApplication();
+  const invalidApplications = [
+    { ...original.application, profile: { ...original.application.profile, unexpected: "value" } },
+    { ...original.application, profile: { ...original.application.profile, dateOfBirth: "1990-02-30" } },
+    { ...original.application, profile: { ...original.application.profile, termsAccepted: false } },
+    { ...original.application, profile: { ...original.application.profile, firstName: "x".repeat(61) } },
+    { ...original.application, profile: { ...original.application.profile, telegram: "x".repeat(81) } },
+    { ...original.application, applicationSource: "x".repeat(81) },
+    { ...original.application, applicationFormVersion: "x".repeat(81) },
+  ];
+  for (const input of invalidApplications) {
+    const { state, post } = fixture();
+    assert.equal(post({ ...original, application: input }).ok, false);
+    assert.equal(state.calls.length, 0);
+    assert.equal(state.rows.length, 1);
+  }
+  const { state, post } = fixture();
+  assert.equal(post({ ...original, documents: [] }).ok, true);
+  assert.equal(state.files.length, 1);
+  assert.deepEqual(state.rows[1].slice(50, 53), ["", "", ""]);
+});
+
+test("shared receiver preserves both original senders and the existing AD header alias during 30-to-54 migration", () => {
+  for (const adHeader of ["Where did you hear about us?", "How did you hear about us?"]) {
+    const { state, context, post } = fixture();
+    // Produce a real legacy row, then model a pre-migration 30-column sheet.
+    assert.equal(post().ok, true);
+    state.rows = state.rows.map((row) => row.slice(0, 30));
+    state.rows[0][29] = adHeader;
+    state.maxColumns = 30;
+    const originalHeaders = [...state.rows[0]];
+    const oldRow = [...state.rows[1]];
+    assert.equal(post().code, "HEADER_MISMATCH");
+    vm.runInContext("setupChapterSync()", context);
+    assert.equal(state.maxColumns, 54);
+    assert.deepEqual(state.rows[0].slice(0, 30), originalHeaders);
+    assert.deepEqual(state.rows[1], oldRow);
+    assert.equal(post().duplicate, true);
+    vm.runInContext("setupChapterSync()", context);
+    assert.deepEqual(state.rows[1], oldRow);
+    const base = application();
+    const discoveryPayload = { ...base, version: 2, documents: [], application: {
+      ...base.application, id: "jobstreet-app-id", reference: "JOBSTREET-REFERENCE", recentJobTitle: "Not provided", skills: "Not provided",
+      experienceYears: 0, discoverySource: "Threads",
+    } };
+    assert.equal(post(discoveryPayload).ok, true);
+    assert.equal(state.rows[2][29], "Threads");
+    assert.equal(state.rows[2][12], 0);
+    assert.ok(state.rows[2].slice(30).every((value) => value === ""));
+    assert.equal(post(discoveryPayload).duplicate, true);
+  }
+});
+
+test("shared source aliases allow each site's choices and reject conflicting nonempty values", () => {
+  for (const discoverySource of ["Threads", "X (Twitter)", "LinkedIn", "Google search", "Facebook", ""]) {
+    const { state, post } = fixture();
+    const original = application();
+    assert.equal(post({ ...original, application: { ...original.application, discoverySource } }).ok, true);
+    assert.equal(state.rows[1][29], discoverySource);
+  }
+  const original = application();
+  for (const [referralSource, discoverySource, expected] of [
+    ["Facebook", "Facebook", "Facebook"], ["", "Threads", "Threads"], ["Google Search", "", "Google Search"],
+  ]) {
+    const { state, post } = fixture();
+    assert.equal(post({ ...original, application: { ...original.application, referralSource, discoverySource } }).ok, true);
+    assert.equal(state.rows[1][29], expected);
+  }
+  const { state, post } = fixture();
+  assert.equal(post({ ...original, application: { ...original.application, referralSource: "Facebook", discoverySource: "Threads" } }).code, "INVALID_APPLICATION");
+  assert.equal(state.calls.length, 0);
+});
+
+test("extended header migration refuses conflicting nonempty columns without overwriting headers or applicant answers", () => {
+  for (const index of [29, 30, 44, 53]) {
+    const { state, context } = fixture();
+    state.rows[0][index] = "Staff notes";
+    state.rows.push(state.rows[0].map((_, cell) => `answer-${cell}`));
+    const before = structuredClone(state.rows);
+    assert.throws(() => vm.runInContext("setupChapterSync()", context), /HEADER_MISMATCH/);
+    assert.deepEqual(state.rows, before);
+    assert.equal(state.calls.length, 0);
+  }
+});
+
+test("a v3 retry recovers an older 30-column delivery by filling only blank AE:BB cells, then remains idempotent", () => {
+  const { state, post, context } = fixture();
+  const current = profileApplication();
+  const legacy = { ...application(), version: 2, application: {
+    ...application().application, driverLicenseDetails: current.application.driverLicenseDetails,
+  }, documents: current.documents.slice(0, 6) };
+  assert.equal(post(legacy).ok, true);
+  assert.equal(state.files.length, 7);
+  // The old receiver wrote its row, but the original sender never received its
+  // acknowledgement. Model that persisted row and upgrade the header first.
+  state.rows = state.rows.map((row) => row.slice(0, 30));
+  state.maxColumns = 30;
+  const originalBase = [...state.rows[1]];
+  vm.runInContext("setupChapterSync()", context);
+  // An existing recruiter entry is retained when the retry does not supply it.
+  state.rows[1][46] = "Existing recruiter note";
+  const retry = { ...current, application: { ...current.application,
+    profile: { ...current.application.profile, otherJobTitle: "" },
+  } };
+  const writesBefore = state.calls.filter(({ url }) => url.includes("/values/")).length;
+  assert.equal(post(retry).duplicate, true);
+  assert.deepEqual(state.rows[1].slice(0, 30), originalBase);
+  assert.equal(state.rows[1][30], "=SUM(1,1)");
+  assert.equal(state.rows[1][46], "Existing recruiter note");
+  assert.equal(state.rows[1][53], "Jobs in Croatia");
+  assert.ok(state.rows[1].slice(50, 53).every((link) => /^https:\/\/drive.google.com\/file\/d\/private-cv-\d+\/view$/.test(String(link))));
+  assert.equal(state.files.length, 10);
+  assert.equal(state.rows.length, 2);
+  const backfill = state.calls.filter(({ url }) => url.includes("/values/")).at(-1)!;
+  assert.match(decodeURIComponent(backfill.url), /'Applications'!AE2:BB2\?valueInputOption=RAW$/);
+  assert.equal(JSON.parse(backfill.options.payload as string).values[0].length, 24);
+  assert.equal(state.calls.filter(({ url }) => url.includes("/values/")).length, writesBefore + 1);
+  assert.equal(post(retry).duplicate, true);
+  assert.equal(state.calls.filter(({ url }) => url.includes("/values/")).length, writesBefore + 1);
+  assert.equal(state.files.length, 10);
+  assert.equal(state.rows.length, 2);
+  assert.equal(post(legacy).duplicate, true);
+  assert.equal(state.rows[1][46], "Existing recruiter note");
+  const beforeConflict = structuredClone(state.rows);
+  assert.equal(post({ ...retry, application: { ...retry.application, profile: { ...retry.application.profile, city: "Conflicting city" } } }).code, "EXISTING_PROFILE_MISMATCH");
+  assert.deepEqual(state.rows, beforeConflict);
+});
+
+test("lost acknowledgement after an extended recovery write does not create rows or files on the next retry", () => {
+  const { state, post } = fixture();
+  const payload = profileApplication();
+  assert.equal(post(payload).ok, true);
+  state.rows[1] = state.rows[1].slice(0, 30);
+  const base = [...state.rows[1]];
+  state.writeWrongAck = true;
+  assert.equal(post(payload).code, "SHEET_WRITE_UNCONFIRMED");
+  assert.deepEqual(state.rows[1].slice(0, 30), base);
+  assert.equal(state.rows[1][53], "Jobs in Croatia");
+  const writes = state.calls.filter(({ url }) => url.includes("/values/")).length;
+  state.writeWrongAck = false;
+  assert.equal(post(payload).duplicate, true);
+  assert.equal(state.calls.filter(({ url }) => url.includes("/values/")).length, writes);
+  assert.equal(state.files.length, 10);
+  assert.equal(state.rows.length, 2);
+});
+
+test("failed extended recovery writes retry safely without losing existing fields or reuploading identity documents", () => {
+  const { state, post } = fixture();
+  const payload = profileApplication();
+  assert.equal(post(payload).ok, true);
+  state.rows[1] = state.rows[1].slice(0, 30);
+  const base = [...state.rows[1]];
+  state.writeFailures = 1;
+  assert.equal(post(payload).code, "SHEET_WRITE_FAILED");
+  assert.deepEqual(state.rows[1], base);
+  assert.equal(post(payload).duplicate, true);
+  assert.deepEqual(state.rows[1].slice(0, 30), base);
+  assert.equal(state.files.length, 10);
+  assert.equal(state.rows.length, 2);
+});
+
+test("owner setup clears inherited referral validation only from new fields and shares AD choices across both websites", () => {
+  const { state, post, context } = fixture();
+  assert.equal(post(profileApplication()).ok, true);
+  state.rows[0][29] = "How did you hear about us?";
+  const originalRows = structuredClone(state.rows);
+  vm.runInContext("setupChapterSync()", context);
+  assert.deepEqual(state.rows, originalRows);
+  assert.deepEqual(state.validationChanges[0], { action: "clear", row: 2, column: 31, count: 999, columns: 24 });
+  assert.deepEqual(state.validationChanges[1], {
+    action: "set", row: 2, column: 30, count: 999, columns: 1,
+    rule: { choices: ["Facebook", "TikTok", "Instagram", "Reddit", "Threads", "X (Twitter)", "YouTube", "LinkedIn",
+      "Google Search", "Google search", "Friend or family", "Other"], showDropdown: true, allowInvalid: false },
+  });
+  assert.equal(state.validationChanges.length, 2);
+  assert.ok(state.validationChanges.every(({ row, column }) => row === 2 && column >= 30));
 });
