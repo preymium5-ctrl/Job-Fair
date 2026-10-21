@@ -288,10 +288,10 @@ export default function ApplicationForm({ job, jobs = [job], additionalJobs = []
           </section>
           <section className={styles.section} aria-labelledby="documents-heading">
             <h2 id="documents-heading">Document Uploads</h2><span className={styles.rule} />
-            <p className={styles.sectionIntro}>For this application, attach your CV, valid passport, and residence ID.{driverApplicant ? " Driver applicants must also attach a valid Philippine driver’s license (front & back)." : ""} Attach the work permit documents below if you have them available.</p>
+            <p className={styles.sectionIntro}>For this application, attach your CV / Resume, valid passport, and residence ID.{driverApplicant ? " Driver applicants must also attach a valid Philippine driver’s license (front & back)." : ""} Attach the work permit documents below if you have them available.</p>
             <div className={styles.checklist}><ClipboardCheck size={22} aria-hidden="true" /><div><strong role="status">{readyCount} of {requiredAttachments.length} required documents ready</strong><p>{(totalUploadBytes / 1024 / 1024).toFixed(1)} MB of 4 MB used. Keep all files together within 4 MB; aim for under 1 MB each.</p></div></div>
             <div className={styles.uploads}>
-              <AttachmentUpload id="resume" label="Please upload your CV" required hint="Maximum one file. Please make sure your CV is updated." accept=".pdf,.doc,.docx" maxBytes={MAX_PROFILE_RESUME_BYTES} file={resume} error={errors.resume} disabled={busy} onChange={chooseResume} />
+              <AttachmentUpload id="resume" label="Please upload your CV / Resume" required hint="Maximum one file. Please make sure your CV / Resume is updated." accept=".pdf,.doc,.docx" maxBytes={MAX_PROFILE_RESUME_BYTES} file={resume} error={errors.resume} disabled={busy} onChange={chooseResume} />
               {upload("passport")}{upload("residence-id")}{upload("diploma")}{upload("nc2")}{upload("nbi")}{upload("form18a")}{upload("employment-certificate")}{upload("driver-license")}
             </div>
             {errors.documents && <p className={styles.errorSummary} role="alert" data-form-error tabIndex={-1}>{errors.documents}</p>}

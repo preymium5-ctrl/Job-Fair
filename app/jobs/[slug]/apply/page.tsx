@@ -18,7 +18,7 @@ export async function generateMetadata({
   return {
     title: job ? `Apply for ${job.title}` : "Application",
     description: job
-      ? `Apply for ${job.title} with Jobs in Croatia. Complete your personal details, experience and qualifications, then attach your CV and supporting documents.`
+      ? `Apply for ${job.title} with Jobs in Croatia. Complete your personal details, experience and qualifications, then attach your CV / Resume and supporting documents.`
       : "Complete your job application with Jobs in Croatia.",
     alternates: { canonical: siteUrl(`/jobs/${encodeURIComponent(slug)}/apply`) },
     robots: { index: false, follow: false },
