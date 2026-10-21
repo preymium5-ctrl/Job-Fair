@@ -238,6 +238,20 @@ test("Google mode requires the current structured profile and rejects a valid le
   assert.equal(received.length, 0);
 });
 
+test("missing or invalid referral answers are rejected before delivery and every offered answer is delivered", async () => {
+  for (const referralSource of [undefined, "", "   ", "Unlisted source"]) {
+    const response = await submit(request({ payload: { ...values(), referralSource } }));
+    assert.equal(response.status, 422);
+    assert.ok((await response.json()).fieldErrors.referralSource);
+  }
+  assert.equal(received.length, 0);
+  for (const referralSource of ["Facebook", "TikTok", "Instagram", "Reddit", "YouTube", "Google Search", "Friend or family", "Other"]) {
+    const response = await submit(request({ payload: { ...values(), referralSource } }));
+    assert.equal(response.status, 201);
+    assert.equal(received.at(-1)?.application.referralSource, referralSource);
+  }
+});
+
 test("passport and residence ID are required, with a driver's license additionally required for driver applicants", async () => {
   for (const [categories, missing] of [
     [[], ["document:passport", "document:residence-id"]],

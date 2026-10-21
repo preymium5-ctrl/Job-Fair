@@ -100,6 +100,8 @@ export const applicationSchema = z
   })
   .strict()
   .superRefine((value, context) => {
+    if (value.profile && !value.referralSource)
+      context.addIssue({ code: "custom", path: ["referralSource"], message: "Choose where you found us." });
     if (!value.profile) {
       if (value.country.length < 2)
         context.addIssue({ code: "custom", path: ["country"], message: "Enter your country of residence." });

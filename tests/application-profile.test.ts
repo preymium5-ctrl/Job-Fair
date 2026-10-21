@@ -30,7 +30,7 @@ const profile: ApplicationProfile = {
 function input(jobId = "test") {
   return { jobId, fullName: "Test Applicant", email: "profile@example.test", phone: "+639171234567",
     country: "Philippines", recentJobTitle: "Fabricator", experienceYears: 3, skills: "Fabrication",
-    education: "", summary: "", coverLetter: "", consent: true, profile };
+    education: "", summary: "", coverLetter: "", consent: true, profile, referralSource: "Facebook" };
 }
 function referenceInput(jobId = "test") {
   const { country: _country, recentJobTitle: _recent, experienceYears: _years, skills: _skills,
@@ -89,6 +89,18 @@ test("reference-only profile answers normalize unasked fields honestly while leg
       assert.ok(missing.error.issues.some((issue) => issue.path[0] === field));
   for (const years of [null, 0, 1, 2, 2.99])
     assert.equal(applicationSchema.safeParse({ ...input(), profile: undefined, experienceYears: years }).success, false);
+});
+
+test("profile applications require a listed referral answer while legacy applications remain compatible", () => {
+  for (const referralSource of [undefined, "", "   ", "Unlisted source"]) {
+    const parsed = applicationSchema.safeParse({ ...referenceInput(), referralSource });
+    assert.equal(parsed.success, false);
+    if (!parsed.success) assert.ok(parsed.error.issues.some((issue) => issue.path.join(".") === "referralSource"));
+  }
+  assert.equal(applicationSchema.parse({ ...referenceInput(), referralSource: " TikTok " }).referralSource, "TikTok");
+  const { profile: _profile, referralSource: _referral, ...legacy } = input();
+  void _profile; void _referral;
+  assert.equal(applicationSchema.parse(legacy).referralSource, undefined);
 });
 
 test("the form accepts every offered destination without collecting or inventing nationality", () => {

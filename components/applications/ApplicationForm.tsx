@@ -6,6 +6,7 @@ import Image from "next/image";
 import { ArrowLeft, ArrowRight, CheckCircle2, ClipboardCheck, FileText, LockKeyhole } from "lucide-react";
 import type { ApplicationInput, ApplicationProfile, Job } from "@/lib/types";
 import { applicationSchema, fieldErrors } from "@/lib/validation";
+import { referralSources } from "@/lib/referral-sources";
 import { MAX_PROFILE_UPLOAD_BYTES, MAX_PROFILE_RESUME_BYTES, MAX_SUPPORTING_DOCUMENT_BYTES, SUPPORTING_DOCUMENT_ACCEPT, supportingDocumentTypes, getRequiredProfileDocumentCategories, isDriverPosition, type SupportingDocumentCategory } from "@/lib/document-uploads";
 import { countryOptions, destinationCountries, secondaryJobPositions } from "@/data/application-form-options";
 import { fairDocuments, fairDocumentTiming, fairNc2Requirements, nc2ElectricalNote } from "@/data/job-fair";
@@ -39,7 +40,7 @@ const uploadLabels: Partial<Record<SupportingDocumentCategory, string>> = {
 
 export default function ApplicationForm({ job, jobs = [job], additionalJobs = [] }: { job: Job; jobs?: JobOption[]; additionalJobs?: JobOption[] }) {
   const [values, setValues] = useState<ApplicationInput>({
-    jobId: job.id, fullName: "", email: "", phone: "", country: "", recentJobTitle: "", experienceYears: null,
+    jobId: job.id, fullName: "", email: "", phone: "", country: "", referralSource: "", recentJobTitle: "", experienceYears: null,
     skills: "", education: "", summary: "", coverLetter: "", nc2Certificate: "", preferredEmployer: "",
     profile: { ...emptyProfile, destinationCountry: destinationCountries.find((country) => country === job.location) || emptyProfile.destinationCountry }, consent: false,
   });
@@ -271,6 +272,19 @@ export default function ApplicationForm({ job, jobs = [job], additionalJobs = []
               <div className={`${styles.field} ${styles.full}`}><label htmlFor="jobId">What job position are you primarily applying for?<span className={styles.asterisk}>*</span></label><select id="jobId" name="jobId" value={values.jobId} disabled={busy} aria-required="true" aria-invalid={Boolean(errors.jobId)} aria-describedby={`job-help${errors.jobId ? " jobId-error" : ""}`} onChange={(event) => update("jobId", event.target.value)}><optgroup label="Official listed jobs">{jobs.map((option) => <option key={option.id} value={option.id}>{option.title}</option>)}</optgroup>{additionalJobs.length > 0 && <optgroup label="Other jobs we’re offering">{additionalJobs.map((option) => <option key={option.id} value={option.id}>{option.title}</option>)}</optgroup>}</select><p id="job-help" className={styles.help}>Please select only a position for which you already have relevant work experience.</p>{errors.jobId && <p id="jobId-error" className={styles.fieldError}>{errors.jobId}</p>}</div>
               {profileSelect("secondaryJobTitle", "Please select an additional role in which you have experience, other than the position you are applying for", secondaryJobPositions.filter((title) => title.toLowerCase() !== selectedJob.title.toLowerCase()), true, "Select another role that matches your experience, or choose ‘No other position’.")}
               {textField("otherJobTitle", "If the job you’re applying for is not listed above, please enter it here", { optional: true, wide: true })}
+            </div>
+          </section>
+          <section className={styles.section} aria-labelledby="referral-heading">
+            <h2 id="referral-heading">How you found us</h2><span className={styles.rule} />
+            <div className={styles.field}>
+              <label htmlFor="referralSource">Where did you find us?<span className={styles.asterisk}>*</span></label>
+              <select id="referralSource" name="referralSource" value={values.referralSource || ""} required disabled={busy}
+                aria-required="true" aria-invalid={Boolean(errors.referralSource)} aria-describedby={errors.referralSource ? "referralSource-error" : undefined}
+                onChange={(event) => update("referralSource", event.target.value)}>
+                <option value="">Select where you found us</option>
+                {referralSources.map((source) => <option key={source} value={source}>{source}</option>)}
+              </select>
+              {errors.referralSource && <p id="referralSource-error" className={styles.fieldError}>{errors.referralSource}</p>}
             </div>
           </section>
           <section className={styles.section} aria-labelledby="requirements-heading">
