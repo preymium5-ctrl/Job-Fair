@@ -1,0 +1,265 @@
+.section {
+  scroll-margin-top: 90px;
+}
+
+.headingRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 32px;
+  padding-bottom: 36px;
+  border-bottom: 1px solid var(--line);
+}
+
+.headingRow h2 {
+  font-size: clamp(42px, 5.25vw, 80px);
+}
+
+.headingRow p {
+  flex-shrink: 0;
+}
+
+.list {
+  list-style: none;
+  padding: 0;
+  margin: 44px 0 0;
+  border-top: 1px solid var(--line);
+}
+
+.item {
+  border-bottom: 1px solid var(--line);
+}
+
+.row {
+  display: grid;
+  grid-template-columns: 24px 110px minmax(0, 1fr) auto 48px;
+  align-items: center;
+  gap: 24px;
+  min-height: 134px;
+  padding-block: 24px;
+  color: var(--brand-blue);
+  transition: background-color 0.25s ease;
+}
+
+.number,
+.count {
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 1.5;
+  color: var(--muted);
+}
+
+.number {
+  font-variant-numeric: tabular-nums;
+}
+
+.thumbnail {
+  position: relative;
+  display: block;
+  width: 110px;
+  height: 85px;
+  overflow: hidden;
+  border-radius: 10px;
+  background: var(--surface-soft);
+}
+
+.thumbnail img {
+  object-fit: cover;
+  transition: transform 0.65s var(--ease);
+}
+
+.name {
+  margin: 0 12px 0 8px;
+  font-size: clamp(24px, 2.45vw, 38px);
+  font-weight: 500;
+  letter-spacing: var(--font-heading-tracking);
+  line-height: 1.22;
+}
+
+.count {
+  min-width: 48px;
+  margin-right: 18px;
+  white-space: nowrap;
+}
+
+.arrow {
+  display: grid;
+  place-items: center;
+  width: 48px;
+  height: 48px;
+  border: 1px solid var(--line);
+  border-radius: 50%;
+  transition:
+    color 0.3s ease,
+    background-color 0.3s ease,
+    border-color 0.3s ease;
+}
+
+.arrow svg {
+  transition: transform 0.3s var(--ease);
+}
+
+.row:focus-visible {
+  outline-offset: -3px;
+  border-radius: 4px;
+}
+
+.row:focus-visible .arrow {
+  color: white;
+  border-color: var(--brand-blue);
+  background: var(--brand-blue);
+}
+
+.footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+  margin-top: 28px;
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--muted);
+}
+
+.footer a {
+  color: var(--brand-blue);
+}
+
+@media (hover: hover) {
+  .row:hover {
+    background: color-mix(in srgb, var(--surface-soft) 45%, transparent);
+  }
+
+  .row:hover .thumbnail img {
+    transform: scale(1.06);
+  }
+
+  .row:hover .arrow {
+    color: white;
+    border-color: var(--brand-blue);
+    background: var(--brand-blue);
+  }
+
+  .row:hover .arrow svg {
+    transform: translate(2px, -2px);
+  }
+}
+
+@media (max-width: 900px) {
+  .headingRow {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 20px;
+  }
+
+  .row {
+    grid-template-columns: 22px 110px minmax(0, 1fr) auto 42px;
+    gap: 18px;
+  }
+
+  .name {
+    margin-inline: 0;
+    font-size: clamp(24px, 3.3vw, 30px);
+  }
+
+  .count {
+    margin-right: 0;
+  }
+
+  .arrow {
+    width: 42px;
+    height: 42px;
+  }
+}
+
+@media (max-width: 600px) {
+  .headingRow {
+    padding-bottom: 28px;
+  }
+
+  .headingRow h2 {
+    font-size: clamp(38px, 8.6vw, 52px);
+  }
+
+  .list {
+    margin-top: 28px;
+  }
+
+  .row {
+    grid-template-columns: 18px 68px minmax(0, 1fr) 32px;
+    grid-template-rows: 1fr auto;
+    column-gap: 12px;
+    row-gap: 6px;
+    min-height: 112px;
+    padding-block: 22px;
+  }
+
+  .number,
+  .thumbnail,
+  .arrow {
+    grid-row: 1 / 3;
+  }
+
+  .number,
+  .count {
+    font-size: 11px;
+  }
+
+  .thumbnail {
+    width: 68px;
+    height: 64px;
+    border-radius: 7px;
+  }
+
+  .name {
+    align-self: end;
+    grid-column: 3;
+    font-size: clamp(18px, 4.5vw, 24px);
+  }
+
+  .count {
+    align-self: start;
+    grid-column: 3;
+    grid-row: 2;
+  }
+
+  .arrow {
+    grid-column: 4;
+    width: 32px;
+    height: 32px;
+  }
+
+  .arrow svg {
+    width: 19px;
+    height: 19px;
+  }
+
+  .footer {
+    align-items: flex-start;
+    gap: 18px;
+    font-size: 11px;
+  }
+
+  .footer > span {
+    max-width: 135px;
+  }
+
+  .footer a {
+    font-size: 12px;
+    white-space: nowrap;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .row,
+  .thumbnail img,
+  .arrow,
+  .arrow svg {
+    transition: none;
+  }
+
+  .row:hover .thumbnail img,
+  .row:hover .arrow svg {
+    transform: none;
+  }
+}

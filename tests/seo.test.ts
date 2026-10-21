@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { proposedJobs } from "../data/jobs";
+import { publishedCatalogJobs } from "../data/application-jobs";
 import { site } from "../data/site";
 import { getPublicJobBySlug, getPublicJobs, usesPublishedCatalog } from "../lib/public-jobs";
 import config from "../next.config";
@@ -55,6 +56,15 @@ test("role metadata uses unique canonical URLs and Philippines hiring descriptio
   assert.equal(metadata.openGraph?.url, siteUrl("/jobs/electrical-installer"));
 });
 
+test("expanded role metadata follows its listed country and supplied benefits", () => {
+  const role = publishedCatalogJobs.find(({ slug }) => slug === "additional-nurse")!;
+  const metadata = jobPageMetadata(role);
+  assert.match(String(metadata.title), /Nurse.*Romania/);
+  assert.match(metadata.description!, /Nurse in Romania/);
+  assert.doesNotMatch(metadata.description!, /free accommodation|free transportation/i);
+  assert.equal(metadata.alternates?.canonical, siteUrl("/jobs/additional-nurse"));
+});
+
 test("structured data describes published content and escapes untrusted script text", () => {
   const data = jobDirectoryData([...proposedJobs, { ...proposedJobs[0], slug: "example", isExample: true }]);
   assert.equal(data.mainEntity.itemListElement.length, proposedJobs.length);
@@ -89,7 +99,8 @@ test("database-free production renders the published fair catalog without touchi
     process.env = { ...original, NODE_ENV: "production" };
     delete process.env.DATABASE_URL;
     delete process.env.CHAPTER_LOCAL_MODE;
-    assert.equal((await getPublicJobs()).length, proposedJobs.length);
+    assert.equal((await getPublicJobs()).length, publishedCatalogJobs.length);
+    assert.equal((await getPublicJobBySlug("additional-nurse"))?.title, "Nurse");
     assert.equal((await getPublicJobBySlug("electrical-installer"))?.title, "Electrical Installer");
     assert.equal(await getPublicJobBySlug("missing-job"), undefined);
   } finally {

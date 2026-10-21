@@ -28,7 +28,7 @@ export function searchRobots(indexable = true, env: SeoEnvironment = process.env
   };
 }
 
-export function pageMetadata({ title, description, path, image = "/images/filipino-hero.webp", imageAlt = "Filipino workers — Jobs in Croatia, hiring in the Philippines", indexable = true }: {
+export function pageMetadata({ title, description, path, image = "/images/male-workers/hero-career.webp", imageAlt = "Male Filipino workers — Jobs in Croatia, hiring in the Philippines", indexable = true }: {
   title: string;
   description: string;
   path: string;
@@ -64,9 +64,10 @@ export function discoverableJob(job: Job) {
 }
 
 export function jobPageMetadata(job: Job): Metadata {
+  const benefits = ["free accommodation", "free transportation"].filter((benefit) => job.benefits.some((item) => item.toLowerCase() === `${benefit}.`));
   return pageMetadata({
-    title: `${job.title} — Hiring Filipino Workers in Croatia`,
-    description: `${job.title} in Croatia for Filipino applicants. Review the salary range, free accommodation and transportation, no placement fee, requirements and online application.`,
+    title: `${job.title} — Hiring Filipino Workers in ${job.location}`,
+    description: `${job.title} in ${job.location} for Filipino applicants. Review the salary range, ${benefits.length ? `${benefits.join(", ")}, ` : ""}no placement fee, requirements and online application.`,
     path: `/jobs/${encodeURIComponent(job.slug)}`,
     image: job.image,
     imageAlt: job.imageAlt,
@@ -136,7 +137,7 @@ export function webPageData(title: string, description: string, path: string) {
 
 export function jobDirectoryData(jobs: Job[]) {
   return {
-    ...webPageData("Jobs in Croatia — Hiring in the Philippines", "Explore skilled roles for work abroad in Croatia, with salaries, requirements and online applications.", "/jobs"),
+    ...webPageData("Jobs in Croatia — Hiring in the Philippines", "Explore skilled roles in Croatia and across Europe, with salaries, requirements and online applications.", "/jobs"),
     "@type": "CollectionPage",
     mainEntity: {
       "@type": "ItemList",

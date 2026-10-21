@@ -331,7 +331,7 @@ const combinedFinishingRole = combinedRoleRecruitmentJobs.find((job) => job.slug
 const grinderSummary = "Grind and deburr metal components to prepare consistent surfaces for the next production stage.";
 const cleanerSummary = "Maintain clean, orderly workplaces through careful surface cleaning, floor care, and waste handling.";
 
-export const proposedJobs: Job[] = [
+export const preExpansionRecruitmentJobs: Job[] = [
   ...combinedRoleRecruitmentJobs.map((job) => job.slug !== combinedFinishingRole.slug ? job : {
     ...job,
     // Keep the original ID and URL so existing application links remain valid.
@@ -377,6 +377,16 @@ export const proposedJobs: Job[] = [
     // No separate Cleaner allocation was provided; do not duplicate Grinder slots.
   },
 ];
+
+// Updated display bounds supplied by the operator on 21 October 2026.
+// The employer allocation tables and the earlier catalog snapshots remain intact.
+export const proposedJobs: Job[] = preExpansionRecruitmentJobs.map((job) => ({
+  ...job,
+  salary: job.salary?.replace("€800", "€850"),
+  openings: Math.max(250, Math.min(1200, job.openings ?? 250)),
+  image: `/images/male-workers/${job.slug}.webp`,
+  imageAlt: `AI-generated illustration of a male Filipino worker performing ${job.title.toLowerCase()} work`,
+}));
 
 // Kept for the existing read-only route smoke script and other catalog consumers.
 export const sampleJobs = proposedJobs;

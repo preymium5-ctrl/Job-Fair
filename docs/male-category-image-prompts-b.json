@@ -1,0 +1,35 @@
+{
+  "mode": "built-in image_gen",
+  "intent": "generate",
+  "useCase": "photorealistic-natural",
+  "generatedDate": "2026-10-21",
+  "optimization": {
+    "tool": "sharp",
+    "width": 960,
+    "height": 640,
+    "fit": "cover",
+    "format": "webp",
+    "quality": 86
+  },
+  "validation": "Each generated image was visually inspected. Subjects are adult Filipino men; no women, children, readable text, logos, or watermarks observed.",
+  "assets": [
+    {
+      "filename": "maritime-yacht-services.webp",
+      "output": "public/images/jobs/categories/maritime-yacht-services.webp",
+      "original": "C:\\Users\\Rockz\\.codex\\generated_images\\01a15c88-cba7-7ba1-98da-594afb4517b9\\exec-ac85f82e-2381-4d45-aaec-ea5378cc590b.png",
+      "prompt": "Use case: photorealistic-natural.\nAsset type: landscape job category photo for a Croatian recruitment website, cropped to 3:2.\nPrimary request: An original realistic editorial photograph of one adult Filipino male deckhand inspecting and neatly coiling a mooring rope beside a modern white yacht at a quiet Adriatic marina dock.\nScene: sunlit dock, clean yacht deck and rail, calm water, softly blurred neutral boats in background.\nSubject: adult Filipino man about 30, practical navy work shirt and work trousers, safe steady posture, focused on checking the rope with both hands; natural facial features and proportions.\nComposition: landscape medium shot, worker prominent around center, upper body and hands clearly legible at thumbnail size, room for a 3:2 crop, eye-level documentary camera.\nLighting and style: soft natural daylight, authentic textures, restrained editorial color, credible workplace photography, sharp subject, gentle background depth.\nConstraints: All visible humans, including any distant background people or reflections, must be adult Filipino men; preferably only the one subject. No women. No children. No company or product logos, no readable text, no watermark, no flags, no overlaid graphics; original generic workplace without real brands. Rope and fingers anatomically plausible."
+    },
+    {
+      "filename": "agriculture-food-processing.webp",
+      "output": "public/images/jobs/categories/agriculture-food-processing.webp",
+      "original": "C:\\Users\\Rockz\\.codex\\generated_images\\01a15c88-cba7-7ba1-98da-594afb4517b9\\exec-2204bee7-c159-4c03-aec1-f5b10f2494b8.png",
+      "prompt": "Use case: photorealistic-natural.\nAsset type: landscape job category photo for a Croatian recruitment website, cropped to 3:2.\nPrimary request: An original realistic editorial photograph of an adult Filipino male farm and produce-packing worker checking fresh tomatoes and leafy vegetables in clean harvest crates at a packing bench inside a bright greenhouse.\nScene: airy working greenhouse, green plants and produce rows softly behind a practical produce packing workbench with unbranded reusable crates.\nSubject: adult Filipino man about 30, practical blue work shirt, clean dark work apron, lightweight protective gloves, carefully inspecting fresh produce with a calm focused expression.\nComposition: landscape medium shot, man prominent around center with face and hands clearly visible and identifiable at thumbnail size, natural candid working posture, room for 3:2 crop; eye-level documentary camera.\nLighting and style: soft diffused natural daylight through greenhouse panels, authentic vegetable and fabric textures, restrained realistic editorial color, sharp subject and softly blurred background.\nConstraints: All visible humans, including any distant background people or reflections, must be adult Filipino men; preferably only the one subject. No women. No children. No company or product logos, no readable text, no watermark, no flags, no overlaid graphics; original generic workplace without real brands. Hands and produce anatomically and physically plausible."
+    },
+    {
+      "filename": "design-sales-media.webp",
+      "output": "public/images/jobs/categories/design-sales-media.webp",
+      "original": "C:\\Users\\Rockz\\.codex\\generated_images\\01a15c88-cba7-7ba1-98da-594afb4517b9\\exec-aca8cf50-5603-492f-b48f-ecd3d6073714.png",
+      "prompt": "Use case: photorealistic-natural.\nAsset type: landscape job category photo for a Croatian recruitment website, cropped to 3:2.\nPrimary request: An original realistic editorial photograph of an adult Filipino male creative professional working at a contemporary design studio desk, with a small neutral architectural model and a camera subtly visible on the desk, alongside a monitor displaying only abstract geometric color shapes with no text.\nScene: tidy modern light-filled studio with a light wood desk, neutral walls and soft background shelves, generic creative and media work environment without identifying an employer.\nSubject: adult Filipino man about 30, neat smart casual navy shirt, seated naturally at the desk reviewing the model and screen, engaged and focused; recognizable Filipino features, realistic anatomy.\nComposition: landscape medium shot, worker prominent around center with face and upper body legible at thumbnail size; desk objects secondary, eye-level candid editorial camera, room for a 3:2 crop.\nLighting and style: natural window daylight, tactile realistic materials, restrained editorial tones consistent with professional worker photography, sharp subject and gentle background depth.\nConstraints: All visible humans, including any distant background people, reflections, or screen imagery, must be adult Filipino men; preferably only the one subject. No women. No children. No company or product logos, no readable text, no watermark, no flags, no overlaid graphics. Do not depict a real branded workplace. Camera and screen are unbranded and understated."
+    }
+  ]
+}

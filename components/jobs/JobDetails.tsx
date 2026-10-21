@@ -322,7 +322,7 @@ export function JobDetails({
             )}
           </NumberedSection>
           <NumberedSection number="05" title="Benefits & support">
-            <EmploymentBenefits benefits={job.benefits} />
+            <EmploymentBenefits benefits={job.benefits} location={job.location} />
           </NumberedSection>
           <NumberedSection number="06" title="Recruitment process">
             <p>

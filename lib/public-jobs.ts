@@ -1,5 +1,5 @@
 import { cache } from "react";
-import { proposedJobs } from "../data/jobs";
+import { publishedCatalogJobs } from "../data/application-jobs";
 import { getJobBySlug, getJobs } from "./repository";
 
 /** The public fair guide can run without a database; applicant/staff data never uses this fallback. */
@@ -9,7 +9,7 @@ export function usesPublishedCatalog(env: Record<string, string | undefined> = p
 
 export const getPublicJobs = cache(async () => {
   if (!usesPublishedCatalog()) return getJobs();
-  return proposedJobs.filter((job) => job.status === "published" && !job.isExample);
+  return publishedCatalogJobs.filter((job) => job.status === "published" && !job.isExample && !job.applicationOnly);
 });
 
 export const getPublicJobBySlug = cache(async (slug: string) => {

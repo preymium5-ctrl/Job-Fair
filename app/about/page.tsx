@@ -8,7 +8,7 @@ import { EmploymentBenefits } from "@/components/jobs/EmploymentBenefits";
 import { pageMetadata } from "@/lib/seo";
 export const metadata: Metadata = pageMetadata({
   title: "Hiring in the Philippines for Jobs in Croatia",
-  description: "Explore skilled careers in Croatia for Filipino workers, with no placement fee, salary ranges, free transportation and accommodation, and online applications.",
+  description: "Explore skilled careers in Croatia and across Europe for Filipino workers, with no placement fee, salary ranges, free transportation and accommodation, and online applications.",
   path: "/about",
 });
 export default function About() {
@@ -17,7 +17,7 @@ export default function About() {
       <div className="breadcrumb" data-enter><Link href="/">Home</Link><span>/</span><span>About Jobs in Croatia</span></div>
       <span className="eyebrow" data-enter>Hiring skilled workers from the Philippines</span>
       <h1 className="page-heading" data-enter>Filipino talent.<br />A future in <span className="subtle-text">Croatia.</span></h1>
-      <p className="information-intro" data-enter>Connect your skills with your next opportunity. Explore roles in Croatia, understand the employment package, and apply with confidence.</p>
+      <p className="information-intro" data-enter>Connect your skills with your next opportunity. Explore roles in Croatia and across Europe, understand the employment package, and apply with confidence.</p>
       <div className="information-body">
         <aside className="information-side" data-reveal>
           <BrandMark className="brand-spark" />
@@ -28,7 +28,7 @@ export default function About() {
         <div>
           <div data-reveal>
             <h2>A clearer way forward.</h2>
-            <p>Jobs in Croatia is hiring skilled workers from the Philippines for roles in metal fabrication and welding, motor and generator production, electrical work, CNC machining and industrial finishing.</p>
+            <p>Jobs in Croatia connects skilled workers from the Philippines with opportunities across manufacturing, construction, hospitality, transport, healthcare and more. Browse roles in Croatia, Slovenia, Serbia, Romania, Macedonia and Montenegro.</p>
             <h3>Built around your skills</h3>
             <p>Find a role that matches your experience. Review its responsibilities, qualifications, salary range and benefits, then apply with your CV and relevant documents.</p>
           </div>

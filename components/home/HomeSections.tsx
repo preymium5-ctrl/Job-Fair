@@ -7,6 +7,7 @@ import { JobCard } from "@/components/jobs/JobCard";
 import { Faq } from "@/components/ui/Faq";
 import type { Job } from "@/lib/types";
 import { ProposedTermsNotice } from "@/components/jobs/JobSalary";
+import sectorStyles from "./SectorDirectory.module.css";
 
 export function Introduction() {
   return (
@@ -29,7 +30,7 @@ export function Introduction() {
             and the life you make along the way.
           </p>
           <p className="muted">
-            We’re hiring skilled Filipino workers for opportunities in Croatia.
+            We’re hiring skilled Filipino workers for opportunities in Croatia and across Europe.
             Explore the roles, check the experience and
             qualifications for your trade, and apply with your CV.
           </p>
@@ -41,8 +42,8 @@ export function Introduction() {
       <div className="intro-visual-row">
         <div className="intro-image" data-reveal>
           <Image
-            src="/images/filipino-intro.webp"
-            alt="AI-generated illustration of Filipino technicians collaborating on a motor assembly"
+            src="/images/male-workers/hero-skills.webp"
+            alt="Male Filipino technicians collaborating on a motor assembly"
             fill
             sizes="(max-width: 700px) 100vw, 60vw"
             data-parallax
@@ -117,56 +118,71 @@ export function FeaturedJobs({ jobs }: { jobs: Job[] }) {
   );
 }
 export function Industries({ jobs }: { jobs: Job[] }) {
+  const prioritySectors = ["Metal Fabrication & Welding", "Motor & Generator Production", "Electrical", "CNC & Machining", "Industrial Finishing", "Cleaning & Facilities"];
   const sectors = [...new Set(jobs.map((job) => job.category))].map((name) => ({
     name,
     job: jobs.find((job) => job.category === name)!,
-  }));
+    count: jobs.filter((job) => job.category === name).length,
+  })).sort((a, b) => {
+    const rank = (name: string) => prioritySectors.includes(name) ? prioritySectors.indexOf(name) : prioritySectors.length;
+    return rank(a.name) - rank(b.name) || a.name.localeCompare(b.name);
+  });
   return (
-    <section id="industries" className="industries-section section-space">
+    <section
+      id="industries"
+      className={`section-space ${sectorStyles.section}`}
+      aria-labelledby="industries-heading"
+    >
       <div className="container">
         <div className="section-label" data-reveal>
           <span className="eyebrow">03 / A world of work</span>
           <span className="section-label-line" />
         </div>
-        <div className="section-heading-row" data-reveal>
-          <h2 className="section-heading">
-            Your skill.
-            <br />
-            Your <span className="subtle-text">sector.</span>
+        <div className={sectorStyles.headingRow} data-reveal>
+          <h2 id="industries-heading" className="section-heading">
+            Find your <span className="subtle-text">field.</span>
           </h2>
           <p className="section-side-copy">
-            Essential industries.
+            Hands-on skill. Attention to detail.
             <br />
-            Extraordinary people.
-            <br />
-            Explore the work that suits you.
+            There’s a place for what you do.
           </p>
         </div>
-        <div className={`industry-grid${sectors.length === 5 ? " industry-grid-five" : ""}`}>
+        <ol className={sectorStyles.list}>
           {sectors.map((sector, i) => (
-            <Link
-              key={sector.name}
-              href={`/jobs?industry=${encodeURIComponent(sector.name)}`}
-              className={`industry-tile industry-tile-${i}`}
-              data-reveal
-            >
-              <Image
-                src={sector.job.image}
-                alt={sector.job.imageAlt}
-                fill
-                sizes="(max-width:600px) 100vw, (max-width:1000px) 50vw, 25vw"
-              />
-              <div className="industry-shade" />
-              <span className="industry-number">0{i + 1}</span>
-              <span className="industry-caption">Explore your field</span>
-              <div className="industry-tile-bottom">
-                <h3>{sector.name}</h3>
-                <span className="industry-arrow">
-                  <ArrowUpRight size={22} />
+            <li key={sector.name} className={sectorStyles.item} data-reveal>
+              <Link
+                href={`/jobs?industry=${encodeURIComponent(sector.name)}#job-results`}
+                className={sectorStyles.row}
+              >
+                <span className={sectorStyles.number} aria-hidden="true">
+                  {String(i + 1).padStart(2, "0")}
                 </span>
-              </div>
-            </Link>
+                <span className={sectorStyles.thumbnail}>
+                  <Image
+                    src={sector.job.image}
+                    alt=""
+                    fill
+                    sizes="(max-width: 600px) 68px, 110px"
+                    style={{ objectPosition: sector.job.imagePosition }}
+                  />
+                </span>
+                <h3 className={sectorStyles.name}>{sector.name}</h3>
+                <span className={sectorStyles.count}>
+                  {sector.count} {sector.count === 1 ? "role" : "roles"}
+                </span>
+                <span className={sectorStyles.arrow} aria-hidden="true">
+                  <ArrowUpRight size={23} strokeWidth={1.5} />
+                </span>
+              </Link>
+            </li>
           ))}
+        </ol>
+        <div className={sectorStyles.footer} data-reveal>
+          <span>Different skills. Shared ambition.</span>
+          <Link href="/jobs#job-results" className="text-link">
+            Explore all jobs <ArrowUpRight size={19} />
+          </Link>
         </div>
       </div>
     </section>
@@ -355,7 +371,7 @@ export function FinalCta() {
     <section id="your-future" className="final-cta" aria-labelledby="future-heading">
       <div className="final-cta-background" aria-hidden="true">
         <Image
-          src="/images/filipino-future-cta-v1.webp"
+          src="/images/male-workers/hero-future.webp"
           alt=""
           fill
           sizes="100vw"

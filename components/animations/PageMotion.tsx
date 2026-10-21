@@ -20,6 +20,8 @@ export function PageMotion() {
           clearProps: "all",
         });
         gsap.utils.toArray<HTMLElement>("[data-reveal]").forEach((el) => {
+          // Client lists animate after their own hydration and filter updates.
+          if (el.closest("[data-client-motion]")) return;
           gsap.from(el, {
             y: 42,
             opacity: 0,

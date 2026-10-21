@@ -44,7 +44,7 @@ async function insertJob(data: Job) {
   return db;
 }
 
-test("Grinder and Cleaner have distinct catalog entries, equal salary, and no invented Cleaner allocation", () => {
+test("Grinder and Cleaner have distinct catalog entries and updated proposed slots without new named-employer allocations", () => {
   assert.equal(grinder.title, "Grinder");
   assert.equal(cleaner.title, "Cleaner");
   assert.notEqual(grinder.id, cleaner.id);
@@ -52,9 +52,9 @@ test("Grinder and Cleaner have distinct catalog entries, equal salary, and no in
   assert.notEqual(grinder.image, cleaner.image);
   assert.ok(existsSync(path.join(process.cwd(), "public", cleaner.image)));
   assert.equal(cleaner.salary, grinder.salary);
-  assert.equal(cleaner.openings, undefined);
+  assert.equal(cleaner.openings, 250);
   assert.equal(getJobFairRole(cleaner), undefined);
-  assert.equal(grinder.openings, prior.openings);
+  assert.equal(grinder.openings, 250);
   assert.equal(proposalV1Jobs.at(-1)?.title, "Grinder and Cleaner");
   assert.equal(proposalV1Jobs.at(-1)?.openings, 6);
 });
@@ -73,7 +73,10 @@ test("deployed catalog gains Cleaner while Grinder ID, slots, and historical app
     idempotencyKey: historical.id, requestHash: "synthetic", data: historical });
   await migrateSeparatedCleaningRoles(db);
   const rows = await db.select().from(jobs);
-  assert.deepEqual(rows.find((row) => row.id === grinder.id)?.data, grinder);
+  assert.deepEqual(rows.find((row) => row.id === grinder.id)?.data, {
+    ...prior, title: grinder.title, summary: grinder.summary, description: grinder.description,
+    responsibilities: grinder.responsibilities, imageAlt: grinder.imageAlt,
+  });
   assert.deepEqual(rows.find((row) => row.id === cleaner.id)?.data, cleaner);
   assert.deepEqual((await db.select().from(applications))[0].data, historical);
   const edited = { ...grinder, title: "Staff-reviewed Grinder", salary: "€1,100" };

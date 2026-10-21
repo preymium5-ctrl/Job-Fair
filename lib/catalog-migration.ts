@@ -1,6 +1,7 @@
 import { eq, sql } from "drizzle-orm";
 import { randomUUID } from "node:crypto";
-import { proposedJobs, proposalV1Jobs, previousRecruitmentJobs, combinedRoleRecruitmentJobs } from "../data/jobs";
+import { proposedJobs, proposalV1Jobs, previousRecruitmentJobs, combinedRoleRecruitmentJobs, preExpansionRecruitmentJobs } from "../data/jobs";
+import { additionalApplicationJobs, previousAdditionalApplicationJobs } from "../data/application-jobs";
 import { getJobFairRole, jobFair } from "../data/job-fair";
 import { maximumAgeRequirement, minimumExperienceRequirement } from "../data/employment";
 import type { Database } from "./db";
@@ -16,6 +17,7 @@ export const hiringWorkerCountsVersion = "employer-worker-counts-2026-10-16-v1";
 export const maximumAgeRequirementVersion = "maximum-age-requirement-2026-10-16-v1";
 export const groupedRoleRollbackVersion = "grouped-role-catalog-2026-10-20-v1";
 export const separatedCleaningRolesVersion = "separate-grinder-cleaner-2026-10-20-v1";
+export const publicApplicationCatalogVersion = "public-application-role-catalog-2026-10-21-v1";
 const employerPositionsVersion = "employer-positions-pdf-2026-10-20-v1";
 export const legacyExampleJobIds = [
   "example-warehouse-01",
@@ -31,6 +33,68 @@ export const legacyExampleJobIds = [
   "example-bakery-11",
   "example-truck-12",
 ] as const;
+
+/** Publish the operator's form-role proposals without altering staff edits or application links. */
+export async function migratePublicApplicationCatalog(db: Database) {
+  await db.transaction(async (tx) => {
+    if (process.env.DATABASE_URL) await tx.execute(sql`SELECT pg_advisory_xact_lock(621349133)`);
+    const [applied] = await tx.select().from(settings).where(eq(settings.key, publicApplicationCatalogVersion));
+    if (applied) return;
+    const existing = await tx.select().from(jobs).for("update");
+    const byId = new Map(existing.map((row) => [row.id, row]));
+    const bySlug = new Map(existing.map((row) => [row.slug, row]));
+    const updatedIds: string[] = [];
+    const addedIds: string[] = [];
+    const preservedIds: string[] = [];
+    const previousCatalog = [
+      ...proposalV1Jobs, ...previousRecruitmentJobs, ...combinedRoleRecruitmentJobs,
+      ...preExpansionRecruitmentJobs, ...previousAdditionalApplicationJobs,
+    ];
+    for (const replacement of [...proposedJobs, ...additionalApplicationJobs]) {
+      const row = byId.get(replacement.id);
+      if (!row) {
+        // Only add the newly promoted form choices; a production catalog need
+        // not enable or replay initial seeding of the older fair roles.
+        if (!replacement.id.startsWith("additional-")) continue;
+        const owner = bySlug.get(replacement.slug);
+        if (owner) { preservedIds.push(owner.id); continue; }
+        await tx.insert(jobs).values({ id: replacement.id, slug: replacement.slug, status: replacement.status, data: replacement });
+        addedIds.push(replacement.id);
+        continue;
+      }
+      if (row.slug !== replacement.slug || row.data.slug !== replacement.slug) {
+        preservedIds.push(row.id);
+        continue;
+      }
+      const baselines = previousCatalog.filter((job) => job.id === replacement.id);
+      const data = { ...row.data };
+      const fields = replacement.id.startsWith("additional-")
+        ? ["category", "location", "summary", "description", "responsibilities", "requirements", "experience", "salary", "salaryStatus", "openings"] as const
+        : ["salary", "salaryStatus", "openings", "location"] as const;
+      for (const field of fields) {
+        if (baselines.some((baseline) => JSON.stringify(data[field]) === JSON.stringify(baseline[field])))
+          Object.assign(data, { [field]: replacement[field] });
+      }
+      // Update bundled imagery as a group; do not relabel a staff photo as male.
+      if (data.image === replacement.image || baselines.some((baseline) => baseline.image === data.image)) {
+        data.image = replacement.image;
+        if (baselines.some((baseline) => baseline.imageAlt === data.imageAlt)) data.imageAlt = replacement.imageAlt;
+        if (baselines.some((baseline) => baseline.imagePosition === data.imagePosition)) data.imagePosition = replacement.imagePosition;
+      }
+      if (replacement.id.startsWith("additional-") && data.applicationOnly === true &&
+          baselines.some((baseline) => baseline.applicationOnly === true)) delete data.applicationOnly;
+      // Both the database status and JSON status are deliberately retained.
+      if (JSON.stringify(data) === JSON.stringify(row.data)) continue;
+      await tx.update(jobs).set({ data }).where(eq(jobs.id, row.id));
+      updatedIds.push(row.id);
+    }
+    await tx.insert(settings).values({ key: publicApplicationCatalogVersion, value: new Date().toISOString() });
+    await tx.insert(audits).values({
+      id: randomUUID(), actorId: "system:catalog-migration", action: "catalog.form-roles-published",
+      targetId: publicApplicationCatalogVersion, details: { updatedIds, addedIds, preservedIds },
+    });
+  });
+}
 
 /** Apply the operator's catalog replacement once without deleting historical records. */
 export async function migrateProposedJobCatalog(db: Database) {

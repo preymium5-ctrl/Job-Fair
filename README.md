@@ -4,6 +4,15 @@ A complete Next.js App Router recruitment platform with locally hosted THICCCBOI
 
 Source repository: [preymium5-ctrl/Job-Fair](https://github.com/preymium5-ctrl/Job-Fair). For Vercel import settings and the Google Sheets or database storage configuration, see [Deploying to Vercel](docs/VERCEL.md).
 
+The 21 October 2026 public catalogue contains 117 roles in 16 sectors: the
+original 18 roles plus 99 specific positions from the primary/secondary
+application choices. Operator-proposed salaries range from €850 to €2,000 per
+month and slots from 250 to 1,200 per role. Destinations use the form's six
+existing choices. The homepage sector directory links to filtered jobs, and
+model imagery uses male workers. Terms are in `data/application-role-catalog.ts`;
+image sources and prompts are recorded in `ASSETS.md`. Existing role IDs,
+application history, archived allocations, and staff edits are preserved.
+
 ## Run locally
 
 Node.js 20.9+ is required. Dependencies are installed and locked in `package-lock.json`.

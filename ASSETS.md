@@ -71,6 +71,27 @@ The 17 roles, 248 proposed workers, and salary ranges in `data/jobs.ts` were pro
 
 ## Generated role images
 
+### Male model refresh — 21 October 2026
+
+The current website uses the male worker collection already created for the
+owner's Jobs Street Croatia project, copied into `public/images/male-workers/`.
+This covers the three wide homepage images and all 18 original role images.
+Each active image was visually checked, including background people.
+
+Six additional male sector photographs were created with the built-in image
+generation tool for hospitality, personal services, healthcare, maritime work,
+agriculture, and design/media. They are stored in `public/images/jobs/categories/`
+as 960 × 640 WebP assets. Exact prompts, original generated paths, final paths,
+and generation mode are retained in [prompt set A](docs/male-category-image-prompts-a.json)
+and [prompt set B](docs/male-category-image-prompts-b.json).
+
+The remaining four category images reuse the credited construction, automotive,
+and bus-driver stock photographs above and the male motor-assembly image.
+The complete source mapping is recorded in
+[model asset provenance](docs/male-model-assets-2026-10-21.json).
+Category artwork represents a sector rather than a confirmed employer or a
+specific vacancy. The imagery change does not change application eligibility.
+
 The 17 new WebP assets in `public/images/jobs/proposed/` were created separately using the built-in image generation tool. They illustrate trades; they are not photographs of actual employers or workplaces. Full generation prompts, source filenames, output mapping, and alt descriptions are recorded in [prompt set A](docs/job-image-prompts-a.md) and [prompt set B](docs/job-image-prompts-b.md).
 
 Each job's image and alternative text are editable through job management. The per-role mapping is explicit in `data/jobs.ts`. There are no missing photo assets in this seed set.

@@ -4,7 +4,7 @@ import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { eq } from "drizzle-orm";
-import { proposedJobs, proposalV1Jobs, previousRecruitmentJobs } from "../data/jobs";
+import { proposedJobs, proposalV1Jobs, previousRecruitmentJobs, preExpansionRecruitmentJobs } from "../data/jobs";
 import { maximumAgeRequirement, maximumApplicantAge, minimumExperienceRequirement, recruitmentBenefits } from "../data/employment";
 import { fairDocuments, fairDocumentTiming, fairNc2Requirements, getJobFairRole, jobFair, nc2ElectricalNote } from "../data/job-fair";
 import { hiringAllocations, hiringWorkerTotal } from "../data/hiring-allocations";
@@ -92,7 +92,7 @@ test("the archived 17 operator proposals retain original worker counts and salar
   }
 });
 
-test("current employer counts vary strictly between 100 and 1200 and reconcile with every job total", () => {
+test("named employer counts retain their history while current proposed slots meet the updated bounds", () => {
   const allocatedJobs = proposedJobs.filter((job) => getJobFairRole(job));
   assert.equal(Object.keys(hiringAllocations).length, allocatedJobs.length);
   const counts: number[] = [];
@@ -103,15 +103,16 @@ test("current employer counts vary strictly between 100 and 1200 and reconcile w
       assert.ok(Number.isInteger(employer.workers) && employer.workers > 100 && employer.workers < 1200, `${job.slug}: ${employer.name}`);
       counts.push(employer.workers);
     }
-    assert.equal(role.employers.reduce((total, employer) => total + employer.workers, 0), job.openings);
-    assert.equal(hiringWorkerTotal(job.slug), job.openings);
-    assert.ok(job.openings! > 100 && job.openings! < 1200);
-    assert.equal(job.salary, proposalV1Jobs.find((original) => original.id === job.id)!.salary);
+    const archived = preExpansionRecruitmentJobs.find(({ id }) => id === job.id)!;
+    assert.equal(role.employers.reduce((total, employer) => total + employer.workers, 0), archived.openings);
+    assert.equal(hiringWorkerTotal(job.slug), archived.openings);
+    assert.ok(job.openings! >= 250 && job.openings! <= 1200);
+    assert.equal(job.salary, proposalV1Jobs.find((original) => original.id === job.id)!.salary!.replace("€800", "€850"));
   }
   assert.ok(new Set(counts).size > 10);
   assert.deepEqual(getJobFairRole(proposedJobs[0])!.employers.map((employer) => employer.workers), [175, 225, 300, 450]);
   assert.equal(proposedJobs[0].openings, 1150);
-  assert.equal(proposedJobs.reduce((total, job) => total + (job.openings ?? 0), 0), 11100);
+  assert.equal(proposedJobs.reduce((total, job) => total + (job.openings ?? 0), 0), 11450);
   assert.equal(hiringWorkerTotal("unrelated-staff-job"), undefined);
 });
 
@@ -132,7 +133,7 @@ test("the dated fair allocations reconcile six employers and exactly 248 workers
     const role = getJobFairRole(job)!;
     assert.ok(role, job.slug);
     assert.equal(role.drivingLicenseIsPlus, true, `Page 5 says all positions: ${job.slug}`);
-    assert.equal(role.employers.reduce((total, employer) => total + employer.workers, 0), job.openings, job.title);
+    assert.equal(role.employers.reduce((total, employer) => total + employer.workers, 0), preExpansionRecruitmentJobs.find(({ id }) => id === job.id)!.openings, job.title);
     assert.ok(role.testing.length > 0);
     assert.match(job.description, /hiring skilled Filipino workers/);
     assert.ok(!job.description.toLowerCase().includes("not a confirmed employer offer"));
@@ -309,7 +310,7 @@ test("Filipino imagery refresh preserves staff photos, closed roles, custom jobs
   assert.deepEqual(await db.select().from(applications), applicationsBefore);
   const normal = proposedJobs[4];
   assert.equal(result.find((row) => row.id === normal.id)?.data.image, normal.image);
-  assert.match(normal.image, /\/filipino\//);
+  assert.match(normal.image, /\/male-workers\//);
   assert.match(normal.imageAlt, /Filipino/);
 
   const reviewedAfterRefresh = { ...closedRow.data, image: "/images/new-staff-photo.webp" };

@@ -164,8 +164,8 @@ test("an official job sends every captured answer, all nine documents and the CV
     assert.equal(Object.hasOwn(payload.application, privateField), false, privateField);
 });
 
-test("application-only jobs are accepted from the published additional job list without database access", async () => {
-  assert.ok(additionalJob.applicationOnly);
+test("promoted jobs are accepted from the published additional job list without database access", async () => {
+  assert.equal(Boolean(additionalJob.applicationOnly), false);
   const response = await submit(request({ payload: values(additionalJob.id) }));
   assert.equal(response.status, 201);
   assert.equal((await response.json()).jobTitle, additionalJob.title);

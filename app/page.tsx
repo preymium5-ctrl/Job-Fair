@@ -30,7 +30,7 @@ export default async function Home() {
         proposedCount={jobs.filter((job) => job.salaryStatus === "proposed-net").length}
         workers={jobs.filter((job) => job.salaryStatus === "proposed-net").reduce((total, job) => total + (job.openings || 0), 0)}
       />
-      <RecruitmentSummary />
+      <RecruitmentSummary jobs={jobs} />
       <Introduction />
       <CommunityMarquees />
       <FeaturedJobs jobs={jobs.filter((job) => job.featured)} />

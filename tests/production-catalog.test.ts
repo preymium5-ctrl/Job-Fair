@@ -26,12 +26,13 @@ test("an existing production catalog receives new roles without initial seeding 
     // so no external PostgreSQL server or live recruitment data is involved.
     Object.assign(process.env, { NODE_ENV: "production", CHAPTER_LOCAL_MODE: "false" });
     const publicJobs = await getJobs();
-    assert.deepEqual(publicJobs.map(({ title }) => title).sort(), ["Cleaner", "Grinder"]);
+    assert.deepEqual(publicJobs.map(({ title }) => title).sort(), ["Cleaner", "Grinder", ...additionalApplicationJobs.filter(({ id }) => id !== closedAdditional.id).map(({ title }) => title)].sort());
     assert.equal(await getJobById(proposedJobs.find(({ slug }) => slug === "fabricator")!.id), undefined);
     assert.deepEqual(await getJobById(closedAdditional.id), closedAdditional);
     const applicationJobs = await getJobs({ includeApplicationOnly: true });
     assert.equal(applicationJobs.some(({ id }) => id === closedAdditional.id), false);
-    assert.equal(applicationJobs.filter(({ applicationOnly }) => applicationOnly).length, additionalApplicationJobs.length - 1);
+    assert.equal(applicationJobs.filter(({ id }) => id.startsWith("additional-")).length, additionalApplicationJobs.length - 1);
+    assert.equal(applicationJobs.some(({ applicationOnly }) => applicationOnly), false);
   } finally {
     await closeDatabase();
     if (!path.resolve(directory).startsWith(path.resolve(tmpdir()) + path.sep) || !path.basename(directory).startsWith("chapter-production-catalog-"))

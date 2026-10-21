@@ -14,7 +14,7 @@ export const dynamic = "force-dynamic";
 export const metadata: Metadata = pageMetadata({
   title: "Jobs in Croatia — Hiring in the Philippines",
   description:
-    "Explore jobs in Croatia for Filipino workers: salary ranges, free transportation and accommodation, no placement fee, and online applications.",
+    "Explore jobs in Croatia and across Europe for Filipino workers: salary ranges, free transportation and accommodation, no placement fee, and online applications.",
   path: "/jobs",
 });
 export default async function JobsPage() {
@@ -42,15 +42,15 @@ export default async function JobsPage() {
               <span className="subtle-text">opportunity.</span>
             </h1>
             <p data-enter>
-              Skilled roles in Croatia for Filipino applicants.
+              Skilled roles in Croatia and across Europe for Filipino applicants.
               <br />
               Find your trade, check the qualifications, and apply with your CV.
             </p>
           </div>
           <div className="jobs-hero-photo" data-enter>
             <Image
-              src="/images/filipino-intro.webp"
-              alt="AI-generated illustration of Filipino industrial workers collaborating in a workshop"
+              src="/images/male-workers/hero-skills.webp"
+              alt="Male Filipino industrial workers collaborating in a workshop"
               fill
               loading="eager"
               fetchPriority="high"
@@ -72,7 +72,7 @@ export default async function JobsPage() {
           </div>
         </div>
       </section>
-      <RecruitmentSummary />
+      <RecruitmentSummary jobs={jobs} />
       <div className="container">
         {proposedJobs.length > 0 && <ProposedTermsNotice />}
         {jobs.some((j) => j.isExample) && (

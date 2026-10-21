@@ -367,11 +367,11 @@ test("driver roles require a license in both form variants and additional roles 
   assert.equal(delivery.delivered, 1);
 });
 
-test("application-only roles stay off public job lists and preserve staff closures", async () => {
+test("promoted application roles appear publicly and preserve staff closures", async () => {
   const role = additionalApplicationJobs.find(({ title }) => !isDriverPosition(title))!;
   assert.ok(role);
   assert.equal((await getJobs()).some(({ applicationOnly }) => applicationOnly), false);
-  assert.equal(await getJobBySlug(role.slug), undefined);
+  assert.equal((await getJobBySlug(role.slug))?.id, role.id);
   assert.equal((await getJobById(role.id))?.title, role.title);
   assert.ok((await getJobs({ includeApplicationOnly: true })).some(({ id }) => id === role.id));
   await saveJob({ ...role, status: "closed" }, "test-staff");

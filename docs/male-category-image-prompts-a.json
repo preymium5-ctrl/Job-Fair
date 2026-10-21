@@ -1,0 +1,27 @@
+{
+  "createdAt": "2026-10-21",
+  "mode": "built-in image_gen",
+  "intent": "generate",
+  "useCase": "photorealistic-natural",
+  "outputPreparation": "sharp resize to 960x640 fit cover; WebP quality 86, effort 6. No programmatic scene editing.",
+  "assets": [
+    {
+      "name": "hospitality-food-service",
+      "prompt": "Use case: photorealistic-natural\nAsset type: landscape category photograph for an overseas jobs website, approximately 3:2 composition.\nPrimary request: Original realistic editorial photograph representing hospitality and food service careers.\nScene: A clean contemporary restaurant with an open kitchen, stainless preparation counter, warm wood accents and natural window light.\nSubjects: Exactly two adult Filipino men, one professional male cook in a plain chef jacket and one male waiter in a plain navy service shirt. They calmly review a neatly plated meal at the pass, candid and focused, faces clearly visible, natural proportion and credible hands.\nStyle: Documentary employment photography, realistic skin and fabric textures, restrained modern color, professional and approachable, sharp foreground with gentle background depth.\nComposition: Medium-wide waist-up shot; both men comfortably inside the central 80 percent, restaurant setting visible, suitable for landscape card cropping.\nConstraints: Every visible person must be an adult Filipino man; no female models, no children, no background customers. No written text, letters, logos, watermarks, signage or branded uniforms. No stylized illustration.",
+      "originalPath": "C:\\Users\\Rockz\\.codex\\generated_images\\01a15c88-ea49-75c0-9742-2592d563557b\\exec-c65fe6ee-4c42-4045-8205-c1f9b0e176f8.png",
+      "finalPath": "public/images/jobs/categories/hospitality-food-service.webp"
+    },
+    {
+      "name": "personal-care-services",
+      "prompt": "Use case: photorealistic-natural\nAsset type: landscape category photograph for an overseas jobs website, approximately 3:2 composition.\nPrimary request: Original realistic editorial photograph broadly representing personal care and skilled service professionals without showing one exact treatment or task.\nScene: A clean contemporary service studio with neutral light walls, a neat counter, subtle orderly grooming and textile tools in soft background focus, no signs.\nSubject: One adult Filipino man in his thirties wearing a plain navy professional polo and neutral work apron, standing naturally beside the counter with a calm capable expression. Friendly professional portrait, relaxed posture, hands resting naturally, no active treatment, no other people.\nStyle: Realistic documentary employment photography, soft natural window light, authentic skin and fabric texture, clean airy studio, restrained modern colors.\nComposition: Medium-wide waist-up portrait with a little workspace context, subject in central 80 percent, designed for landscape card cropping.\nConstraints: All visible people must be adult Filipino men; this image contains only one male professional, no clients, women or children. No written text, letters, logos, watermarks, labels or branded uniforms. No medical procedure, no beauty before-and-after imagery, no illustration.",
+      "originalPath": "C:\\Users\\Rockz\\.codex\\generated_images\\01a15c88-ea49-75c0-9742-2592d563557b\\exec-15e4e9b0-379a-4c94-b408-a8bf76fbfb1b.png",
+      "finalPath": "public/images/jobs/categories/personal-care-services.webp"
+    },
+    {
+      "name": "healthcare-dental",
+      "prompt": "Use case: photorealistic-natural\nAsset type: landscape category photograph for an overseas jobs website, approximately 3:2 composition.\nPrimary request: Original realistic editorial photograph broadly representing healthcare and dental careers.\nScene: A clean modern clinic consultation room with understated dental diagnostic equipment and a dental model subtly visible in the background, bright natural daylight, uncluttered workspace.\nSubject: One adult Filipino male healthcare professional in plain navy scrubs, around 35 years old, standing beside a tidy clinical counter and holding a plain unmarked tablet. Calm attentive expression, authentic professional demeanor, natural hands and anatomy, no active treatment.\nStyle: Realistic documentary employment photograph with skin texture, soft natural window light, clear contemporary healthcare environment, restrained blue and neutral colors, gentle background depth.\nComposition: Medium-wide waist-up portrait, man centrally framed with clinic context; comfortable margin around face and torso for landscape card cropping.\nConstraints: Only one adult Filipino man appears; no patients, women, children or other people. No blood, surgery, needles or treatment procedure. No written text, readable screen content, letters, logos, watermarks, signs or branded uniforms. No illustration.",
+      "originalPath": "C:\\Users\\Rockz\\.codex\\generated_images\\01a15c88-ea49-75c0-9742-2592d563557b\\exec-654c88b8-7ecd-4360-84da-ce95f38e0c7b.png",
+      "finalPath": "public/images/jobs/categories/healthcare-dental.webp"
+    }
+  ]
+}

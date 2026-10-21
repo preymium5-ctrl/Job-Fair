@@ -52,7 +52,7 @@ export function Hero({
         <div className="hero-intro" data-enter>
           <span className="eyebrow">Skilled Filipino workers wanted</span>
           <p>
-            Opportunities in Croatia for Filipino tradespeople and production workers.
+            Opportunities in Croatia and across Europe for skilled Filipino workers.
             <br /> Hiring in the Philippines.
             <br /> Find the role that matches your skills.
           </p>
@@ -72,8 +72,8 @@ export function Hero({
       >
         <div className="hero-image-wrap" ref={imageRef}>
           <Image
-            src="/images/filipino-hero.webp"
-            alt="AI-generated illustration of Filipino technicians reviewing a technical drawing in a workshop"
+            src="/images/male-workers/hero-career.webp"
+            alt="Male Filipino technicians reviewing a technical drawing in a workshop"
             fill
             loading="eager"
             fetchPriority="high"

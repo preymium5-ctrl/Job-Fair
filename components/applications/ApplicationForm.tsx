@@ -41,7 +41,7 @@ export default function ApplicationForm({ job, jobs = [job], additionalJobs = []
   const [values, setValues] = useState<ApplicationInput>({
     jobId: job.id, fullName: "", email: "", phone: "", country: "", recentJobTitle: "", experienceYears: null,
     skills: "", education: "", summary: "", coverLetter: "", nc2Certificate: "", preferredEmployer: "",
-    profile: { ...emptyProfile }, consent: false,
+    profile: { ...emptyProfile, destinationCountry: destinationCountries.find((country) => country === job.location) || emptyProfile.destinationCountry }, consent: false,
   });
   const [resume, setResume] = useState<File | null>(null);
   const [supportingFiles, setSupportingFiles] = useState<Partial<Record<SupportingDocumentCategory, File>>>({});

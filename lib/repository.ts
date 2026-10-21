@@ -1,11 +1,10 @@
 import { and, desc, eq } from "drizzle-orm";
 import { randomUUID } from "node:crypto";
-import { migrateProposedJobCatalog, migrateSeparatedCleaningRoles } from "./catalog-migration";
+import { migrateProposedJobCatalog, migrateSeparatedCleaningRoles, migratePublicApplicationCatalog } from "./catalog-migration";
 import { getDatabase, localModeAllowed } from "./db";
 import { applications, audits, jobs, sheetDeliveries } from "./schema";
 import type { Application, ApplicationStatus, Job } from "./types";
 import { getJobFairRole } from "../data/job-fair";
-import { additionalApplicationJobs } from "../data/application-jobs";
 import { proposedJobs } from "../data/jobs";
 import { isDriverPosition } from "./document-uploads";
 
@@ -27,12 +26,7 @@ async function ensureSeeded() {
         // enabling initial seeding or replaying older catalog replacements.
         if (existingGrinder) await migrateSeparatedCleaningRoles(db);
       }
-      // Application-only roles need durable IDs for application foreign keys.
-      // Never reopen or overwrite an existing role changed by recruitment staff.
-      if (additionalApplicationJobs.length)
-        await db.insert(jobs).values(additionalApplicationJobs.map((job) => ({
-          id: job.id, slug: job.slug, status: job.status, data: job,
-        }))).onConflictDoNothing({ target: jobs.id });
+      await migratePublicApplicationCatalog(db);
     })().catch((error) => {
       seedPromise = undefined;
       throw error;

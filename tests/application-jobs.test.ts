@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { additionalApplicationJobs, additionalApplicationJobOptions } from "../data/application-jobs";
-import { countryOptions, destinationCountries, referenceJobPositions } from "../data/application-form-options";
+import { countryOptions, destinationCountries, referenceJobPositions, secondaryJobPositions } from "../data/application-form-options";
 import { proposedJobs } from "../data/jobs";
 import { getRequiredProfileDocumentCategories, isDriverPosition } from "../lib/document-uploads";
 
@@ -120,7 +120,9 @@ test("all 101 unique primary roles from the linked form are represented exactly 
   assert.deepEqual(referenceJobPositions.filter((title) => title !== "Other (enter below)" && title !== "No other position"), [...sourcePrimaryRoles]);
   for (const title of ["Other (enter below)", "No other position"])
     assert.equal(choices.some((job) => job.title === title), false, title);
-  assert.equal(additionalApplicationJobs.length, 97);
+  assert.equal(additionalApplicationJobs.length, 99);
+  for (const title of secondaryJobPositions.filter((title) => title !== "Other (enter below)" && title !== "No other position"))
+    assert.equal(choices.filter((job) => job.title === title).length, 1, title);
   const officialTitles = new Set(proposedJobs.map((job) => job.title.toLowerCase()));
   assert.ok(additionalApplicationJobs.every((job) => !officialTitles.has(job.title.toLowerCase())));
 });
@@ -144,14 +146,18 @@ test("application choices have distinct persistent identifiers and preserve repr
   assert.deepEqual(additionalApplicationJobOptions, additionalApplicationJobs.map(({ id, title, slug }) => ({ id, title, slug })));
 });
 
-test("imported role names stay application-only without invented pay or vacancy counts", () => {
-  for (const job of additionalApplicationJobs) {
-    assert.equal(job.applicationOnly, true, job.title);
-    assert.equal(job.category, "Other jobs we’re offering", job.title);
-    assert.equal(Object.hasOwn(job, "salary"), false, job.title);
-    assert.equal(Object.hasOwn(job, "salaryStatus"), false, job.title);
-    assert.equal(Object.hasOwn(job, "openings"), false, job.title);
+test("all offered roles have operator-proposed pay and slots within the requested bounds", () => {
+  for (const job of [...proposedJobs, ...additionalApplicationJobs]) {
+    assert.equal(Boolean(job.applicationOnly), false, job.title);
+    assert.notEqual(job.category, "Other jobs we’re offering", job.title);
+    const amounts = job.salary!.match(/[\d,]+/g)!.map((value) => Number(value.replaceAll(",", "")));
+    assert.equal(amounts.length, 2, job.title);
+    assert.ok(amounts[0] >= 850 && amounts[1] <= 2000 && amounts[0] <= amounts[1], job.title);
+    assert.equal(job.salaryStatus, "proposed-net", job.title);
+    assert.ok(Number.isInteger(job.openings) && job.openings! >= 250 && job.openings! <= 1200, job.title);
+    assert.ok(destinationCountries.some((country) => country === job.location), job.title);
   }
+  assert.deepEqual(new Set(additionalApplicationJobs.map(({ location }) => location)), new Set(destinationCountries));
 });
 
 test("application destinations offer Croatia and the five requested countries", () => {

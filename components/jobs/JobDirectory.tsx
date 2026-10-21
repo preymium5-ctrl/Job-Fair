@@ -1,7 +1,8 @@
 "use client";
 import { BrandMark } from "@/components/ui/Brand";
 
-import { useDeferredValue, useEffect } from "react";
+import { useDeferredValue, useEffect, useRef } from "react";
+import gsap from "gsap";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
 import { useSearchParams } from "next/navigation";
 import { Search, X, ArrowDown, SlidersHorizontal } from "lucide-react";
@@ -9,13 +10,35 @@ import type { Job } from "@/lib/types";
 import { JobCard } from "./JobCard";
 import { getJobFairRole } from "@/data/job-fair";
 
+gsap.registerPlugin(ScrollTrigger);
+
 export function JobDirectory({ jobs }: { jobs: Job[] }) {
+  const directoryRef = useRef<HTMLElement>(null);
   const params = useSearchParams();
   const query = params.get("q") || "";
   const keyword = useDeferredValue(query);
   useEffect(() => {
+    const media = gsap.matchMedia();
+    media.add("(prefers-reduced-motion: no-preference)", () => {
+      const context = gsap.context(() => {
+        gsap.utils.toArray<HTMLElement>("[data-reveal]").forEach((element) => {
+          gsap.from(element, {
+            y: 42,
+            opacity: 0,
+            duration: 0.85,
+            ease: "power3.out",
+            clearProps: "all",
+            scrollTrigger: { trigger: element, start: "top 94%", once: true },
+          });
+        });
+      }, directoryRef);
+      return () => context.revert();
+    });
     const frame = requestAnimationFrame(() => ScrollTrigger.refresh());
-    return () => cancelAnimationFrame(frame);
+    return () => {
+      cancelAnimationFrame(frame);
+      media.revert();
+    };
   }, [keyword, params]);
   const industry = params.get("industry") || "";
   const location = params.get("location") || "";
@@ -65,7 +88,7 @@ export function JobDirectory({ jobs }: { jobs: Job[] }) {
     sort !== "newest"
   );
   return (
-    <section className="container directory-section" id="job-results">
+    <section ref={directoryRef} data-client-motion className="container directory-section" id="job-results">
       <h2 className="sr-only">Browse opportunities</h2>
       <div className="directory-search">
         <Search size={25} />

@@ -1,0 +1,37 @@
+{
+  "updatedAt": "2026-10-21",
+  "request": "Use male models across the public website",
+  "existingRoles": {
+    "source": "E:/Jobs Street Croatia/public/images/street-v2/",
+    "output": "public/images/male-workers/",
+    "count": 21,
+    "origin": "Existing owner project images generated and edited with built-in imagegen; all visible models visually checked as men.",
+    "originalPromptDocuments": [
+      "E:/Jobs Street Croatia/docs/STREET_IMAGE_PROMPTS_V2.json",
+      "E:/Jobs Street Croatia/docs/STREET_MALE_IMAGE_EDITS_2026_10_20.json"
+    ]
+  },
+  "reusedCategories": [
+    {
+      "output": "public/images/jobs/categories/construction-building-trades.webp",
+      "source": "public/images/jobs/construction-worker.jpg"
+    },
+    {
+      "output": "public/images/jobs/categories/automotive-vehicle-maintenance.webp",
+      "source": "public/images/jobs/auto-mechanic.jpg"
+    },
+    {
+      "output": "public/images/jobs/categories/transport-logistics.webp",
+      "source": "public/images/jobs/bus-driver.jpg"
+    },
+    {
+      "output": "public/images/jobs/categories/production-manufacturing.webp",
+      "source": "E:/Jobs Street Croatia/public/images/street-v2/mg-assembly-fitter.webp"
+    }
+  ],
+  "newCategoryPrompts": [
+    "docs/male-category-image-prompts-a.json",
+    "docs/male-category-image-prompts-b.json"
+  ],
+  "note": "Category images illustrate sectors; they are not photographs of confirmed employers or actual job openings. Model imagery does not alter applicant eligibility."
+}
