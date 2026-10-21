@@ -17,9 +17,9 @@
 }
 
 .label {
-  color: var(--brand-blue, #164b83);
-  font-size: 14px;
-  font-weight: 500;
+  color: var(--brand-red, #d91f32);
+  font-size: 16px;
+  font-weight: 600;
   line-height: 1.45;
   cursor: pointer;
 }

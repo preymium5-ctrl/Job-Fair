@@ -16,9 +16,9 @@
 .grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 26px 24px; }
 .full { grid-column: 1 / -1; }
 .addressGroup { padding: 0; border: 0; margin: 0; min-width: 0; }
-.addressGroup > legend { padding: 0; margin-bottom: 16px; color: #3f5366; font-size: 14px; font-weight: 600; line-height: 1.6; }
+.addressGroup > legend { padding: 0; margin-bottom: 16px; color: var(--brand-red, #d91f32); font-size: 16px; font-weight: 600; line-height: 1.6; }
 .field { min-width: 0; scroll-margin-top: 120px; }
-.field > label { display: flex; align-items: baseline; gap: 4px; font-size: 14px; font-weight: 500; line-height: 1.6; color: #3f5366; margin-bottom: 9px; }
+.field > label { display: flex; align-items: baseline; gap: 4px; font-size: 16px; font-weight: 600; line-height: 1.6; color: var(--brand-red, #d91f32); margin-bottom: 9px; }
 .contactBrandIcon { flex-shrink: 0; align-self: center; margin-right: 3px; }
 .optional { margin-left: auto; font-size: 11px; color: #728091; font-weight: 400; }
 .field > input, .field > select { width: 100%; display: block; min-height: 50px; border: 1px solid #cfd7df; border-radius: 5px; padding: 12px 13px; background: #fff; color: #24394f; font: inherit; font-size: 16px; line-height: 1.5; transition: border-color .15s, box-shadow .15s; }
@@ -30,7 +30,7 @@
 .help { font-size: 12px; line-height: 1.6; color: #73808c; margin: 7px 0 0; }
 .fieldError { font-size: 13px; line-height: 1.65; color: #ae1c30; margin: 8px 0 0; }
 .choiceField { padding: 0; border: 0; margin: 0; min-width: 0; scroll-margin-top: 120px; }
-.choiceField legend { font-size: 14px; line-height: 1.7; color: #3f5366; font-weight: 500; margin: 0 0 10px; padding: 0; }
+.choiceField legend { font-size: 16px; line-height: 1.7; color: var(--brand-red, #d91f32); font-weight: 600; margin: 0 0 10px; padding: 0; }
 .choices { display: flex; flex-wrap: wrap; align-items: center; gap: 14px; min-height: 50px; }
 .choices > label { display: flex; align-items: center; gap: 8px; min-height: 44px; min-width: 100px; padding: 9px 14px; border: 1px solid #d5dde5; border-radius: 5px; color: #3b5064; font-size: 14px; cursor: pointer; }
 .choices > label:has(input:checked) { border-color: #2874af; background: #eef6fc; }
