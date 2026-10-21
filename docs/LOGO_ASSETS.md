@@ -1,4 +1,4 @@
-# Homepage social strip
+# Homepage social and work abroad strips
 
 The homepage includes a continuous CSS marquee in
 `components/home/CommunityMarquees.tsx`, after the introduction. It shows social
@@ -28,3 +28,27 @@ label instead of repeating the visible X next to its logo.
 
 Add actual profile URLs before turning these decorative platform items into
 social-profile links or adding them to SEO `sameAs` metadata.
+
+## Work abroad logos
+
+The homepage also includes all 58 logos from the
+[VideoWorkers homepage](https://videoworkers.com/) section titled
+“Partnerships and useful links for work abroad”, checked on 21 October 2026.
+They appear in two continuously scrolling rows below the social platforms,
+using the same animation and direction. The longer logo track has a longer
+duration to keep its travel speed close to the social strip.
+
+`data/work-abroad-logos.ts` records every name, original image URL, local path,
+intrinsic dimensions, and destination in source order. All source homepage
+logos link to the [partnership and support directory](https://videoworkers.com/partnership-and-support/);
+the local cards preserve that behavior and open in a new tab.
+
+The original artwork is saved as optimized WebP files under
+`public/images/organizations/work-abroad/`, totaling approximately 499 KiB.
+Excess outside margins were trimmed, colours and aspect ratios were retained,
+and each image was resized to fit within 480 × 240 pixels without enlargement.
+All 58 output files were decoded and visually checked. Brand marks remain the
+property of their respective owners.
+
+The logo strip shares hover/focus pause, keyboard wrapping, hidden duplicate
+links, and a static reduced-motion layout with the social strip.

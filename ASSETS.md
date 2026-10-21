@@ -14,6 +14,14 @@ blue (#26A5E4). Source assets: [WhatsApp](https://icons.getbootstrap.com/assets/
 and [Telegram](https://icons.getbootstrap.com/assets/icons/telegram.svg). The
 Bootstrap Icons MIT license is retained at `public/brand/messaging/LICENSE.txt`.
 
+The homepage work abroad strip uses all 58 logos from the “Partnerships and
+useful links for work abroad” section of [VideoWorkers](https://videoworkers.com/),
+retrieved on 21 October 2026. Original source URLs and names are recorded in
+`data/work-abroad-logos.ts`; optimized local WebP artwork is stored in
+`public/images/organizations/work-abroad/`. See [logo asset details](docs/LOGO_ASSETS.md)
+for source links, image preparation, and animation behavior. The marks retain
+their original colours and belong to their respective owners.
+
 ## Photo licence
 
 All photographs below are sourced from individual free photo pages on Pexels under the [Pexels licence](https://www.pexels.com/legal-pages/license/). Pexels permits use on websites and commercial projects, modification, and downloading. Attribution is appreciated but not mandatory. Restrictions include standalone resale or stock redistribution, using imagery as a trademark, offensive depictions, and implying endorsement by a depicted person or brand. The original photographers are credited here for traceability.

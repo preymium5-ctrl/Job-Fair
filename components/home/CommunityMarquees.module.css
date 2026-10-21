@@ -4,7 +4,7 @@
   background: var(--paper);
 }
 
-.socialWindow {
+.marqueeWindow {
   overflow: hidden;
   mask-image: linear-gradient(to right, transparent, #000 5%, #000 95%, transparent);
 }
@@ -94,6 +94,79 @@
   object-fit: contain;
 }
 
+.resourceSection {
+  padding-block: 40px;
+  background: var(--paper);
+}
+
+.resourceSection :global(.eyebrow) {
+  color: var(--accent);
+}
+
+.resourceTitle {
+  max-width: 640px;
+  margin-top: 12px;
+  color: var(--ink);
+  font-size: clamp(24px, 2.6vw, 36px);
+  font-weight: 600;
+  line-height: 1.18;
+  letter-spacing: -.035em;
+}
+
+.resourceDescription {
+  margin-top: 12px;
+  color: var(--muted);
+  font-size: 14px;
+  line-height: 1.6;
+}
+
+/* The longer logo group travels at a similar pace to the social strip. */
+.logoTrack {
+  animation-duration: 120s;
+}
+
+.logoGroup {
+  display: grid;
+  grid-template-rows: repeat(2, 108px);
+  grid-auto-flow: column;
+  grid-auto-columns: 168px;
+  gap: 20px;
+  margin: 0;
+  padding: 28px 20px 0 0;
+  list-style: none;
+}
+
+.logoItem {
+  height: 108px;
+  flex: 0 0 168px;
+}
+
+.logoCard {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+  padding: 18px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: #fff;
+  transition: border-color .2s ease, box-shadow .2s ease, transform .2s ease;
+}
+
+.logoCard:hover,
+.logoCard:focus-visible {
+  border-color: var(--accent);
+  box-shadow: 0 6px 18px rgb(30 58 95 / 8%);
+  transform: translateY(-3px);
+}
+
+.logoCard img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
 .screenReaderOnly {
   position: absolute;
   width: 1px;
@@ -111,24 +184,25 @@
   font-weight: 500;
 }
 
-.socialWindow:hover .track,
-.socialWindow:focus-within .track {
+.marqueeWindow:hover .track,
+.marqueeWindow:focus-within .track {
   animation-play-state: paused;
 }
 
 /* Keep keyboard links visible even when the marquee has drifted offscreen. */
-.socialWindow:has(a:focus-visible) {
+.marqueeWindow:has(a:focus-visible) {
   overflow: visible;
   mask-image: none;
 }
 
-.socialWindow:has(a:focus-visible) .track {
+.marqueeWindow:has(a:focus-visible) .track {
   animation: none;
   transform: none;
   width: 100%;
 }
 
-.socialWindow:has(a:focus-visible) .socialGroup {
+.marqueeWindow:has(a:focus-visible) .group {
+  display: flex;
   width: 100%;
   min-width: 0;
   flex-wrap: wrap;
@@ -137,7 +211,7 @@
   padding-inline: var(--space);
 }
 
-.socialWindow:has(a:focus-visible) .group[aria-hidden="true"] {
+.marqueeWindow:has(a:focus-visible) .group[aria-hidden="true"] {
   display: none;
 }
 
@@ -153,14 +227,23 @@
   .socialIcon { width: 46px; height: 46px; }
   .socialIcon img, .socialIcon svg { width: 23px; height: 23px; }
   .separator { margin-left: 14px; }
+  .resourceSection { padding-block: 30px; }
+  .resourceTitle { max-width: 420px; }
+  .logoTrack { animation-duration: 100s; }
+  .logoGroup { grid-template-rows: repeat(2, 96px); grid-auto-columns: 140px; gap: 16px; padding-right: 16px; }
+  .logoItem { height: 96px; flex-basis: 140px; }
+  .logoCard { padding: 14px; }
 }
 
 @media (prefers-reduced-motion: reduce) {
   .track { animation: none; transform: none; width: 100%; }
   .group[aria-hidden="true"] { display: none; }
-  .socialWindow { mask-image: none; }
-  .group { width: 100%; min-width: 0; flex-wrap: wrap; justify-content: center; }
+  .marqueeWindow { mask-image: none; }
+  .group { display: flex; width: 100%; min-width: 0; flex-wrap: wrap; justify-content: center; }
   .socialGroup { gap: 24px; padding-inline: var(--space); }
+  .logoGroup { padding-inline: var(--space); }
   .socialItem { padding: 0; }
   .separator { display: none; }
+  .logoCard { transition: none; }
+  .logoCard:hover, .logoCard:focus-visible { transform: none; }
 }

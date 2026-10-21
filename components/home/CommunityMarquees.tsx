@@ -1,5 +1,6 @@
 import Image from "next/image";
 import { MessagesSquare } from "lucide-react";
+import { workAbroadLogos } from "@/data/work-abroad-logos";
 import styles from "./CommunityMarquees.module.css";
 
 const socialChannels: { name: string; icon: string | null; href?: string }[] = [
@@ -46,21 +47,56 @@ function SocialIcons({ duplicate = false }: { duplicate?: boolean }) {
   );
 }
 
+function WorkAbroadLogos({ duplicate = false }: { duplicate?: boolean }) {
+  return (
+    <ul className={`${styles.group} ${styles.logoGroup}`} aria-hidden={duplicate || undefined}>
+      {workAbroadLogos.map(({ name, src, width, height, href }) => (
+        <li className={styles.logoItem} key={src}>
+          <a
+            className={styles.logoCard}
+            href={href}
+            target="_blank"
+            rel="noopener noreferrer"
+            tabIndex={duplicate ? -1 : undefined}
+            aria-label={`${name} (opens in a new tab)`}
+            title={name}
+          >
+            <Image src={src} alt={name} width={width} height={height} sizes="(max-width: 700px) 112px, 132px" />
+          </a>
+        </li>
+      ))}
+    </ul>
+  );
+}
+
 export function CommunityMarquees() {
   return (
-    <section id="community" className={styles.section} aria-labelledby="social-heading">
-      <div className={styles.socialSection}>
+    <div id="community" className={styles.section}>
+      <section className={styles.socialSection} aria-labelledby="social-heading">
         <div className={`container ${styles.socialHeading}`}>
           <h2 id="social-heading" className="eyebrow">Around the web</h2>
           <span>Follow us on Facebook and TikTok.</span>
         </div>
-        <div className={styles.socialWindow} aria-label="Social channels">
+        <div className={styles.marqueeWindow} aria-label="Social channels">
           <div className={`${styles.track} ${styles.socialTrack}`}>
             <SocialIcons />
             <SocialIcons duplicate />
           </div>
         </div>
-      </div>
-    </section>
+      </section>
+      <section id="work-abroad-resources" className={styles.resourceSection} aria-labelledby="work-abroad-heading">
+        <div className="container">
+          <span className="eyebrow">Your next step, connected</span>
+          <h2 id="work-abroad-heading" className={styles.resourceTitle}>Partnerships and useful links for work abroad</h2>
+          <p className={styles.resourceDescription}>Explore organisations and resources for your next step abroad.</p>
+        </div>
+        <div className={styles.marqueeWindow} aria-label="Partnerships and work abroad resources">
+          <div className={`${styles.track} ${styles.socialTrack} ${styles.logoTrack}`}>
+            <WorkAbroadLogos />
+            <WorkAbroadLogos duplicate />
+          </div>
+        </div>
+      </section>
+    </div>
   );
 }
