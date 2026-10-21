@@ -37,7 +37,7 @@ after(async () => {
 test("supporting uploads validate real bytes and sanitize scans", async () => {
   assert.equal((await validateSupportingDocument(new File([pdf], "diploma.pdf"))).mime, "application/pdf");
   await assert.rejects(validateSupportingDocument(new File([Buffer.from("not a scan")], "diploma.png")));
-  await assert.rejects(validateSupportingDocument(new File([Buffer.alloc(3 * 1024 * 1024 + 1)], "diploma.pdf")));
+  await assert.rejects(validateSupportingDocument(new File([Buffer.alloc(5 * 1024 * 1024 + 1)], "diploma.pdf")), /5 MB/);
   await assert.rejects(validateSupportingDocument(new File([pdf], "diploma.exe")));
   const png = await sharp({ create: { width: 100, height: 80, channels: 3, background: "white" } }).png().toBuffer();
   const image = await validateSupportingDocument(new File([new Uint8Array(png)], "school.png"));

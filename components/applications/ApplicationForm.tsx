@@ -7,6 +7,7 @@ import { ArrowLeft, ArrowRight, CheckCircle2, ClipboardCheck, FileText, LockKeyh
 import type { ApplicationInput, ApplicationProfile, Job } from "@/lib/types";
 import { applicationSchema, fieldErrors } from "@/lib/validation";
 import { referralSources } from "@/lib/referral-sources";
+import { prepareApplicationUpload, stageApplicationUpload, resetStagedUpload, type PreparedApplicationUpload } from "@/lib/application-upload-client";
 import { MAX_PROFILE_UPLOAD_BYTES, MAX_PROFILE_RESUME_BYTES, MAX_SUPPORTING_DOCUMENT_BYTES, SUPPORTING_DOCUMENT_ACCEPT, supportingDocumentTypes, getRequiredProfileDocumentCategories, isDriverPosition, type SupportingDocumentCategory } from "@/lib/document-uploads";
 import { countryOptions, destinationCountries, secondaryJobPositions } from "@/data/application-form-options";
 import { fairDocuments, fairDocumentTiming, fairNc2Requirements, nc2ElectricalNote } from "@/data/job-fair";
@@ -58,12 +59,14 @@ export default function ApplicationForm({ job, jobs = [job], additionalJobs = []
   const headingRef = useRef<HTMLHeadingElement>(null);
   const submittingRef = useRef(false);
   const idempotencyRef = useRef<string | null>(null);
+  const preparedUploadRef = useRef<PreparedApplicationUpload | null>(null);
   const selectedJob = [...jobs, ...additionalJobs].find(({ id }) => id === values.jobId) || job;
   const driverApplicant = isDriverPosition(selectedJob.title);
   const requiredDocumentCategories = getRequiredProfileDocumentCategories(selectedJob.title);
 
   function update<K extends keyof ApplicationInput>(key: K, value: ApplicationInput[K]) {
     idempotencyRef.current = null;
+    preparedUploadRef.current = null;
     setValues((current) => {
       const next = { ...current, [key]: value };
       if (key === "jobId" && current.profile) {
@@ -77,6 +80,7 @@ export default function ApplicationForm({ job, jobs = [job], additionalJobs = []
   }
   function updateProfile<K extends keyof ApplicationProfile>(key: K, value: ApplicationProfile[K]) {
     idempotencyRef.current = null;
+    preparedUploadRef.current = null;
     setValues((current) => {
       const profile = { ...(current.profile || emptyProfile), [key]: value };
       return { ...current, profile, fullName: `${profile.firstName.trim()} ${profile.lastName.trim()}`.trim(), country: profile.currentWorkCountry };
@@ -91,12 +95,13 @@ export default function ApplicationForm({ job, jobs = [job], additionalJobs = []
   }
   function fileError(file: File, isResume = false) {
     const max = isResume ? MAX_PROFILE_RESUME_BYTES : MAX_SUPPORTING_DOCUMENT_BYTES;
-    if (!file.size || file.size > max) return "Choose a non-empty file of 3 MB or less.";
+    if (!file.size || file.size > max) return `Choose a non-empty file of ${max / 1024 / 1024} MB or less.`;
     if (!(isResume ? /\.(pdf|doc|docx)$/i : /\.(pdf|doc|docx|jpe?g|png)$/i).test(file.name))
       return isResume ? "Choose a PDF, DOC, or DOCX file." : "Choose a PDF, DOC, DOCX, JPG, or PNG file.";
   }
   function chooseResume(file: File | null) {
     idempotencyRef.current = null;
+    preparedUploadRef.current = null;
     setResume(file);
     setErrors((current) => ({ ...current, resume: file ? fileError(file, true) : undefined, documents: undefined }));
   }
@@ -111,7 +116,7 @@ export default function ApplicationForm({ job, jobs = [job], additionalJobs = []
       else if (file && fileError(file)) nextErrors[`document:${id}`] = fileError(file);
     }
     if (totalUploadBytes > MAX_PROFILE_UPLOAD_BYTES)
-      nextErrors.documents = "Keep all files together within 4 MB. Choose smaller files or remove an optional attachment.";
+      nextErrors.documents = `Keep all files together within ${MAX_PROFILE_UPLOAD_BYTES / 1024 / 1024} MB. Choose smaller files or remove an optional attachment.`;
     return nextErrors;
   }
   async function submit() {
@@ -129,31 +134,43 @@ export default function ApplicationForm({ job, jobs = [job], additionalJobs = []
     for (const { id } of supportingDocumentTypes) if (supportingFiles[id]) body.append(`document:${id}`, supportingFiles[id]!);
     body.append("website", website);
     body.append("idempotencyKey", idempotencyRef.current);
+    const fail = (message: string) => { setError(message); setBusy(false); submittingRef.current = false; };
+    let transmission: Awaited<ReturnType<typeof stageApplicationUpload>>;
+    try {
+      if (preparedUploadRef.current?.key !== idempotencyRef.current)
+        preparedUploadRef.current = await prepareApplicationUpload(body, idempotencyRef.current);
+      transmission = await stageApplicationUpload(preparedUploadRef.current, setProgress);
+    } catch (error) {
+      fail(error instanceof Error ? error.message : "We couldn’t upload your files. Select Submit to retry.");
+      return;
+    }
     const xhr = new XMLHttpRequest();
     xhr.open("POST", "/api/applications");
-    xhr.timeout = 120000;
-    xhr.upload.onprogress = (event) => { if (event.lengthComputable) setProgress(Math.round((event.loaded / event.total) * 100)); };
-    const fail = (message: string) => { setError(message); setBusy(false); submittingRef.current = false; };
+    xhr.timeout = 300000;
+    if (transmission.contentType) xhr.setRequestHeader("Content-Type", transmission.contentType);
+    xhr.upload.onprogress = (event) => { if (event.lengthComputable) setProgress(Math.round((transmission.staged ? 90 : 0) + (event.loaded / event.total) * (transmission.staged ? 10 : 100))); };
     xhr.onerror = () => fail("We couldn’t connect. Your application has not been confirmed. Check your connection and try again.");
     xhr.ontimeout = () => fail("The request timed out. Try again; your reference will be recovered if the application was received.");
     xhr.onload = () => {
       if (xhr.status === 413) {
-        showErrors({ documents: "Keep all files together within 4 MB and try again." });
-        fail("The upload is too large. Choose smaller files and try again."); return;
+        showErrors({ documents: "Choose files of 5 MB or less, with all files together within 15 MB." });
+        fail("We couldn’t transfer the files. Check their sizes and select Submit to retry."); return;
       }
-      let response: { error?: string; fieldErrors?: FormErrors; reference?: string; jobTitle?: string };
+      let response: { error?: string; code?: string; fieldErrors?: FormErrors; reference?: string; jobTitle?: string };
       try { response = JSON.parse(xhr.responseText); }
       catch { fail("We couldn’t confirm your application. Please try again."); return; }
       if (xhr.status >= 200 && xhr.status < 300 && response.reference && response.jobTitle) {
         setResult({ reference: response.reference, jobTitle: response.jobTitle });
+        preparedUploadRef.current = null;
         setBusy(false);
         requestAnimationFrame(() => headingRef.current?.focus());
       } else {
+        if (["UPLOAD_STAGE_EXPIRED", "UPLOAD_STAGE_NOT_FOUND", "UPLOAD_STAGE_CONFLICT"].includes(response.code || "") && preparedUploadRef.current) resetStagedUpload(preparedUploadRef.current);
         if (response.fieldErrors) showErrors(response.fieldErrors);
         fail(response.error || "We couldn’t submit your application. Please check your details and try again.");
       }
     };
-    xhr.send(body);
+    xhr.send(transmission.body);
   }
 
   function textField(key: ProfileTextKey, label: string, options: { optional?: boolean; wide?: boolean; type?: string; autoComplete?: string; placeholder?: string; help?: string; icon?: ReactNode } = {}) {
@@ -208,6 +225,7 @@ export default function ApplicationForm({ job, jobs = [job], additionalJobs = []
       accept={SUPPORTING_DOCUMENT_ACCEPT} maxBytes={MAX_SUPPORTING_DOCUMENT_BYTES} file={supportingFiles[category] || null}
       error={errors[`document:${category}`]} disabled={busy} onChange={(file) => {
         idempotencyRef.current = null;
+        preparedUploadRef.current = null;
         setSupportingFiles((current) => ({ ...current, [category]: file || undefined }));
         setErrors((current) => ({ ...current, [`document:${category}`]: file ? fileError(file) : undefined, documents: undefined }));
       }} />;
@@ -303,7 +321,7 @@ export default function ApplicationForm({ job, jobs = [job], additionalJobs = []
           <section className={styles.section} aria-labelledby="documents-heading">
             <h2 id="documents-heading">Document Uploads</h2><span className={styles.rule} />
             <p className={styles.sectionIntro}>For this application, attach your CV / Resume, valid passport, and residence ID.{driverApplicant ? " Driver applicants must also attach a valid Philippine driver’s license (front & back)." : ""} Attach the work permit documents below if you have them available.</p>
-            <div className={styles.checklist}><ClipboardCheck size={22} aria-hidden="true" /><div><strong role="status">{readyCount} of {requiredAttachments.length} required documents ready</strong><p>{(totalUploadBytes / 1024 / 1024).toFixed(1)} MB of 4 MB used. Keep all files together within 4 MB; aim for under 1 MB each.</p></div></div>
+            <div className={styles.checklist}><ClipboardCheck size={22} aria-hidden="true" /><div><strong role="status">{readyCount} of {requiredAttachments.length} required documents ready</strong><p>{(totalUploadBytes / 1024 / 1024).toFixed(1)} MB of {MAX_PROFILE_UPLOAD_BYTES / 1024 / 1024} MB used. Maximum {MAX_SUPPORTING_DOCUMENT_BYTES / 1024 / 1024} MB per file and {MAX_PROFILE_UPLOAD_BYTES / 1024 / 1024} MB combined.</p></div></div>
             <div className={styles.uploads}>
               <AttachmentUpload id="resume" label="Please upload your CV / Resume" required hint="Maximum one file. Please make sure your CV / Resume is updated." accept=".pdf,.doc,.docx" maxBytes={MAX_PROFILE_RESUME_BYTES} file={resume} error={errors.resume} disabled={busy} onChange={chooseResume} />
               {upload("passport")}{upload("residence-id")}{upload("diploma")}{upload("nc2")}{upload("nbi")}{upload("form18a")}{upload("employment-certificate")}{upload("driver-license")}

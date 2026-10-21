@@ -18,10 +18,10 @@ export function getRequiredProfileDocumentCategories(jobTitle: string): Supporti
   return [...requiredProfileDocumentCategories, ...(isDriverPosition(jobTitle) ? ["driver-license" as const] : [])];
 }
 export const privateProfileDocumentCategories = ["passport", "residence-id", "employment-certificate"] as const;
-export const MAX_SUPPORTING_DOCUMENT_BYTES = 3 * 1024 * 1024;
+export const MAX_SUPPORTING_DOCUMENT_BYTES = 5 * 1024 * 1024;
 export const MAX_APPLICATION_UPLOAD_BYTES = 15 * 1024 * 1024;
-export const MAX_PROFILE_UPLOAD_BYTES = 4 * 1024 * 1024;
-export const MAX_PROFILE_RESUME_BYTES = 3 * 1024 * 1024;
+export const MAX_PROFILE_UPLOAD_BYTES = MAX_APPLICATION_UPLOAD_BYTES;
+export const MAX_PROFILE_RESUME_BYTES = 5 * 1024 * 1024;
 export const SUPPORTING_DOCUMENT_ACCEPT = ".pdf,.doc,.docx,.jpg,.jpeg,.png";
 export function documentLabel(category: string) {
   return supportingDocumentTypes.find((item) => item.id === category)?.label || "Supporting document";

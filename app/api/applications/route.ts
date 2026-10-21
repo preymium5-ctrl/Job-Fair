@@ -1,6 +1,6 @@
 import { createHash, randomBytes, randomUUID } from "node:crypto";
 import type { NextRequest } from "next/server";
-import { failure, json, limitedFormData, serverFailure } from "@/lib/api";
+import { failure, json, limitedFormData, limitedJson, serverFailure } from "@/lib/api";
 import {
   rateLimit,
   requireApplicationConfiguration,
@@ -29,9 +29,10 @@ import { saveApplicationToGoogle, usesGoogleApplicationStorage } from "@/lib/goo
 import { sheetsConfiguration, SheetsDeliveryError } from "@/lib/sheets-transport";
 import { proposedJobs } from "@/data/jobs";
 import { additionalApplicationJobs } from "@/data/application-jobs";
+import { restoreStagedFormData, StagedUploadError } from "@/lib/staged-uploads";
 
 export const runtime = "nodejs";
-export const maxDuration = 120;
+export const maxDuration = 300;
 export async function POST(request: NextRequest) {
   const stagedKeys: string[] = [];
   try {
@@ -46,7 +47,15 @@ export async function POST(request: NextRequest) {
       requireStorageConfiguration();
       await requireApplicationConfiguration();
     }
-    const form = await limitedFormData(request, MAX_APPLICATION_UPLOAD_BYTES + 1024 * 1024);
+    let form: FormData;
+    if ((request.headers.get("content-type") || "").startsWith("application/json")) {
+      if (!googleStorage) return failure("Use the website application form.", 400);
+      const staged = await limitedJson(request, 32 * 1024);
+      if (!staged || typeof staged !== "object" || Object.keys(staged).length !== 1 ||
+          !("stagedUploadTicket" in staged) || typeof staged.stagedUploadTicket !== "string")
+        return failure("Use the website application form.", 400);
+      form = await restoreStagedFormData(staged.stagedUploadTicket);
+    } else form = await limitedFormData(request, MAX_APPLICATION_UPLOAD_BYTES + 1024 * 1024);
     if (String(form.get("website") || "").trim())
       return failure("The application could not be accepted.", 400);
     const key = String(form.get("idempotencyKey") || "").toLowerCase();
@@ -78,7 +87,7 @@ export async function POST(request: NextRequest) {
         fieldErrors: { resume: "Attach a PDF, DOC, or DOCX resume." },
       });
     if (result.data.profile && file.size > MAX_PROFILE_RESUME_BYTES)
-      return failure("Your CV must be 3 MB or smaller.", 422, { fieldErrors: { resume: "Your CV must be 3 MB or smaller." } });
+      return failure("Your CV must be 5 MB or smaller.", 422, { fieldErrors: { resume: "Your CV must be 5 MB or smaller." } });
     const resume = await validateResume(file);
     const job = googleStorage
       ? [...proposedJobs, ...additionalApplicationJobs].find(({ id }) => id === result.data.jobId)
@@ -96,7 +105,7 @@ export async function POST(request: NextRequest) {
     const documents: { category: (typeof supportingDocumentTypes)[number]["id"]; document: Awaited<ReturnType<typeof validateSupportingDocument>> }[] = [];
     let uploadBytes = file.size;
     const uploadLimit = result.data.profile ? MAX_PROFILE_UPLOAD_BYTES : MAX_APPLICATION_UPLOAD_BYTES;
-    const uploadLimitError = `Keep all uploads together within ${result.data.profile ? 4 : 15} MB.`;
+    const uploadLimitError = "Keep all uploads together within 15 MB.";
     const allowedFileFields = new Set(["resume", ...supportingDocumentTypes.map(({ id }) => `document:${id}`)]);
     for (const [field, item] of form.entries()) {
       if (item instanceof File && !allowedFileFields.has(field))
@@ -213,6 +222,8 @@ export async function POST(request: NextRequest) {
     );
   } catch (error) {
     await Promise.all(stagedKeys.map((key) => deleteObject(key).catch(() => console.error("Orphan application upload cleanup failed."))));
+    if (error instanceof StagedUploadError)
+      return failure(error.message, error.status, { code: error.code });
     if (error instanceof UploadError)
       return failure(error.message, 422, {
         fieldErrors: { resume: error.message },

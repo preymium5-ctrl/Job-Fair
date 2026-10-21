@@ -221,7 +221,7 @@ test("profile submissions require individual files, recover retries and deliver 
   assert.equal(delivery.delivered, 1);
 });
 
-test("profile uploads enforce a 4 MB combined budget and 3 MB CV limit without changing legacy CV acceptance", async () => {
+test("profile uploads accept 5 MB files and enforce the 15 MB combined budget", async () => {
   const job = (await getJobs())[0];
   const values = input(job.id);
   const beforeCount = (await getApplications()).length;
@@ -231,29 +231,31 @@ test("profile uploads enforce a 4 MB combined budget and 3 MB CV limit without c
     content.write("\n%%EOF", size - 6);
     return content;
   }
-  function request(resume: Buffer, profileRequest = true) {
+  function request(resume: Buffer, profileRequest = true, largeSupportingFiles = false, includeDiploma = true) {
     const { profile: _profile, ...legacy } = values; void _profile;
     const form = new FormData();
     form.set("payload", JSON.stringify(profileRequest ? values : legacy));
     form.set("idempotencyKey", randomUUID());
     form.set("resume", new File([new Uint8Array(resume)], "cv.pdf"));
     if (profileRequest) {
-      form.set("document:passport", new File([sizedPdf(1024 * 1024)], "passport.pdf"));
-      form.set("document:residence-id", new File([pdf], "residence-id.pdf"));
-      form.set("document:diploma", new File([pdf], "diploma.pdf"));
+      form.set("document:passport", new File([sizedPdf((largeSupportingFiles ? 5 : 1) * 1024 * 1024)], "passport.pdf"));
+      form.set("document:residence-id", new File([largeSupportingFiles ? sizedPdf(5 * 1024 * 1024) : pdf], "residence-id.pdf"));
+      if (includeDiploma) form.set("document:diploma", new File([pdf], "diploma.pdf"));
     }
     return new NextRequest(`${origin}/api/applications`, { method: "POST", headers: { origin }, body: form });
   }
-  const oversizedTotal = await submit(request(sizedPdf(3 * 1024 * 1024)));
+  const oversizedTotal = await submit(request(sizedPdf(5 * 1024 * 1024), true, true));
   assert.equal(oversizedTotal.status, 422);
-  assert.match((await oversizedTotal.json()).fieldErrors.documents, /within 4 MB/);
-  const oversizedCv = await submit(request(sizedPdf(3 * 1024 * 1024 + 1)));
+  assert.match((await oversizedTotal.json()).fieldErrors.documents, /within 15 MB/);
+  const oversizedCv = await submit(request(sizedPdf(5 * 1024 * 1024 + 1)));
   assert.equal(oversizedCv.status, 422);
-  assert.match((await oversizedCv.json()).fieldErrors.resume, /3 MB/);
+  assert.match((await oversizedCv.json()).fieldErrors.resume, /5 MB/);
   assert.equal((await getApplications()).length, beforeCount);
-  const legacy = await submit(request(sizedPdf(3 * 1024 * 1024 + 1), false));
+  const fullBudget = await submit(request(sizedPdf(5 * 1024 * 1024), true, true, false));
+  assert.equal(fullBudget.status, 201);
+  const legacy = await submit(request(sizedPdf(5 * 1024 * 1024), false));
   assert.equal(legacy.status, 201);
-  assert.equal((await getApplications()).length, beforeCount + 1);
+  assert.equal((await getApplications()).length, beforeCount + 2);
 });
 
 test("reference-only applications persist structured addresses and blank experience and accept optional driver documents for every job", async () => {
