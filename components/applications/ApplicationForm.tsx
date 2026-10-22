@@ -39,11 +39,11 @@ const uploadLabels: Partial<Record<SupportingDocumentCategory, string>> = {
   "driver-license": "Please upload your driver’s license(s) from the Philippines (front & back)",
 };
 
-export default function ApplicationForm({ job, jobs = [job], additionalJobs = [] }: { job: Job; jobs?: JobOption[]; additionalJobs?: JobOption[] }) {
+export default function ApplicationForm({ job, jobs = job ? [job] : [], additionalJobs = [] }: { job?: Job; jobs?: JobOption[]; additionalJobs?: JobOption[] }) {
   const [values, setValues] = useState<ApplicationInput>({
-    jobId: job.id, fullName: "", email: "", phone: "", country: "", referralSource: "", recentJobTitle: "", experienceYears: null,
+    jobId: job?.id || "", fullName: "", email: "", phone: "", country: "", referralSource: "", recentJobTitle: "", experienceYears: null,
     skills: "", education: "", summary: "", coverLetter: "", nc2Certificate: "", preferredEmployer: "",
-    profile: { ...emptyProfile, destinationCountry: destinationCountries.find((country) => country === job.location) || emptyProfile.destinationCountry }, consent: false,
+    profile: { ...emptyProfile, destinationCountry: destinationCountries.find((country) => country === job?.location) || emptyProfile.destinationCountry }, consent: false,
   });
   const [resume, setResume] = useState<File | null>(null);
   const [supportingFiles, setSupportingFiles] = useState<Partial<Record<SupportingDocumentCategory, File>>>({});
@@ -61,8 +61,9 @@ export default function ApplicationForm({ job, jobs = [job], additionalJobs = []
   const idempotencyRef = useRef<string | null>(null);
   const preparedUploadRef = useRef<PreparedApplicationUpload | null>(null);
   const selectedJob = [...jobs, ...additionalJobs].find(({ id }) => id === values.jobId) || job;
-  const driverApplicant = isDriverPosition(selectedJob.title);
-  const requiredDocumentCategories = getRequiredProfileDocumentCategories(selectedJob.title);
+  const selectedJobTitle = selectedJob?.title || "";
+  const driverApplicant = isDriverPosition(selectedJobTitle);
+  const requiredDocumentCategories = getRequiredProfileDocumentCategories(selectedJobTitle);
 
   function update<K extends keyof ApplicationInput>(key: K, value: ApplicationInput[K]) {
     idempotencyRef.current = null;
@@ -240,9 +241,9 @@ export default function ApplicationForm({ job, jobs = [job], additionalJobs = []
 
   return <div className={styles.page}>
     <div className={styles.shell}>
-      <Link href={`/jobs/${job.slug}`} className={styles.back}><ArrowLeft size={16} /> Back to the opportunity</Link>
+      <Link href={job ? `/jobs/${job.slug}` : "/"} className={styles.back}><ArrowLeft size={16} /> {job ? "Back to the opportunity" : "Back to home"}</Link>
       <article className={styles.card} aria-label="Application">
-        <header className={styles.brandHeader}><BrandLockup /><span>APPLICATION FORM</span></header>
+        <header className={styles.brandHeader}><BrandLockup /><span>{job ? "APPLICATION FORM" : "GENERAL APPLICATION"}</span></header>
         {result ? <div className={styles.success}>
           <CheckCircle2 size={48} aria-hidden="true" />
           <h1 ref={headingRef} tabIndex={-1}>Application received</h1>
@@ -256,8 +257,8 @@ export default function ApplicationForm({ job, jobs = [job], additionalJobs = []
           </div>
           <p>Save this reference. The recruitment team can use it to locate your application and contact you about the next steps.</p>
           <Link href="/jobs" className="button button-primary">Explore opportunities <ArrowRight size={17} /></Link>
-        </div> : <form ref={formRef} className={styles.form} aria-label="Job application form" noValidate onSubmit={(event) => { event.preventDefault(); void submit(); }}>
-          <div className={styles.intro}><h1 ref={headingRef} tabIndex={-1}>Welcome! Please tell us about yourself.</h1><p>Please enter these details as they appear on your passport.</p><span className={styles.rule} /></div>
+        </div> : <form ref={formRef} className={styles.form} aria-label={job ? "Job application form" : "General application form"} noValidate onSubmit={(event) => { event.preventDefault(); void submit(); }}>
+          <div className={styles.intro}><h1 ref={headingRef} tabIndex={-1}>{job ? "Welcome! Please tell us about yourself." : "General application form"}</h1>{!job && <p>Apply directly by choosing your preferred position in this form and telling us about yourself.</p>}<p>Please enter these details as they appear on your passport.</p><span className={styles.rule} /></div>
           <p className={styles.requiredNote}><span>*</span> Required information</p>
           {errorCount > 0 && <p className={styles.errorSummary} role="alert">Please check the highlighted answers and attachments before submitting.</p>}
           <div className={styles.honeypot} aria-hidden="true"><label htmlFor="website">Website</label><input id="website" tabIndex={-1} autoComplete="off" value={website} onChange={(event) => setWebsite(event.target.value)} /></div>
@@ -287,8 +288,8 @@ export default function ApplicationForm({ job, jobs = [job], additionalJobs = []
             <h2 id="work-heading">Work Experience</h2><span className={styles.rule} />
             <div className={styles.grid}>
               {profileSelect("currentWorkCountry", "Country where you are currently working", countryOptions, true, "Select the country where you currently work or are based.")}
-              <div className={`${styles.field} ${styles.full}`}><label htmlFor="jobId">What job position are you primarily applying for?<span className={styles.asterisk}>*</span></label><select id="jobId" name="jobId" value={values.jobId} disabled={busy} aria-required="true" aria-invalid={Boolean(errors.jobId)} aria-describedby={`job-help${errors.jobId ? " jobId-error" : ""}`} onChange={(event) => update("jobId", event.target.value)}><optgroup label="Official listed jobs">{jobs.map((option) => <option key={option.id} value={option.id}>{option.title}</option>)}</optgroup>{additionalJobs.length > 0 && <optgroup label="Other jobs we’re offering">{additionalJobs.map((option) => <option key={option.id} value={option.id}>{option.title}</option>)}</optgroup>}</select><p id="job-help" className={styles.help}>Please select only a position for which you already have relevant work experience.</p>{errors.jobId && <p id="jobId-error" className={styles.fieldError}>{errors.jobId}</p>}</div>
-              {profileSelect("secondaryJobTitle", "Please select an additional role in which you have experience, other than the position you are applying for", secondaryJobPositions.filter((title) => title.toLowerCase() !== selectedJob.title.toLowerCase()), true, "Select another role that matches your experience, or choose ‘No other position’.")}
+              <div className={`${styles.field} ${styles.full}`}><label htmlFor="jobId">What job position are you primarily applying for?<span className={styles.asterisk}>*</span></label><select id="jobId" name="jobId" value={values.jobId} disabled={busy} aria-required="true" aria-invalid={Boolean(errors.jobId)} aria-describedby={`job-help${errors.jobId ? " jobId-error" : ""}`} onChange={(event) => update("jobId", event.target.value)}>{!job && <option value="">Select your preferred position</option>}<optgroup label="Official listed jobs">{jobs.map((option) => <option key={option.id} value={option.id}>{option.title}</option>)}</optgroup>{additionalJobs.length > 0 && <optgroup label="Other jobs we’re offering">{additionalJobs.map((option) => <option key={option.id} value={option.id}>{option.title}</option>)}</optgroup>}</select><p id="job-help" className={styles.help}>Please select only a position for which you already have relevant work experience.</p>{errors.jobId && <p id="jobId-error" className={styles.fieldError}>{errors.jobId}</p>}</div>
+              {profileSelect("secondaryJobTitle", "Please select an additional role in which you have experience, other than the position you are applying for", secondaryJobPositions.filter((title) => title.toLowerCase() !== selectedJobTitle.toLowerCase()), true, "Select another role that matches your experience, or choose ‘No other position’.")}
               {textField("otherJobTitle", "If the job you’re applying for is not listed above, please enter it here", { optional: true, wide: true })}
             </div>
           </section>

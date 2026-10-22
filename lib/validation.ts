@@ -50,7 +50,7 @@ export const applicationProfileSchema = z.object({
 }));
 export const applicationSchema = z
   .object({
-    jobId: z.string().trim().min(1).max(100),
+    jobId: z.string().trim().min(1, "Choose the position you are applying for.").max(100),
     fullName: shortText(120),
     email: z
       .string()
