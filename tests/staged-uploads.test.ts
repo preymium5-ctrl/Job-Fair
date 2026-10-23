@@ -37,13 +37,14 @@ function pdf(size = 100) {
   bytes.write("\n%%EOF\n", size - 7);
   return bytes;
 }
-async function envelope(options: { fileBytes?: number; values?: unknown; key?: string; actualKey?: string; omit?: string[]; fileOverrides?: { field: string; name: string; size: number; type: string }[] } = {}) {
+async function envelope(options: { fileBytes?: number; values?: unknown; key?: string; actualKey?: string; omit?: string[]; fileOverrides?: { field: string; name: string; size: number; type: string }[]; legacyWebsite?: string; applicationChecks?: (string | File)[] } = {}) {
   const key = options.key || randomUUID();
   const values = options.values ?? payload();
   const body = new FormData();
   body.set("payload", JSON.stringify(values));
   body.set("idempotencyKey", options.actualKey || key);
-  body.set("website", "");
+  body.set("website", options.legacyWebsite ?? "");
+  for (const value of options.applicationChecks ?? []) body.append("applicationCheck", value);
   const files: StagedUploadStart["files"] = [];
   for (const field of ["resume", "document:passport", "document:residence-id"]) {
     if (options.omit?.includes(field)) continue;
@@ -184,6 +185,45 @@ test("the final application route validates and delivers three complete 5 MiB do
   assert.deepEqual(await retried.json(), receipt);
   assert.equal(applications.size, 1);
   assert.equal(sessions.size, 1);
+});
+
+test("cached staged uploads with an autofilled legacy website restore and submit without refilling the form", async () => {
+  const input = await envelope({ fileBytes: 1_200_000, legacyWebsite: "https://applicant.example" });
+  assert.ok(input.bytes.length > 3_500_000);
+  const { ticket } = await stage(input);
+  const restored = await restoreStagedFormData(ticket);
+  assert.equal(restored.get("website"), "https://applicant.example");
+  assert.equal(restored.has("applicationCheck"), false, "Already-open forms lack the replacement trap");
+  const finalRequest = () => new NextRequest(`${origin}/api/applications`, {
+    method: "POST", headers: { origin, "content-type": "application/json" }, body: JSON.stringify({ stagedUploadTicket: ticket }),
+  });
+  const first = await submitApplication(finalRequest());
+  assert.equal(first.status, 201);
+  const receipt = await first.json();
+  assert.equal(delivered.length, 1);
+  assert.equal(delivered[0].application.reference, receipt.reference);
+  assert.deepEqual(Buffer.from(delivered[0].resume.base64, "base64"), pdf(1_200_000));
+  const retried = await submitApplication(finalRequest());
+  assert.equal(retried.status, 200);
+  assert.deepEqual(await retried.json(), receipt);
+  assert.equal(applications.size, 1);
+  assert.equal(sessions.size, 1);
+});
+
+test("a populated replacement application check in a staged envelope prevents final application delivery", async () => {
+  const input = await envelope({ applicationChecks: ["", "spam"] });
+  const { ticket } = await stage(input);
+  const restored = await restoreStagedFormData(ticket);
+  assert.deepEqual(restored.getAll("applicationCheck"), ["", "spam"]);
+  const response = await submitApplication(new NextRequest(`${origin}/api/applications`, {
+    method: "POST", headers: { origin, "content-type": "application/json" }, body: JSON.stringify({ stagedUploadTicket: ticket }),
+  }));
+  assert.equal(response.status, 400);
+  const body = await response.json();
+  assert.equal(body.error, "The application could not be accepted.");
+  assert.equal(Object.hasOwn(body, "reference"), false);
+  assert.equal(delivered.length, 0);
+  assert.equal(applications.size, 0);
 });
 
 test("initialization validates structured answers, file metadata and required documents before touching Google", async () => {

@@ -55,11 +55,15 @@ function request(options: {
   resume?: File;
   documentOverrides?: Partial<Record<SupportingDocumentCategory, File>>;
   requestOrigin?: string | null;
+  legacyWebsite?: string;
+  applicationChecks?: (string | File)[];
 } = {}) {
   const form = new FormData();
   form.set("idempotencyKey", options.key || randomUUID());
   form.set("payload", JSON.stringify(options.payload ?? values()));
   form.set("resume", options.resume || new File([pdf], "resume.pdf", { type: "application/pdf" }));
+  if (options.legacyWebsite !== undefined) form.set("website", options.legacyWebsite);
+  for (const value of options.applicationChecks ?? []) form.append("applicationCheck", value);
   for (const category of options.categories ?? ["passport", "residence-id"]) {
     form.set(`document:${category}`, options.documentOverrides?.[category] || new File(
       [documentBytes(category)], `${category}.pdf`, { type: "application/pdf" },
@@ -125,6 +129,36 @@ test("Google mode accepts a production application while database, private stora
   const response = await submit(request());
   assert.equal(response.status, 201);
   assert.equal((await response.json()).reference, received[0].application.reference);
+  assert.equal(received.length, 1);
+});
+
+test("autofilled website fields from already-open forms are accepted and retries recover one application", async () => {
+  const key = randomUUID();
+  const first = await submit(request({ key, legacyWebsite: "https://applicant.example" }));
+  assert.equal(first.status, 201);
+  const receipt = await first.json();
+  const retry = await submit(request({ key, legacyWebsite: "https://applicant.example" }));
+  assert.equal(retry.status, 200);
+  assert.deepEqual(await retry.json(), receipt);
+  assert.equal(records.size, 1);
+  assert.equal(received.length, 2);
+  assert.equal(received[0].application.id, received[1].application.id);
+});
+
+test("the replacement application check accepts blank values and rejects filled, duplicate and file values before Google delivery", async () => {
+  for (const applicationChecks of [
+    ["spam"], ["", "spam"], [new File([pdf], "trap.pdf", { type: "application/pdf" })],
+  ]) {
+    const response = await submit(request({ applicationChecks }));
+    assert.equal(response.status, 400);
+    const body = await response.json();
+    assert.equal(body.error, "The application could not be accepted.");
+    assert.equal(Object.hasOwn(body, "reference"), false);
+  }
+  assert.equal(received.length, 0);
+  assert.equal(records.size, 0);
+  const accepted = await submit(request({ applicationChecks: [" \t "] }));
+  assert.equal(accepted.status, 201);
   assert.equal(received.length, 1);
 });
 

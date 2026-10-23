@@ -108,12 +108,14 @@ function applicationRequest(
   key = randomUUID(),
   bytes = pdf,
   name = "resume.pdf",
+  applicationCheck = "",
   website = "",
 ) {
   const form = new FormData();
   form.set("payload", JSON.stringify(payload));
   form.set("resume", new File([bytes], name, { type: "application/pdf" }));
   form.set("idempotencyKey", key);
+  form.set("applicationCheck", applicationCheck);
   form.set("website", website);
   return new NextRequest(`${origin}/api/applications`, {
     method: "POST",
@@ -345,6 +347,11 @@ test("applications persist once; invalid uploads, bots and closed jobs never ret
   );
   assert.equal(blankReferralRetry.status, 200);
   assert.deepEqual(await blankReferralRetry.json(), accepted);
+  const autofilledLegacyRetry = await submit(
+    applicationRequest(payload, key, pdf, "resume.pdf", "", "https://applicant.example"),
+  );
+  assert.equal(autofilledLegacyRetry.status, 200);
+  assert.deepEqual(await autofilledLegacyRetry.json(), accepted);
   assert.equal((await getApplications()).length, 1);
   assert.equal((await getApplications())[0].referralSource, undefined);
   const changed = await submit(

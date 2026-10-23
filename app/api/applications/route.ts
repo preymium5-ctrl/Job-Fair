@@ -56,7 +56,9 @@ export async function POST(request: NextRequest) {
         return failure("Use the website application form.", 400);
       form = await restoreStagedFormData(staged.stagedUploadTicket);
     } else form = await limitedFormData(request, MAX_APPLICATION_UPLOAD_BYTES + 1024 * 1024);
-    if (String(form.get("website") || "").trim())
+    // Older open forms may have their hidden "website" field filled by browser
+    // autofill. Ignore that retired field, including in cached staged uploads.
+    if (form.getAll("applicationCheck").some((value) => typeof value !== "string" || value.trim()))
       return failure("The application could not be accepted.", 400);
     const key = String(form.get("idempotencyKey") || "").toLowerCase();
     if (

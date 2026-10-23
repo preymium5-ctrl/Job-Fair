@@ -51,7 +51,7 @@ export default function ApplicationForm({ job, jobs = job ? [job] : [], addition
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
   const [progress, setProgress] = useState(0);
-  const [website, setWebsite] = useState("");
+  const [applicationCheck, setApplicationCheck] = useState("");
   const [result, setResult] = useState<{ reference: string; jobTitle: string } | null>(null);
   const [copyNotice, setCopyNotice] = useState("");
   const [latestBirthDate] = useState(() => new Date(Date.now() - 86400000).toISOString().slice(0, 10));
@@ -133,7 +133,7 @@ export default function ApplicationForm({ job, jobs = job ? [job] : [], addition
     body.append("payload", JSON.stringify(parsed.data));
     body.append("resume", resume);
     for (const { id } of supportingDocumentTypes) if (supportingFiles[id]) body.append(`document:${id}`, supportingFiles[id]!);
-    body.append("website", website);
+    body.append("applicationCheck", applicationCheck);
     body.append("idempotencyKey", idempotencyRef.current);
     const fail = (message: string) => { setError(message); setBusy(false); submittingRef.current = false; };
     let transmission: Awaited<ReturnType<typeof stageApplicationUpload>>;
@@ -261,7 +261,10 @@ export default function ApplicationForm({ job, jobs = job ? [job] : [], addition
           <div className={styles.intro}><h1 ref={headingRef} tabIndex={-1}>{job ? "Welcome! Please tell us about yourself." : "General application form"}</h1>{!job && <p>Apply directly by choosing your preferred position in this form and telling us about yourself.</p>}<p>Please enter these details as they appear on your passport.</p><span className={styles.rule} /></div>
           <p className={styles.requiredNote}><span>*</span> Required information</p>
           {errorCount > 0 && <p className={styles.errorSummary} role="alert">Please check the highlighted answers and attachments before submitting.</p>}
-          <div className={styles.honeypot} aria-hidden="true"><label htmlFor="website">Website</label><input id="website" tabIndex={-1} autoComplete="off" value={website} onChange={(event) => setWebsite(event.target.value)} /></div>
+          <div hidden inert aria-hidden="true"><label htmlFor="application-check">Leave this blank</label><input id="application-check" name="applicationCheck" tabIndex={-1} autoComplete="off" value={applicationCheck} onChange={(event) => {
+            preparedUploadRef.current = null;
+            setApplicationCheck(event.target.value);
+          }} /></div>
           <section className={styles.grid} aria-label="Personal details">
             {textField("firstName", "Your first name", { autoComplete: "given-name", placeholder: "Enter your first name" })}
             {textField("lastName", "Your last name", { autoComplete: "family-name", placeholder: "Enter your last name" })}

@@ -72,7 +72,6 @@
 .progress { margin-top: 25px; }
 .progress p { display: flex; justify-content: space-between; gap: 12px; font-size: 13px; color: #536b80; }
 .progress progress { width: 100%; height: 7px; accent-color: #164b83; }
-.honeypot { position: absolute; left: -9999px; width: 1px; height: 1px; overflow: hidden; }
 .success { padding: 30px; color: #44586a; }
 .success > svg { color: #164b83; }
 .success h1 { color: #164b83; font-size: 32px; line-height: 1.3; margin: 18px 0; }
