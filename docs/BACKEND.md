@@ -2,13 +2,13 @@
 
 The public application endpoint supports explicit Google Sheets storage or the default database backend. `APPLICATION_STORAGE=google-sheets` saves through the signed Apps Script receiver to a private Google Sheet and Drive folder, confirming the reference only after a matching acknowledgement. It requires the exact canonical `APP_ORIGIN` and the server-only Google webhook URL and matching secret; no PostgreSQL or S3 is needed for public submission in this mode. Delivery failures require an applicant retry from the open form, with files and retry key retained; there is no background website outbox. Staff use the private Google tracker and Drive.
 
-The database backend uses the same typed Drizzle schema with PostgreSQL in production and a durable PGlite database in local mode. Jobs, submitted applications, staff credentials, sessions, rate limits and audit events are persisted. The website's `/admin` workspace requires this backend, including when public applications use Google Sheets storage. No external service is reported as connected until its supplied configuration has been tested.
+The database backend uses the same typed Drizzle schema with PostgreSQL in production and a durable PGlite database in local mode. Jobs, submitted applications, staff credentials, sessions, rate limits and audit events are persisted. The public `/admin` workspace has been retired; `/admin` and its subpaths redirect to the homepage. The authenticated backend APIs remain available for existing integrations. No external service is reported as connected until its supplied configuration has been tested.
 
 ## Local use
 
 1. Copy `.env.example` to `.env.local` and retain `CHAPTER_LOCAL_MODE=true`.
 2. Run `npm install` and `npm run admin:setup -- --email you@example.com`. The script prompts for a password of at least 12 characters without displaying it. There is no default account.
-3. Run `npm run dev` and sign in at `/admin`.
+3. Run `npm run dev`. The former `/admin` sign-in page is no longer available; staff use the private Google tracker and Drive.
 
 PGlite stores data at `.data/db`; private files live under `.data/uploads`, outside `public`. Its local database is for **one Node.js process at a time**. Stop the web server before running `admin:setup` against the same local database. Local example jobs seed once; edits survive restarts. Do not remove `.data` to restart the site unless you intend to delete its data. `.data`, private environment files and generated QA assets are excluded from Git.
 
@@ -65,7 +65,7 @@ Job photos accept JPEG, PNG and WebP up to 8 MB / 36 million decoded pixels, at 
 
 API errors return `{error,fieldErrors?}` and never include database queries, applicant data, private file paths or credentials.
 
-File signatures and archive restrictions are format validation, not malware detection. PDF and legacy DOC formats can contain active content that these checks do not fully parse. Resumes remain private and download as attachments; staff should inspect them using protected document tooling. An operator needing malware scanning should attach its approved scanner before publishing. This implementation includes no email delivery, external ATS integration or automatic retention deletion. Staff use Google in Google Sheets mode and the protected portal in database mode.
+File signatures and archive restrictions are format validation, not malware detection. PDF and legacy DOC formats can contain active content that these checks do not fully parse. Resumes remain private and download as attachments; staff should inspect them using protected document tooling. An operator needing malware scanning should attach its approved scanner before publishing. This implementation includes no email delivery, external ATS integration or automatic retention deletion. Staff use Google in Google Sheets mode and the authenticated backend APIs in database mode.
 
 ## Verification
 

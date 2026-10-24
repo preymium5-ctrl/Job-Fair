@@ -78,7 +78,9 @@ test("structured data describes published content and escapes untrusted script t
 });
 
 test("alternate domains redirect to the existing www primary host without a loop", async () => {
-  const redirects = await config.redirects!();
+  const redirects = (await config.redirects!()).filter((redirect) =>
+    redirect.has?.some(({ type }) => type === "host"),
+  );
   assert.equal(redirects.length, 3);
   for (const redirect of redirects) {
     assert.equal(redirect.destination, `${site.url}/:path*`);

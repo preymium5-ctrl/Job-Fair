@@ -1,6 +1,6 @@
 # Jobs in Croatia — Recruitment website
 
-A complete Next.js App Router recruitment platform with locally hosted THICCCBOI typography, licensed workplace photography, GSAP scroll reveals, an editorial homepage, searchable jobs, role details, a single-page application form, and an authenticated recruitment workspace.
+A complete Next.js App Router recruitment platform with locally hosted THICCCBOI typography, licensed workplace photography, GSAP scroll reveals, an editorial homepage, searchable jobs, role details, and a single-page application form.
 
 Source repository: [preymium5-ctrl/Job-Fair](https://github.com/preymium5-ctrl/Job-Fair). For Vercel import settings and the Google Sheets or database storage configuration, see [Deploying to Vercel](docs/VERCEL.md).
 
@@ -20,11 +20,10 @@ Node.js 20.9+ is required. Dependencies are installed and locked in `package-loc
 ```powershell
 npm install
 Copy-Item .env.example .env.local
-npm run admin:setup -- --email your-email@example.com
 npm run dev
 ```
 
-Open the URL matching `APP_ORIGIN` in `.env.local` (the prepared installation uses `http://127.0.0.1:3000`). The origin must include the exact scheme, hostname and port used in the browser. The administrator setup prompts for a password without printing it; there is no default staff account. Provision staff **before starting the server**, since the local embedded database supports one Node.js process at a time. The public site and example application flow also work without provisioning an administrator in local mode.
+Open the URL matching `APP_ORIGIN` in `.env.local` (the prepared installation uses `http://127.0.0.1:3000`). The origin must include the exact scheme, hostname and port used in the browser. The public site and example application flow work without provisioning an administrator in local mode.
 
 For a production build running locally, retain `CHAPTER_LOCAL_MODE=true`:
 
@@ -43,7 +42,7 @@ The `.data` directory persists local jobs, applications, private resumes, staff 
 - `/jobs/[slug]/apply`: a centered, single-page form following the supplied reference's personal details, work choices, document uploads, notices and consent order. Inline validation, private uploads, progress, safe retries and server validation produce a reference only after durable persistence.
 - `/apply`: a general application using the same form with no preselected job. Applicants select their role within the form, and submissions use the same validation, uploads and configured storage as job-specific applications.
 - Applications collect passport-style personal details, active WhatsApp and optional Telegram contacts, current work country, destination, primary and secondary job choices, English proficiency, a required **Where did you find us?** choice and consent. Nationality is no longer collected. CV, passport and residence ID are required; driver's license copies are also required for driver applicants. Other supporting uploads are optional, and Form 18a is identified for Croatia applicants. Upload cards show file requirements, selection, replacement, removal and a live checklist. CVs accept PDF, DOC or DOCX; other documents also accept JPG/PNG. Each file is limited to 5 MiB and all files together to 15 MiB. Large submissions use private 2 MiB staging parts to stay within the hosting request limit, then retain the existing server validation and Google delivery flow. Version-3 Google delivery sends structured profile answers and supplied documents to the schema-7 receiver. Its compact tracker contains 32 current form answer/file fields plus four tracking columns, with referral appended at AJ and existing A:AI positions preserved. Owner-run migration preserves existing rows and a hidden native backup; deploy the compatible receiver before upgrading an earlier 35- or 54-column layout. Legacy Jobstreet Croatia requests remain supported. Google Sheets storage mode confirms a reference only after the receiver acknowledges the saved application; staff use the private tracker and Drive. Database mode also retains private website downloads and a delivery retry queue. The form retains **No placement fee**. See [Google setup](docs/GOOGLE_SHEETS_SETUP.md) for delivery and compatibility details.
-- `/admin`: staff sign-in, job creation/editing, photo uploads, publishing/closing, applicant search/filter/detail, private resume downloads and application status changes.
+- The former `/admin` sign-in page and footer link have been removed. `/admin` and its subpaths redirect to the homepage. Staff review current applications in the private Google Sheet and Drive.
 - Job-fair source data supports six employer allocations, interview/testing dates, NC2 guidance and later work permit documents. Employer filtering uses each employer's allocated worker counts; `/job-fair` redirects to `/jobs`.
 - Page titles, canonical links, social previews and crawlable job-fair guidance target Philippines job fair 2026 and work abroad in Croatia. Public role pages appear in the production sitemap; local previews, forms and example vacancies stay out of search. See [docs/SEO.md](docs/SEO.md) for Google Search Console verification and domain setup.
 
@@ -67,9 +66,9 @@ The automated suite checks durable persistence, authentication and session integ
 
 The Vercel application form can use `APPLICATION_STORAGE=google-sheets` with `CHAPTER_LOCAL_MODE=false`, the exact HTTPS `APP_ORIGIN`, `GOOGLE_SHEETS_WEBHOOK_URL` and its matching server-only `GOOGLE_SHEETS_WEBHOOK_SECRET`. Set `NEXT_PUBLIC_SITE_URL` to the same canonical origin. This mode saves applications and documents directly to the authorized Google Sheet and private Drive folder. A matching Google acknowledgement is required before the applicant sees a confirmed reference. If delivery fails, the form keeps the selected files and retry key while the page remains open so the applicant can retry safely; there is no background website queue in this mode.
 
-The default database mode uses PostgreSQL, a private S3-compatible bucket, `SESSION_SECRET` and an authorized staff account. It enables the website's staff workspace and database-backed Google delivery queue. Those database/S3 services are optional for Google Sheets storage mode and remain necessary for the staff workspace. Full Vercel configuration is in [docs/VERCEL.md](docs/VERCEL.md); the database backend is documented in [docs/BACKEND.md](docs/BACKEND.md).
+The default database mode uses PostgreSQL, a private S3-compatible bucket, `SESSION_SECRET` and an authorized staff account. It retains the authenticated backend APIs and database-backed Google delivery queue. Those database/S3 services are optional for Google Sheets storage mode. The public staff workspace has been retired. Full Vercel configuration is in [docs/VERCEL.md](docs/VERCEL.md); the database backend is documented in [docs/BACKEND.md](docs/BACKEND.md).
 
-Keep vacancies, organization/contact information, privacy/terms and retention policy current. Format validation is implemented; a malware scanning service and automated email/ATS delivery are not configured. Staff review Google Sheets mode submissions in Google and database mode submissions in the protected portal.
+Keep vacancies, organization/contact information, privacy/terms and retention policy current. Format validation is implemented; a malware scanning service and automated email/ATS delivery are not configured. Staff review Google Sheets mode submissions in Google; database mode submissions remain accessible through the authenticated backend APIs.
 
 ## Project layout
 

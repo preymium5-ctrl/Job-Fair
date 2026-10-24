@@ -32,7 +32,6 @@ export function Footer() {
               Application help <ArrowUpRight size={14} />
             </Link>
             {email && <a href={`mailto:${email}`}>{email}</a>}
-            <Link href="/admin">Recruitment team</Link>
           </div>
         </div>
       </div>

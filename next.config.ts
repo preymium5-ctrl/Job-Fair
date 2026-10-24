@@ -8,12 +8,15 @@ const config: NextConfig = {
   },
   serverExternalPackages: ["@electric-sql/pglite", "postgres"],
   async redirects() {
-    return site.alternateHosts.map((host) => ({
-      source: "/:path*",
-      has: [{ type: "host" as const, value: host.replace(/\./g, "\\.") }],
-      destination: `${site.url}/:path*`,
-      permanent: true,
-    }));
+    return [
+      ...site.alternateHosts.map((host) => ({
+        source: "/:path*",
+        has: [{ type: "host" as const, value: host.replace(/\./g, "\\.") }],
+        destination: `${site.url}/:path*`,
+        permanent: true,
+      })),
+      { source: "/admin/:path*", destination: "/", permanent: true },
+    ];
   },
   async headers() {
     return [
