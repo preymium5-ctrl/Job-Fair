@@ -6,7 +6,7 @@ export const applicationFaqs = [
   ],
   [
     "What documents may be required?",
-    "Attach your current CV, valid passport, and residence ID. Driver applicants must also attach their Philippine driver’s license, showing the front and back. You can attach available diploma, NC2, employment, NBI clearance, and other relevant documents; Form 18a applies to Croatia applicants. Your CV must be a PDF, DOC, or DOCX file up to 3 MB. Supporting documents accept PDF, DOC, DOCX, JPG, or PNG files up to 3 MB each, with all uploads together within 4 MB. You can apply while work permit documents are still in progress.",
+    "Attach your current CV and valid passport. Residence ID is optional. Driver applicants must also attach their Philippine driver’s license, showing the front and back. You can attach available diploma, NC2, employment, NBI clearance, and other relevant documents; Form 18a applies to Croatia applicants. Your CV must be a PDF, DOC, or DOCX file up to 3 MB. Supporting documents accept PDF, DOC, DOCX, JPG, or PNG files up to 3 MB each, with all uploads together within 4 MB. You can apply while work permit documents are still in progress.",
   ],
   [
     "Can I apply for multiple positions?",

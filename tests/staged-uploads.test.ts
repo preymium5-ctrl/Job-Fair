@@ -187,6 +187,24 @@ test("the final application route validates and delivers three complete 5 MiB do
   assert.equal(sessions.size, 1);
 });
 
+test("large applications stage and submit without an optional residence ID", async () => {
+  const input = await envelope({ fileBytes: 2 * 1024 * 1024, omit: ["document:residence-id"] });
+  assert.ok(input.bytes.length > 3_500_000);
+  assert.deepEqual(input.start.files.map(({ field }) => field), ["resume", "document:passport"]);
+  const { ticket } = await stage(input);
+  const restored = await restoreStagedFormData(ticket);
+  assert.equal(restored.has("document:residence-id"), false);
+  const response = await submitApplication(new NextRequest(`${origin}/api/applications`, {
+    method: "POST", headers: { origin, "content-type": "application/json" }, body: JSON.stringify({ stagedUploadTicket: ticket }),
+  }));
+  assert.equal(response.status, 201);
+  const receipt = await response.json();
+  assert.equal(delivered.length, 1);
+  assert.equal(delivered[0].application.reference, receipt.reference);
+  assert.deepEqual(delivered[0].documents?.map(({ category }) => category), ["passport"]);
+  assert.deepEqual(Buffer.from(delivered[0].resume.base64, "base64"), pdf(2 * 1024 * 1024));
+});
+
 test("cached staged uploads with an autofilled legacy website restore and submit without refilling the form", async () => {
   const input = await envelope({ fileBytes: 1_200_000, legacyWebsite: "https://applicant.example" });
   assert.ok(input.bytes.length > 3_500_000);

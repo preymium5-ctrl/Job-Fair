@@ -61,7 +61,7 @@ export default function Privacy() {
           accounts authorized by the recruiting team can open them.
         </p>
         <p>
-          The current application requires a CV, passport and residence ID.
+          The current application requires a CV and passport. Residence ID is optional.
           Driver applicants must also attach their driver’s license from the
           Philippines, showing the front and back.
           You can also attach a diploma or education certificate, NC2 certificate,

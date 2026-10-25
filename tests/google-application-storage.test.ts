@@ -286,23 +286,31 @@ test("missing or invalid referral answers are rejected before delivery and every
   }
 });
 
-test("passport and residence ID are required, with a driver's license additionally required for driver applicants", async () => {
+test("residence ID is optional while passport, CV and a driver's license for driver applicants remain required", async () => {
   for (const [categories, missing] of [
-    [[], ["document:passport", "document:residence-id"]],
-    [["passport"], ["document:residence-id"]],
+    [[], ["document:passport"]],
     [["residence-id"], ["document:passport"]],
   ] as [SupportingDocumentCategory[], string[]][]) {
     const response = await submit(request({ categories }));
     assert.equal(response.status, 422);
     assert.deepEqual(Object.keys((await response.json()).fieldErrors).sort(), missing.sort());
   }
-  const driver = await submit(request({ payload: values(driverJob.id) }));
+  const withoutCv = await request({ categories: ["passport"] }).formData();
+  withoutCv.delete("resume");
+  const missingCv = await submit(new NextRequest(`${origin}/api/applications`, { method: "POST", headers: { origin }, body: withoutCv }));
+  assert.equal(missingCv.status, 422);
+  assert.deepEqual(Object.keys((await missingCv.json()).fieldErrors), ["resume"]);
+  const driver = await submit(request({ payload: values(driverJob.id), categories: ["passport"] }));
   assert.equal(driver.status, 422);
   assert.deepEqual(Object.keys((await driver.json()).fieldErrors), ["document:driver-license"]);
   assert.equal(received.length, 0);
-  const accepted = await submit(request({ payload: values(driverJob.id), categories: ["passport", "residence-id", "driver-license"] }));
+  const withoutResidenceId = await submit(request({ categories: ["passport"] }));
+  assert.equal(withoutResidenceId.status, 201);
+  assert.deepEqual(received.at(-1)?.documents?.map(({ category }) => category), ["passport"]);
+  const accepted = await submit(request({ payload: values(driverJob.id), categories: ["passport", "driver-license"] }));
   assert.equal(accepted.status, 201);
   assert.equal((await accepted.json()).jobTitle, driverJob.title);
+  assert.deepEqual(received.at(-1)?.documents?.map(({ category }) => category), ["passport", "driver-license"]);
 });
 
 test("invalid resume and document contents fail validation before Google receives any personal data", async () => {

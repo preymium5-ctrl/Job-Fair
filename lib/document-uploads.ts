@@ -10,7 +10,7 @@ export const supportingDocumentTypes = [
   { id: "driver-license", label: "Driver’s license copy" },
 ] as const;
 export type SupportingDocumentCategory = (typeof supportingDocumentTypes)[number]["id"];
-export const requiredProfileDocumentCategories = ["passport", "residence-id"] as const;
+export const requiredProfileDocumentCategories = ["passport"] as const;
 export function isDriverPosition(title: string) {
   return /\bdrivers?\b/i.test(title);
 }

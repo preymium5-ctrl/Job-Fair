@@ -30,7 +30,7 @@ const profileLimits: Partial<Record<ProfileTextKey, number>> = {
 };
 const uploadLabels: Partial<Record<SupportingDocumentCategory, string>> = {
   passport: "Please upload a copy of your valid passport",
-  "residence-id": "Please upload your updated and valid residence ID (front & back)",
+  "residence-id": "Please upload your residence ID (front & back), if available",
   diploma: "Please upload your high school diploma",
   "employment-certificate": "Please upload your certificate of employment(s)",
   nc2: "Please upload your valid NC2 certificate",
@@ -213,7 +213,7 @@ export default function ApplicationForm({ job, jobs = job ? [job] : [], addition
   function upload(category: SupportingDocumentCategory) {
     const hints: Partial<Record<SupportingDocumentCategory, string>> = {
       passport: "A clear copy of your passport, valid for at least 2 years.",
-      "residence-id": "For Filipinos currently outside the Philippines: upload the valid residence ID issued by your current country of residence. Combine the front and back in one readable file.",
+      "residence-id": "Optional. If available, Filipinos currently outside the Philippines can upload the valid residence ID issued by their current country of residence. Combine the front and back in one readable file.",
       diploma: "Needed for the work permit application. Upload your high school diploma now if available.",
       "employment-certificate": "A certificate of employment or employment contract showing your experience.",
       nc2: "Needed for the work permit application. Check the position guide above and upload your certificate if available.",
@@ -324,7 +324,7 @@ export default function ApplicationForm({ job, jobs = job ? [job] : [], addition
           </section>
           <section className={styles.section} aria-labelledby="documents-heading">
             <h2 id="documents-heading">Document Uploads</h2><span className={styles.rule} />
-            <p className={styles.sectionIntro}>For this application, attach your CV / Resume, valid passport, and residence ID.{driverApplicant ? " Driver applicants must also attach a valid Philippine driver’s license (front & back)." : ""} Attach the work permit documents below if you have them available.</p>
+            <p className={styles.sectionIntro}>For this application, attach your CV / Resume and valid passport. Residence ID is optional.{driverApplicant ? " Driver applicants must also attach a valid Philippine driver’s license (front & back)." : ""} Attach the work permit documents below if you have them available.</p>
             <div className={styles.checklist}><ClipboardCheck size={22} aria-hidden="true" /><div><strong role="status">{readyCount} of {requiredAttachments.length} required documents ready</strong><p>{(totalUploadBytes / 1024 / 1024).toFixed(1)} MB of {MAX_PROFILE_UPLOAD_BYTES / 1024 / 1024} MB used. Maximum {MAX_SUPPORTING_DOCUMENT_BYTES / 1024 / 1024} MB per file and {MAX_PROFILE_UPLOAD_BYTES / 1024 / 1024} MB combined.</p></div></div>
             <div className={styles.uploads}>
               <AttachmentUpload id="resume" label="Please upload your CV / Resume" required hint="Maximum one file. Please make sure your CV / Resume is updated." accept=".pdf,.doc,.docx" maxBytes={MAX_PROFILE_RESUME_BYTES} file={resume} error={errors.resume} disabled={busy} onChange={chooseResume} />

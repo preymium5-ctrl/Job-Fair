@@ -182,7 +182,7 @@ test("profile submissions require individual files, recover retries and deliver 
   }
   const missing = await submit(request([]));
   assert.equal(missing.status, 422);
-  assert.deepEqual(Object.keys((await missing.json()).fieldErrors).sort(), ["document:passport", "document:residence-id"]);
+  assert.deepEqual(Object.keys((await missing.json()).fieldErrors), ["document:passport"]);
   assert.equal((await getApplications()).length, 0);
   const duplicate = await submit(request(["passport", "passport", "residence-id", "diploma"]));
   assert.equal(duplicate.status, 422);
@@ -304,14 +304,14 @@ test("reference-only applications persist structured addresses and blank experie
   assert.equal(delivery.delivered, 1);
 });
 
-test("work-permit documents may be absent initially and available NBI and Form 18a files still persist and export", async () => {
+test("residence ID and work-permit documents may be absent initially and available NBI and Form 18a files still persist and export", async () => {
   const job = (await getJobs())[0];
   for (const permitDocuments of [[], ["nbi", "form18a"]]) {
     const form = new FormData();
     form.set("payload", JSON.stringify({ ...referenceInput(job.id), email: `permit-${permitDocuments.length}@example.test` }));
     form.set("idempotencyKey", randomUUID());
     form.set("resume", new File([pdf], "cv.pdf"));
-    const categories = ["passport", "residence-id", ...permitDocuments];
+    const categories = ["passport", ...permitDocuments];
     for (const category of categories) form.set(`document:${category}`, new File([pdf], `${category}.pdf`));
     const accepted = await submit(new NextRequest(`${origin}/api/applications`, { method: "POST", headers: { origin }, body: form }));
     assert.equal(accepted.status, 201);
@@ -338,8 +338,8 @@ test("driver roles require a license in both form variants and additional roles 
   for (const title of ["Truck Driver", "FORKLIFT DRIVER", "Bus drivers"])
     assert.equal(isDriverPosition(title), true);
   assert.equal(isDriverPosition("Cleaner"), false);
-  assert.deepEqual(getRequiredProfileDocumentCategories("Cleaner"), ["passport", "residence-id"]);
-  assert.deepEqual(getRequiredProfileDocumentCategories("Truck Driver"), ["passport", "residence-id", "driver-license"]);
+  assert.deepEqual(getRequiredProfileDocumentCategories("Cleaner"), ["passport"]);
+  assert.deepEqual(getRequiredProfileDocumentCategories("Truck Driver"), ["passport", "driver-license"]);
 
   const driver = additionalApplicationJobs.find(({ title }) => isDriverPosition(title))!;
   assert.ok(driver);
@@ -352,7 +352,7 @@ test("driver roles require a license in both form variants and additional roles 
     form.set("payload", JSON.stringify(legacy ? legacyValues : values));
     form.set("idempotencyKey", key);
     form.set("resume", new File([pdf], "cv.pdf"));
-    for (const category of ["passport", "residence-id", ...(withLicense ? ["driver-license"] : [])])
+    for (const category of ["passport", ...(withLicense ? ["driver-license"] : [])])
       form.set(`document:${category}`, new File([pdf], `${category}.pdf`));
     return new NextRequest(`${origin}/api/applications`, { method: "POST", headers: { origin }, body: form });
   }
