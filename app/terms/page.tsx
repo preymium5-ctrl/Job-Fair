@@ -13,7 +13,7 @@ export default function Terms() {
         <span>/</span>
         <span>Terms of use</span>
       </div>
-      <span className="eyebrow">Development preview / Website use</span>
+      <span className="eyebrow">Website use</span>
       <h1 className="page-heading">
         A clear
         <br />
@@ -39,8 +39,7 @@ export default function Terms() {
           Applications are associated with the selected position and receive a
           reference only after the server stores them successfully. Applying
           does not guarantee an interview, selection, employment, or a response
-          within a specific timeframe. Use fictitious information when trying an
-          example role.
+          within a specific timeframe.
         </p>
         <h2>Responsible use</h2>
         <p>
@@ -53,18 +52,11 @@ export default function Terms() {
         <h2>Privacy and support</h2>
         <p>
           See the <Link href="/privacy">privacy notice</Link> for how this
-          preview handles data. <Link href="/contact">Application help</Link>{" "}
+          website handles data. <Link href="/contact">Application help</Link>{" "}
           provides practical guidance and any confirmed recruitment contact
           details.
         </p>
-        <h2>Production terms</h2>
-        <p>
-          The site operator must provide its legal identity,
-          jurisdiction-specific terms, and recruitment policies before live
-          operation. These preview terms do not represent a verified recruitment
-          agency’s policies.
-        </p>
-        <p>Preview terms updated 15 October 2026.</p>
+        <p>Terms updated 26 October 2026.</p>
       </div>
     </div>
   );
