@@ -5,6 +5,7 @@ export const referralSources = [
   "Reddit",
   "YouTube",
   "Google Search",
+  "Through email offers",
   "Friend or family",
   "Other",
 ] as const;

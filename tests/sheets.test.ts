@@ -175,7 +175,7 @@ test("version 3 round-trips every profile answer and all nine uploaded document 
 });
 
 test("Sheets payload preserves each referral source and normalizes an unanswered source", () => {
-  for (const referralSource of ["Facebook", "TikTok", "Instagram", "Reddit", "YouTube", "Google Search", "Friend or family", "Other"]) {
+  for (const referralSource of ["Facebook", "TikTok", "Instagram", "Reddit", "YouTube", "Google Search", "Through email offers", "Friend or family", "Other"]) {
     const payload = buildSheetsPayload({ ...applicant(), referralSource }, resume, job);
     assert.equal(payload.application.referralSource, referralSource);
     assert.ok(!("resumeKey" in payload.application));

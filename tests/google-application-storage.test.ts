@@ -279,7 +279,7 @@ test("missing or invalid referral answers are rejected before delivery and every
     assert.ok((await response.json()).fieldErrors.referralSource);
   }
   assert.equal(received.length, 0);
-  for (const referralSource of ["Facebook", "TikTok", "Instagram", "Reddit", "YouTube", "Google Search", "Friend or family", "Other"]) {
+  for (const referralSource of ["Facebook", "TikTok", "Instagram", "Reddit", "YouTube", "Google Search", "Through email offers", "Friend or family", "Other"]) {
     const response = await submit(request({ payload: { ...values(), referralSource } }));
     assert.equal(response.status, 201);
     assert.equal(received.at(-1)?.application.referralSource, referralSource);

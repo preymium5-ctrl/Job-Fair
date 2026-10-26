@@ -465,7 +465,7 @@ test("referral sources append after every existing recruiter column and legacy p
   assert.equal(legacy.state.rows[0][29], "Where did you hear about us?");
   assert.equal(legacy.state.rows[1][29], "");
   assert.equal(legacy.post().duplicate, true);
-  for (const referralSource of ["Facebook", "TikTok", "Instagram", "Reddit", "YouTube", "Google Search", "Friend or family", "Other", ""]) {
+  for (const referralSource of ["Facebook", "TikTok", "Instagram", "Reddit", "YouTube", "Google Search", "Email offers", "Through email offers", "Friend or family", "Other", ""]) {
     const { state, post } = fixture();
     const original = application();
     assert.equal(post({ ...original, application: { ...original.application, referralSource } }).ok, true);
@@ -899,7 +899,7 @@ test("owner setup clears inherited referral validation only from new fields and 
   assert.deepEqual(state.validationChanges[1], {
     action: "set", row: 2, column: 30, count: 999, columns: 1,
     rule: { choices: ["Facebook", "TikTok", "Instagram", "Reddit", "Threads", "X (Twitter)", "YouTube", "LinkedIn",
-      "Google Search", "Google search", "Friend or family", "Other"], showDropdown: true, allowInvalid: false },
+      "Google Search", "Google search", "Email offers", "Through email offers", "Friend or family", "Other"], showDropdown: true, allowInvalid: false },
   });
   assert.equal(state.validationChanges.length, 2);
   assert.ok(state.validationChanges.every(({ row, column }) => row === 2 && column >= 30));
@@ -1126,12 +1126,17 @@ test("schema 7 accepts the existing 35 columns during rollout and owner setup ap
 });
 
 test("every referral option reaches AJ and legacy senders can still omit the answer", () => {
-  for (const referralSource of ["Facebook", "TikTok", "Instagram", "Reddit", "YouTube", "Google Search", "Friend or family", "Other", ""]) {
+  for (const referralSource of ["Facebook", "TikTok", "Instagram", "Reddit", "YouTube", "Google Search", "Email offers", "Through email offers", "Friend or family", "Other", ""]) {
     const { state, post, context } = fixture();
     vm.runInContext("setupChapterSync()", context);
     const payload = application();
     assert.equal(post({ ...payload, application: { ...payload.application, referralSource } }).ok, true);
     assert.equal(state.rows[1][35], referralSource);
+    const write = state.calls.find(({ url, options }) => url.endsWith(":batchUpdate") &&
+      JSON.parse(options.payload as string).requests.length === 2);
+    assert.ok(write);
+    const rowUpdate = JSON.parse(write.options.payload as string).requests[0].updateCells;
+    assert.deepEqual(rowUpdate.rows[0].values[35].userEnteredValue, { stringValue: referralSource });
   }
 });
 
