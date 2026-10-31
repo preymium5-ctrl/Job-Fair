@@ -5,7 +5,8 @@ import { applicationRoleDestination, getApplicationRoleTerms } from "./applicati
 import { jobOrderJobs } from "./job-orders";
 
 // Preserve the original form-only snapshot for field-by-field database upgrades.
-const officialTitles = new Set(proposedJobs.map(({ title }) => title.toLowerCase()));
+// Job-order roles have their own full listing, so a form choice with the same title is not duplicated.
+const officialTitles = new Set([...proposedJobs, ...jobOrderJobs].map(({ title }) => title.toLowerCase()));
 export const previousAdditionalApplicationJobs: Job[] = referenceJobPositions
   .filter((title) => title !== "Other (enter below)" && title !== "No other position" && !officialTitles.has(title.toLowerCase()))
   .map((title) => {
