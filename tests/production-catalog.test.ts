@@ -5,6 +5,7 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 import { combinedRoleRecruitmentJobs, proposedJobs } from "../data/jobs";
 import { additionalApplicationJobs } from "../data/application-jobs";
+import { jobOrderJobs } from "../data/job-orders";
 import { closeDatabase, getDatabase } from "../lib/db";
 import { getJobById, getJobs } from "../lib/repository";
 import { jobs } from "../lib/schema";
@@ -26,7 +27,7 @@ test("an existing production catalog receives new roles without initial seeding 
     // so no external PostgreSQL server or live recruitment data is involved.
     Object.assign(process.env, { NODE_ENV: "production", CHAPTER_LOCAL_MODE: "false" });
     const publicJobs = await getJobs();
-    assert.deepEqual(publicJobs.map(({ title }) => title).sort(), ["Cleaner", "Grinder", ...additionalApplicationJobs.filter(({ id }) => id !== closedAdditional.id).map(({ title }) => title)].sort());
+    assert.deepEqual(publicJobs.map(({ title }) => title).sort(), ["Cleaner", "Grinder", ...additionalApplicationJobs.filter(({ id }) => id !== closedAdditional.id).map(({ title }) => title), ...jobOrderJobs.map(({ title }) => title)].sort());
     assert.equal(await getJobById(proposedJobs.find(({ slug }) => slug === "fabricator")!.id), undefined);
     assert.deepEqual(await getJobById(closedAdditional.id), closedAdditional);
     const applicationJobs = await getJobs({ includeApplicationOnly: true });

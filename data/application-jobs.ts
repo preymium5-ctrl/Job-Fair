@@ -2,6 +2,7 @@ import type { Job } from "../lib/types";
 import { proposedJobs } from "./jobs";
 import { referenceJobPositions, secondaryJobPositions } from "./application-form-options";
 import { applicationRoleDestination, getApplicationRoleTerms } from "./application-role-catalog";
+import { jobOrderJobs } from "./job-orders";
 
 // Preserve the original form-only snapshot for field-by-field database upgrades.
 const officialTitles = new Set(proposedJobs.map(({ title }) => title.toLowerCase()));
@@ -49,4 +50,4 @@ export const additionalApplicationJobs: Job[] = [...new Set([...referenceJobPosi
 
 export const additionalApplicationJobOptions = additionalApplicationJobs.map(({ id, title, slug }) => ({ id, title, slug }));
 
-export const publishedCatalogJobs: Job[] = [...proposedJobs, ...additionalApplicationJobs];
+export const publishedCatalogJobs: Job[] = [...proposedJobs, ...additionalApplicationJobs, ...jobOrderJobs];

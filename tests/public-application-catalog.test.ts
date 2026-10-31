@@ -41,10 +41,10 @@ async function insert(data: Job) {
   return db;
 }
 
-test("117 public proposals keep distinct IDs and valid structured job data without attaching new employers", () => {
-  assert.equal(publishedCatalogJobs.length, 117);
-  assert.equal(new Set(publishedCatalogJobs.map(({ id }) => id)).size, 117);
-  assert.equal(new Set(publishedCatalogJobs.map(({ slug }) => slug)).size, 117);
+test("118 public proposals keep distinct IDs and valid structured job data without attaching new employers", () => {
+  assert.equal(publishedCatalogJobs.length, 118);
+  assert.equal(new Set(publishedCatalogJobs.map(({ id }) => id)).size, 118);
+  assert.equal(new Set(publishedCatalogJobs.map(({ slug }) => slug)).size, 118);
   for (const job of publishedCatalogJobs) assert.equal(jobSchema.safeParse(job).success, true, job.title);
   for (const job of additionalApplicationJobs) {
     assert.match(job.description, /operator-supplied proposals/);
