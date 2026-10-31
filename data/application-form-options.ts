@@ -112,6 +112,7 @@ export const secondaryJobPositions: readonly string[] = [
   ...referenceJobPositions.slice(0, -2),
   "Press Machine Technician",
   "Hair Transplant Nurse",
+  "Offset Web Printing Press Operator (Coldset)",
   ...referenceJobPositions.slice(-2),
 ];
 
