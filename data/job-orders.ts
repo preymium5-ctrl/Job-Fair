@@ -1,6 +1,7 @@
 import type { Job } from "../lib/types";
 
-// Job demand received on 31 October 2026 (Humble Hunters, Croatia, 6 positions).
+// Job demand received on 31 October 2026 (Humble Hunters, Croatia).
+// The operator set the displayed slots to 100 on 31 October 2026.
 // The salary range was supplied by the site operator as NET EUR per month.
 // The employer, worksite, schedule and contract terms are not named in the
 // source and remain to be confirmed; no benefits are inferred.
@@ -15,7 +16,7 @@ export const printingPressOperatorJob: Job = {
   location: "Croatia",
   employmentType: "Terms to be confirmed",
   summary: printingPressOperatorSummary,
-  description: `${printingPressOperatorSummary} We are hiring 6 experienced press operators for the printing industry in Croatia. The presses are manroland Geoman and manroland Uniset newspaper web presses. The displayed salary range is a NET amount in EUR per month; the employer, workplace, schedule and contract terms will be confirmed by the recruitment team.`,
+  description: `${printingPressOperatorSummary} We are hiring experienced press operators for the printing industry in Croatia. The presses are manroland Geoman and manroland Uniset newspaper web presses. The displayed salary range is a NET amount in EUR per month; the employer, workplace, schedule and contract terms will be confirmed by the recruitment team.`,
   responsibilities: [
     "Prepare the presses for operation (make-ready).",
     "Carry out quality control of the printed output.",
@@ -43,7 +44,14 @@ export const printingPressOperatorJob: Job = {
   featured: false,
   salary: "€850–€1,000",
   salaryStatus: "proposed-net",
-  openings: 6,
+  openings: 100,
 };
 
 export const jobOrderJobs: Job[] = [printingPressOperatorJob];
+
+/** First published version, kept so stored copies can be updated only where staff have not edited them. */
+export const jobOrderJobsV1: Job[] = [{
+  ...printingPressOperatorJob,
+  description: printingPressOperatorJob.description.replace("We are hiring experienced press operators", "We are hiring 6 experienced press operators"),
+  openings: 6,
+}];

@@ -2,7 +2,7 @@ import { eq, sql } from "drizzle-orm";
 import { randomUUID } from "node:crypto";
 import { proposedJobs, proposalV1Jobs, previousRecruitmentJobs, combinedRoleRecruitmentJobs, preExpansionRecruitmentJobs } from "../data/jobs";
 import { additionalApplicationJobs, previousAdditionalApplicationJobs } from "../data/application-jobs";
-import { jobOrderJobs } from "../data/job-orders";
+import { jobOrderJobs, jobOrderJobsV1 } from "../data/job-orders";
 import { getJobFairRole, jobFair } from "../data/job-fair";
 import { maximumAgeRequirement, minimumExperienceRequirement } from "../data/employment";
 import type { Database } from "./db";
@@ -20,6 +20,7 @@ export const groupedRoleRollbackVersion = "grouped-role-catalog-2026-10-20-v1";
 export const separatedCleaningRolesVersion = "separate-grinder-cleaner-2026-10-20-v1";
 export const publicApplicationCatalogVersion = "public-application-role-catalog-2026-10-21-v1";
 export const jobOrderRolesVersion = "job-order-printing-press-operator-2026-10-31-v1";
+export const jobOrderUpdatesVersion = "job-order-printing-press-operator-2026-10-31-v2";
 const employerPositionsVersion = "employer-positions-pdf-2026-10-20-v1";
 export const legacyExampleJobIds = [
   "example-warehouse-01",
@@ -117,6 +118,34 @@ export async function migrateJobOrderRoles(db: Database) {
     await tx.insert(audits).values({
       id: randomUUID(), actorId: "system:catalog-migration", action: "catalog.job-order-roles-published",
       targetId: jobOrderRolesVersion, details: { addedIds, preservedIds },
+    });
+  });
+}
+
+/** Apply later job-order edits once, only to fields that still match an earlier published version. */
+export async function migrateJobOrderUpdates(db: Database) {
+  await db.transaction(async (tx) => {
+    if (process.env.DATABASE_URL) await tx.execute(sql`SELECT pg_advisory_xact_lock(621349133)`);
+    const [applied] = await tx.select().from(settings).where(eq(settings.key, jobOrderUpdatesVersion));
+    if (applied) return;
+    const updatedIds: string[] = [];
+    for (const job of jobOrderJobs) {
+      const [row] = await tx.select().from(jobs).where(eq(jobs.id, job.id));
+      if (!row || row.slug !== job.slug || row.data.slug !== job.slug) continue;
+      const baselines = jobOrderJobsV1.filter((previous) => previous.id === job.id);
+      const data = { ...row.data };
+      for (const field of ["openings", "description", "image", "imageAlt", "imagePosition"] as const) {
+        if (baselines.some((baseline) => JSON.stringify(data[field]) === JSON.stringify(baseline[field])))
+          Object.assign(data, { [field]: job[field] });
+      }
+      if (JSON.stringify(data) === JSON.stringify(row.data)) continue;
+      await tx.update(jobs).set({ data }).where(eq(jobs.id, row.id));
+      updatedIds.push(row.id);
+    }
+    await tx.insert(settings).values({ key: jobOrderUpdatesVersion, value: new Date().toISOString() });
+    await tx.insert(audits).values({
+      id: randomUUID(), actorId: "system:catalog-migration", action: "catalog.job-order-roles-updated",
+      targetId: jobOrderUpdatesVersion, details: { updatedIds },
     });
   });
 }
