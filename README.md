@@ -14,7 +14,7 @@ image sources and prompts are recorded in `ASSETS.md`. Existing role IDs,
 application history, archived allocations, and staff edits are preserved.
 
 On 31 October 2026 the Offset Web Printing Press Operator (Coldset) job order
-was added: 6 positions in Croatia at a proposed €850–€1,000 NET per month,
+was added: 100 slots in Croatia at a proposed €850–€1,000 NET per month,
 defined in `data/job-orders.ts` and seeded once into existing databases.
 
 ## Run locally

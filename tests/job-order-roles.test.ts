@@ -4,8 +4,8 @@ import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { publishedCatalogJobs } from "../data/application-jobs";
-import { jobOrderJobs, printingPressOperatorJob } from "../data/job-orders";
-import { jobOrderRolesVersion, migrateJobOrderRoles } from "../lib/catalog-migration";
+import { jobOrderJobs, jobOrderJobsV1, printingPressOperatorJob } from "../data/job-orders";
+import { jobOrderRolesVersion, migrateJobOrderRoles, migrateJobOrderUpdates } from "../lib/catalog-migration";
 import { closeDatabase, getDatabase } from "../lib/db";
 import { jobs, settings } from "../lib/schema";
 import { jobSchema } from "../lib/validation";
@@ -37,7 +37,7 @@ test("the printing press operator job order is published with the supplied salar
   assert.equal(jobSchema.safeParse(job).success, true);
   assert.equal(job.salary, "€850–€1,000");
   assert.equal(job.salaryStatus, "proposed-net");
-  assert.equal(job.openings, 6);
+  assert.equal(job.openings, 100);
   assert.equal(job.location, "Croatia");
   assert.equal(publishedCatalogJobs.filter(({ slug }) => slug === job.slug).length, 1);
 });
@@ -59,4 +59,23 @@ test("job order roles are inserted into an existing catalog", async () => {
   const rows = await db.select().from(jobs);
   assert.deepEqual(rows.map(({ id }) => id).sort(), jobOrderJobs.map(({ id }) => id).sort());
   assert.equal(rows[0].data.salary, "€850–€1,000");
+});
+
+test("published job-order copies take the new slots unless staff edited them", async () => {
+  const db = await getDatabase();
+  const original = jobOrderJobsV1[0];
+  await db.insert(jobs).values({ id: original.id, slug: original.slug, status: original.status, data: original });
+  await migrateJobOrderUpdates(db);
+  const [row] = await db.select().from(jobs);
+  assert.equal(row.data.openings, 100);
+  assert.doesNotMatch(row.data.description, /hiring 6 /);
+});
+
+test("staff-edited job-order slots are preserved", async () => {
+  const db = await getDatabase();
+  const edited = { ...jobOrderJobsV1[0], openings: 40 };
+  await db.insert(jobs).values({ id: edited.id, slug: edited.slug, status: edited.status, data: edited });
+  await migrateJobOrderUpdates(db);
+  const [row] = await db.select().from(jobs);
+  assert.equal(row.data.openings, 40);
 });
