@@ -265,7 +265,7 @@ test("initialization validates structured answers, file metadata and required do
   ];
   for (const start of invalid) await assert.rejects(initializeStagedUpload(start), StagedUploadError);
   assert.equal(operations.length, 0);
-  const driver = [...proposedJobs, ...additionalApplicationJobs].find(({ title }) => /\bdrivers?\b/i.test(title))!;
+  const driver = [...proposedJobs, ...additionalApplicationJobs].find(({ title, status }) => status === "published" && /\bdrivers?\b/i.test(title))!;
   const driverInput = await envelope({ values: payload(driver.id) });
   await assert.rejects(initializeStagedUpload(driverInput.start), (error: unknown) => error instanceof StagedUploadError && Boolean(error.fieldErrors?.["document:driver-license"]));
   assert.equal(operations.length, 0);

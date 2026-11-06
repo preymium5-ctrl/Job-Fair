@@ -13,6 +13,15 @@ model imagery uses male workers. Terms are in `data/application-role-catalog.ts`
 image sources and prompts are recorded in `ASSETS.md`. Existing role IDs,
 application history, archived allocations, and staff edits are preserved.
 
+On 31 October 2026 the Offset Web Printing Press Operator (Coldset) job order
+was added: 6 positions in Croatia at a proposed €850–€1,000 NET per month,
+defined in `data/job-orders.ts` and seeded once into existing databases.
+
+On 6 November 2026 the Trailer Driver job order was added in the same file:
+Croatia, 50 positions, 5–10 years of experience, €2,000 NET per month. It
+replaces the older Trailer Truck Driver role, which is closed (not deleted) so
+existing applications keep their linkage.
+
 ## Run locally
 
 Node.js 20.9+ is required. Dependencies are installed and locked in `package-lock.json`.

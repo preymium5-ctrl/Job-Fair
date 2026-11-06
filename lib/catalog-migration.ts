@@ -2,6 +2,7 @@ import { eq, sql } from "drizzle-orm";
 import { randomUUID } from "node:crypto";
 import { proposedJobs, proposalV1Jobs, previousRecruitmentJobs, combinedRoleRecruitmentJobs, preExpansionRecruitmentJobs } from "../data/jobs";
 import { additionalApplicationJobs, previousAdditionalApplicationJobs } from "../data/application-jobs";
+import { jobOrderJobs, retiredApplicationRoles } from "../data/job-orders";
 import { getJobFairRole, jobFair } from "../data/job-fair";
 import { maximumAgeRequirement, minimumExperienceRequirement } from "../data/employment";
 import type { Database } from "./db";
@@ -18,6 +19,8 @@ export const maximumAgeRequirementVersion = "maximum-age-requirement-2026-10-16-
 export const groupedRoleRollbackVersion = "grouped-role-catalog-2026-10-20-v1";
 export const separatedCleaningRolesVersion = "separate-grinder-cleaner-2026-10-20-v1";
 export const publicApplicationCatalogVersion = "public-application-role-catalog-2026-10-21-v1";
+// Bump when a job order is added so databases that ran an earlier version receive it too.
+export const jobOrderRolesVersion = "job-order-roles-2026-11-06-v2";
 const employerPositionsVersion = "employer-positions-pdf-2026-10-20-v1";
 export const legacyExampleJobIds = [
   "example-warehouse-01",
@@ -92,6 +95,38 @@ export async function migratePublicApplicationCatalog(db: Database) {
     await tx.insert(audits).values({
       id: randomUUID(), actorId: "system:catalog-migration", action: "catalog.form-roles-published",
       targetId: publicApplicationCatalogVersion, details: { updatedIds, addedIds, preservedIds },
+    });
+  });
+}
+
+/** Publish roles from received job orders once, never replacing a staff record that owns the ID or URL. */
+export async function migrateJobOrderRoles(db: Database) {
+  await db.transaction(async (tx) => {
+    if (process.env.DATABASE_URL) await tx.execute(sql`SELECT pg_advisory_xact_lock(621349133)`);
+    const [applied] = await tx.select().from(settings).where(eq(settings.key, jobOrderRolesVersion));
+    if (applied) return;
+    const addedIds: string[] = [];
+    const preservedIds: string[] = [];
+    for (const job of jobOrderJobs) {
+      const [byId] = await tx.select().from(jobs).where(eq(jobs.id, job.id));
+      const [bySlug] = await tx.select().from(jobs).where(eq(jobs.slug, job.slug));
+      if (byId || bySlug) { preservedIds.push((byId ?? bySlug)!.id); continue; }
+      await tx.insert(jobs).values({ id: job.id, slug: job.slug, status: job.status, data: job });
+      addedIds.push(job.id);
+    }
+    // Close catalog roles a job order replaces; a staff-renamed record is left alone.
+    const retiredIds: string[] = [];
+    for (const { id, slug } of retiredApplicationRoles) {
+      const [row] = await tx.select().from(jobs).where(eq(jobs.id, id));
+      if (!row || row.status !== "published") continue;
+      if (row.slug !== slug || row.data.slug !== slug) { preservedIds.push(row.id); continue; }
+      await tx.update(jobs).set({ status: "closed", data: { ...row.data, status: "closed" } }).where(eq(jobs.id, id));
+      retiredIds.push(id);
+    }
+    await tx.insert(settings).values({ key: jobOrderRolesVersion, value: new Date().toISOString() });
+    await tx.insert(audits).values({
+      id: randomUUID(), actorId: "system:catalog-migration", action: "catalog.job-order-roles-published",
+      targetId: jobOrderRolesVersion, details: { addedIds, retiredIds, preservedIds },
     });
   });
 }

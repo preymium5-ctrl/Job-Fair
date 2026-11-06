@@ -3,7 +3,7 @@ import { createHash } from "node:crypto";
 import path from "node:path";
 import { proposedJobs } from "../data/jobs";
 import { getJobFairRole } from "../data/job-fair";
-import { additionalApplicationJobs } from "../data/application-jobs";
+import { publishedCatalogJobs } from "../data/application-jobs";
 
 // Read-only integration smoke test. Run against an already-running local server:
 // npx tsx scripts/smoke-routes.ts [http://127.0.0.1:3000]
@@ -102,7 +102,7 @@ async function main() {
       if (!html.includes("Welcome! Please tell us about yourself."))
         errors.push("Missing application form heading");
       const choices = html.match(/<select[^>]*id="jobId"[^>]*>([\s\S]*?)<\/select>/)?.[1] || "";
-      if ((choices.match(/<option\b/g) || []).length !== proposedJobs.length + additionalApplicationJobs.length)
+      if ((choices.match(/<option\b/g) || []).length !== publishedCatalogJobs.filter(({ status }) => status === "published").length)
         errors.push("Expected every official and additional primary job choice");
       if (!choices.includes('label="Official listed jobs"') || !choices.includes('label="Other jobs we’re offering"'))
         errors.push("Missing primary job categories");

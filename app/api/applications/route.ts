@@ -27,8 +27,7 @@ import { drainSheetsQueue } from "@/lib/sheets-queue";
 import { documentLabel, getRequiredProfileDocumentCategories, isDriverPosition, MAX_APPLICATION_UPLOAD_BYTES, MAX_PROFILE_RESUME_BYTES, MAX_PROFILE_UPLOAD_BYTES, supportingDocumentTypes } from "@/lib/document-uploads";
 import { saveApplicationToGoogle, usesGoogleApplicationStorage } from "@/lib/google-application-storage";
 import { sheetsConfiguration, SheetsDeliveryError } from "@/lib/sheets-transport";
-import { proposedJobs } from "@/data/jobs";
-import { additionalApplicationJobs } from "@/data/application-jobs";
+import { publishedCatalogJobs } from "@/data/application-jobs";
 import { restoreStagedFormData, StagedUploadError } from "@/lib/staged-uploads";
 
 export const runtime = "nodejs";
@@ -92,7 +91,7 @@ export async function POST(request: NextRequest) {
       return failure("Your CV must be 5 MB or smaller.", 422, { fieldErrors: { resume: "Your CV must be 5 MB or smaller." } });
     const resume = await validateResume(file);
     const job = googleStorage
-      ? [...proposedJobs, ...additionalApplicationJobs].find(({ id }) => id === result.data.jobId)
+      ? publishedCatalogJobs.find(({ id }) => id === result.data.jobId)
       : await getJobById(result.data.jobId);
     const requiredDocuments = result.data.profile
       ? getRequiredProfileDocumentCategories(job?.title || "")

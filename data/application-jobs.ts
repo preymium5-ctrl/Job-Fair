@@ -2,6 +2,9 @@ import type { Job } from "../lib/types";
 import { proposedJobs } from "./jobs";
 import { referenceJobPositions, secondaryJobPositions } from "./application-form-options";
 import { applicationRoleDestination, getApplicationRoleTerms } from "./application-role-catalog";
+import { jobOrderJobs, retiredApplicationRoles } from "./job-orders";
+
+const retiredTitles = new Set<string>(retiredApplicationRoles.map(({ title }) => title));
 
 // Preserve the original form-only snapshot for field-by-field database upgrades.
 const officialTitles = new Set(proposedJobs.map(({ title }) => title.toLowerCase()));
@@ -41,12 +44,12 @@ export const additionalApplicationJobs: Job[] = [...new Set([...referenceJobPosi
       image: terms.image,
       imageAlt: `Male professional in a representative ${terms.category.toLowerCase()} workplace`,
       imagePosition: "center",
-      postedAt: "2026-10-20T00:00:00.000Z", status: "published", isExample: false, featured: false,
+      postedAt: "2026-10-20T00:00:00.000Z", status: retiredTitles.has(title) ? "closed" : "published", isExample: false, featured: false,
       salary: `${amount(terms.minimum)}–${amount(terms.maximum)}`,
       salaryStatus: "proposed-net", openings: terms.openings,
     };
   });
 
-export const additionalApplicationJobOptions = additionalApplicationJobs.map(({ id, title, slug }) => ({ id, title, slug }));
+export const additionalApplicationJobOptions = additionalApplicationJobs.filter(({ status }) => status === "published").map(({ id, title, slug }) => ({ id, title, slug }));
 
-export const publishedCatalogJobs: Job[] = [...proposedJobs, ...additionalApplicationJobs];
+export const publishedCatalogJobs: Job[] = [...proposedJobs, ...additionalApplicationJobs, ...jobOrderJobs];

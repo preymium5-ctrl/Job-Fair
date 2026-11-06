@@ -143,7 +143,8 @@ test("application choices have distinct persistent identifiers and preserve repr
     assert.equal(job?.id, id, title);
     assert.equal(job?.slug, id, title);
   }
-  assert.deepEqual(additionalApplicationJobOptions, additionalApplicationJobs.map(({ id, title, slug }) => ({ id, title, slug })));
+  // Closed roles (replaced by a job order) keep their IDs but are no longer offered.
+  assert.deepEqual(additionalApplicationJobOptions, additionalApplicationJobs.filter(({ status }) => status === "published").map(({ id, title, slug }) => ({ id, title, slug })));
 });
 
 test("all offered roles have operator-proposed pay and slots within the requested bounds", () => {

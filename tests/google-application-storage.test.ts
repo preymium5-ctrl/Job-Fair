@@ -20,7 +20,7 @@ const secret = "synthetic-test-secret-with-at-least-32-characters";
 const pdf = Buffer.from("%PDF-1.4\nSynthetic application document\n%%EOF\n");
 const officialJob = proposedJobs.find(({ slug }) => slug === "fabricator")!;
 const additionalJob = additionalApplicationJobs.find(({ title }) => !/driver/i.test(title))!;
-const driverJob = [...proposedJobs, ...additionalApplicationJobs].find(({ title }) => /\bdrivers?\b/i.test(title))!;
+const driverJob = [...proposedJobs, ...additionalApplicationJobs].find(({ title, status }) => status === "published" && /\bdrivers?\b/i.test(title))!;
 const received: SheetsPayload[] = [];
 const records = new Map<string, string>();
 let receiver: (payload: SheetsPayload) => Response | Promise<Response>;

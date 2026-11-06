@@ -168,7 +168,7 @@ test("structured addresses trim and normalize every part, preserve postal text a
 });
 
 test("profile submissions require individual files, recover retries and deliver every document category in Sheets version 3", async () => {
-  const job = (await getJobs())[0];
+  const job = (await getJobs()).find(({ title }) => !isDriverPosition(title))!;
   const values = input(job.id);
   const key = randomUUID();
   function request(categories: string[], overrides = {}, changed = false) {
@@ -222,7 +222,7 @@ test("profile submissions require individual files, recover retries and deliver 
 });
 
 test("profile uploads accept 5 MB files and enforce the 15 MB combined budget", async () => {
-  const job = (await getJobs())[0];
+  const job = (await getJobs()).find(({ title }) => !isDriverPosition(title))!;
   const values = input(job.id);
   const beforeCount = (await getApplications()).length;
   function sizedPdf(size: number) {
@@ -305,7 +305,7 @@ test("reference-only applications persist structured addresses and blank experie
 });
 
 test("residence ID and work-permit documents may be absent initially and available NBI and Form 18a files still persist and export", async () => {
-  const job = (await getJobs())[0];
+  const job = (await getJobs()).find(({ title }) => !isDriverPosition(title))!;
   for (const permitDocuments of [[], ["nbi", "form18a"]]) {
     const form = new FormData();
     form.set("payload", JSON.stringify({ ...referenceInput(job.id), email: `permit-${permitDocuments.length}@example.test` }));
@@ -341,7 +341,7 @@ test("driver roles require a license in both form variants and additional roles 
   assert.deepEqual(getRequiredProfileDocumentCategories("Cleaner"), ["passport"]);
   assert.deepEqual(getRequiredProfileDocumentCategories("Truck Driver"), ["passport", "driver-license"]);
 
-  const driver = additionalApplicationJobs.find(({ title }) => isDriverPosition(title))!;
+  const driver = additionalApplicationJobs.find(({ title, status }) => status === "published" && isDriverPosition(title))!;
   assert.ok(driver);
   const key = randomUUID();
   const { nationality: _nationality, ...withoutNationality } = profile; void _nationality;

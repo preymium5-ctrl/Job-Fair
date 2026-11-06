@@ -1,6 +1,5 @@
 import { createHash, createHmac, randomUUID, timingSafeEqual } from "node:crypto";
-import { proposedJobs } from "../data/jobs";
-import { additionalApplicationJobs } from "../data/application-jobs";
+import { publishedCatalogJobs } from "../data/application-jobs";
 import { applicationSchema, fieldErrors } from "./validation";
 import { getRequiredProfileDocumentCategories, MAX_APPLICATION_UPLOAD_BYTES, MAX_PROFILE_RESUME_BYTES, MAX_SUPPORTING_DOCUMENT_BYTES, supportingDocumentTypes } from "./document-uploads";
 import { sheetsConfiguration, signedSheetsBody, type SheetsPayload } from "./sheets-transport";
@@ -208,7 +207,7 @@ export async function initializeStagedUpload(input: unknown, clientAddress = "sh
   if (!exact(input, ["payload", "submissionKey", "upload", "files"]) || typeof input.submissionKey !== "string" || !UUID.test(input.submissionKey))
     throw new StagedUploadError("UPLOAD_STAGE_INVALID");
   const { value, hash } = payloadDigest(input.payload);
-  const job = [...proposedJobs, ...additionalApplicationJobs].find(({ id }) => id === value.jobId);
+  const job = publishedCatalogJobs.find(({ id }) => id === value.jobId);
   if (!job || job.status !== "published") throw new StagedUploadError("UPLOAD_STAGE_CONFLICT", "This position is no longer accepting applications.");
   const upload = checkEnvelope(input.upload);
   checkFiles(input.files, job.title, upload.totalBytes);

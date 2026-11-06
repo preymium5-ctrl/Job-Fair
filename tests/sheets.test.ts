@@ -17,7 +17,7 @@ import { proposedJobs } from "../data/jobs";
 import { NextRequest } from "next/server";
 import { POST as submit } from "../app/api/applications/route";
 import { GET as integrationStatus, POST as integrationRetry } from "../app/api/admin/integrations/google-sheets/route";
-import { supportingDocumentTypes } from "../lib/document-uploads";
+import { isDriverPosition, supportingDocumentTypes } from "../lib/document-uploads";
 
 const originalEnv = { ...process.env };
 let temporaryDirectory = "";
@@ -28,7 +28,8 @@ before(async () => {
   Object.assign(process.env, { NODE_ENV: "test", DATA_DIR: temporaryDirectory, CHAPTER_LOCAL_MODE: "true", APP_ORIGIN: "http://localhost:3000" });
   for (const key of ["DATABASE_URL", "S3_BUCKET", "S3_REGION", "S3_ACCESS_KEY_ID", "S3_SECRET_ACCESS_KEY", "GOOGLE_SHEETS_WEBHOOK_URL", "GOOGLE_SHEETS_WEBHOOK_SECRET"])
     delete process.env[key];
-  job = (await getJobs())[0];
+  // Driver roles require a license upload, which these fixtures do not attach.
+  job = (await getJobs()).find(({ title }) => !isDriverPosition(title))!;
 });
 after(async () => {
   await closeDatabase();
