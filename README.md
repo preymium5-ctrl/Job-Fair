@@ -18,7 +18,8 @@ was added: 100 slots in Croatia at a proposed €850–€1,000 NET per month,
 defined in `data/job-orders.ts` and seeded once into existing databases.
 
 On 6 November 2026 the Trailer Driver job order was added in the same file:
-Croatia, 50 positions, 5–10 years of experience, €2,000 NET per month. It
+Czech Republic (changed from Croatia on 7 November), applicants aged 50 or
+below, 50 positions, 5–10 years of experience, €2,000 NET per month. It
 replaces the older Trailer Truck Driver role, which is closed (not deleted) so
 existing applications keep their linkage.
 

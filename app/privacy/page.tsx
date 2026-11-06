@@ -46,7 +46,7 @@ export default function Privacy() {
           The information is associated with the position you select and made
           available to authorized recruitment staff for reviewing that
           application. Applications can express interest in work in Croatia,
-          Slovenia, Serbia, Romania, Macedonia or Montenegro. Applications are
+          Slovenia, Serbia, Romania, Macedonia, Montenegro or the Czech Republic. Applications are
           stored for authorized recruitment staff review. Submission records your
           interest and does not guarantee an interview or employment.
         </p>

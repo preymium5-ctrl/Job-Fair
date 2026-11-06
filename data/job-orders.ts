@@ -49,8 +49,12 @@ export const printingPressOperatorJob: Job = {
 
 // Job order added on 6 November 2026 at the site operator's request:
 // trailer drivers with 5–10 years of experience at €2,000 NET per month.
-// 50 positions. The employer, worksite, routes, schedule and contract
-// terms were not supplied and remain to be confirmed; no benefits are inferred.
+// 50 positions. On 7 November 2026 the operator set the destination to the
+// Czech Republic and the age limit to 50 and below. The employer, worksite,
+// routes, schedule and contract terms were not supplied and remain to be
+// confirmed; no benefits are inferred.
+export const trailerDriverMaximumAge = 50;
+const trailerDriverAgeRequirement = `Applicants must be ${trailerDriverMaximumAge} years old or below.`;
 const trailerDriverSummary =
   "Drive trailer trucks safely and reliably, delivering loads on time and keeping accurate transport records.";
 
@@ -59,10 +63,10 @@ export const trailerDriverJob: Job = {
   slug: "trailer-driver",
   title: "Trailer Driver",
   category: "Transport & Logistics",
-  location: "Croatia",
+  location: "Czech Republic",
   employmentType: "Terms to be confirmed",
   summary: trailerDriverSummary,
-  description: `${trailerDriverSummary} We are hiring 50 experienced trailer drivers with 5 to 10 years of driving experience. The displayed salary is a NET amount in EUR per month; the employer, routes, workplace, schedule and contract terms will be confirmed by the recruitment team.`,
+  description: `${trailerDriverSummary} We are hiring 50 experienced trailer drivers with 5 to 10 years of driving experience, aged 50 or below, for work in the Czech Republic. The displayed salary is a NET amount in EUR per month; the employer, routes, workplace, schedule and contract terms will be confirmed by the recruitment team.`,
   responsibilities: [
     "Check the truck, trailer, coupling and load securing before every trip.",
     "Drive the assigned routes safely and deliver loads on schedule.",
@@ -71,6 +75,7 @@ export const trailerDriverJob: Job = {
     "Report vehicle defects, damage, delays or incidents promptly.",
   ],
   requirements: [
+    trailerDriverAgeRequirement,
     "5–10 years of experience as a trailer / articulated truck driver.",
     "A valid driver’s license for trailer trucks (upload a copy with your application).",
     "Safe driving record and responsible attitude.",
@@ -91,6 +96,14 @@ export const trailerDriverJob: Job = {
 };
 
 export const jobOrderJobs: Job[] = [printingPressOperatorJob, trailerDriverJob];
+
+/** Trailer Driver as first published on 6 November 2026, kept so stored copies update only where staff have not edited them. */
+export const trailerDriverJobV1: Job = {
+  ...trailerDriverJob,
+  location: "Croatia",
+  description: trailerDriverJob.description.replace(", aged 50 or below, for work in the Czech Republic.", "."),
+  requirements: trailerDriverJob.requirements.filter((item) => item !== trailerDriverAgeRequirement),
+};
 
 // Older catalog roles replaced by a job order (6 November 2026: the Trailer
 // Driver order replaces "Trailer Truck Driver"). They are closed, not deleted,

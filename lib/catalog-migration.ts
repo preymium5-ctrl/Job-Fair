@@ -2,7 +2,7 @@ import { eq, sql } from "drizzle-orm";
 import { randomUUID } from "node:crypto";
 import { proposedJobs, proposalV1Jobs, previousRecruitmentJobs, combinedRoleRecruitmentJobs, preExpansionRecruitmentJobs } from "../data/jobs";
 import { additionalApplicationJobs, previousAdditionalApplicationJobs } from "../data/application-jobs";
-import { jobOrderJobs, jobOrderJobsV1, retiredApplicationRoles } from "../data/job-orders";
+import { jobOrderJobs, jobOrderJobsV1, retiredApplicationRoles, trailerDriverJob, trailerDriverJobV1 } from "../data/job-orders";
 import { getJobFairRole, jobFair } from "../data/job-fair";
 import { maximumAgeRequirement, minimumExperienceRequirement } from "../data/employment";
 import type { Database } from "./db";
@@ -22,6 +22,7 @@ export const publicApplicationCatalogVersion = "public-application-role-catalog-
 export const jobOrderRolesVersion = "job-order-printing-press-operator-2026-10-31-v1";
 export const jobOrderUpdatesVersion = "job-order-printing-press-operator-2026-10-31-v2";
 export const trailerDriverJobOrderVersion = "job-order-trailer-driver-2026-11-06-v1";
+export const trailerDriverUpdatesVersion = "job-order-trailer-driver-2026-11-07-v2";
 const employerPositionsVersion = "employer-positions-pdf-2026-10-20-v1";
 export const legacyExampleJobIds = [
   "example-warehouse-01",
@@ -154,6 +155,34 @@ export async function migrateTrailerDriverJobOrder(db: Database) {
     await tx.insert(audits).values({
       id: randomUUID(), actorId: "system:catalog-migration", action: "catalog.job-order-roles-published",
       targetId: trailerDriverJobOrderVersion, details: { addedIds, retiredIds, preservedIds },
+    });
+  });
+}
+
+/** Move a stored Trailer Driver to the Czech Republic with the age limit, keeping any field staff edited. */
+export async function migrateTrailerDriverUpdates(db: Database) {
+  await db.transaction(async (tx) => {
+    if (process.env.DATABASE_URL) await tx.execute(sql`SELECT pg_advisory_xact_lock(621349133)`);
+    const [applied] = await tx.select().from(settings).where(eq(settings.key, trailerDriverUpdatesVersion));
+    if (applied) return;
+    const updatedIds: string[] = [];
+    const job = trailerDriverJob;
+    const [row] = await tx.select().from(jobs).where(eq(jobs.id, job.id));
+    if (row && row.slug === job.slug && row.data.slug === job.slug) {
+      const data = { ...row.data };
+      for (const field of ["location", "description", "requirements"] as const) {
+        if (JSON.stringify(data[field]) === JSON.stringify(trailerDriverJobV1[field]))
+          Object.assign(data, { [field]: job[field] });
+      }
+      if (JSON.stringify(data) !== JSON.stringify(row.data)) {
+        await tx.update(jobs).set({ data }).where(eq(jobs.id, row.id));
+        updatedIds.push(row.id);
+      }
+    }
+    await tx.insert(settings).values({ key: trailerDriverUpdatesVersion, value: new Date().toISOString() });
+    await tx.insert(audits).values({
+      id: randomUUID(), actorId: "system:catalog-migration", action: "catalog.job-order-roles-updated",
+      targetId: trailerDriverUpdatesVersion, details: { updatedIds },
     });
   });
 }

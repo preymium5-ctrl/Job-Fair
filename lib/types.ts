@@ -1,5 +1,5 @@
 import type { SupportingDocumentCategory } from "./document-uploads";
-import type { destinationCountries } from "../data/application-form-options";
+import type { applicationDestinationCountries } from "../data/application-form-options";
 export type JobStatus = "published" | "draft" | "closed";
 export interface Job {
   id: string;
@@ -57,7 +57,7 @@ export interface ApplicationProfile {
   postalCode?: string;
   dateOfBirth: string;
   placeOfBirth: string;
-  destinationCountry: (typeof destinationCountries)[number] | "North Macedonia";
+  destinationCountry: (typeof applicationDestinationCountries)[number] | "North Macedonia";
   currentWorkCountry: string;
   secondaryJobTitle: string;
   englishProficiency: "Yes" | "No";

@@ -12,7 +12,7 @@ import type { ApplicationProfile } from "../lib/types";
 import { readObject } from "../lib/storage";
 import { drainSheetsQueue } from "../lib/sheets-queue";
 import { POST as submit } from "../app/api/applications/route";
-import { destinationCountries } from "../data/application-form-options";
+import { applicationDestinationCountries } from "../data/application-form-options";
 import { additionalApplicationJobs } from "../data/application-jobs";
 import { getRequiredProfileDocumentCategories, isDriverPosition, supportingDocumentTypes } from "../lib/document-uploads";
 
@@ -105,7 +105,7 @@ test("profile applications require a listed referral answer while legacy applica
 
 test("the form accepts every offered destination without collecting or inventing nationality", () => {
   const { nationality: _nationality, ...withoutNationality } = profile; void _nationality;
-  for (const destinationCountry of destinationCountries) {
+  for (const destinationCountry of applicationDestinationCountries) {
     const parsed = applicationSchema.parse({ ...referenceInput(), profile: { ...withoutNationality, destinationCountry } });
     assert.equal(parsed.profile?.destinationCountry, destinationCountry);
     assert.equal(Object.hasOwn(parsed.profile!, "nationality"), false);

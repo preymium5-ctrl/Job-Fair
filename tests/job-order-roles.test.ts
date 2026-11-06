@@ -5,10 +5,11 @@ import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { additionalApplicationJobOptions, additionalApplicationJobs, publishedCatalogJobs } from "../data/application-jobs";
-import { jobOrderJobs, jobOrderJobsV1, printingPressOperatorJob, retiredApplicationRoles, trailerDriverJob } from "../data/job-orders";
+import { jobOrderJobs, jobOrderJobsV1, printingPressOperatorJob, retiredApplicationRoles, trailerDriverJob, trailerDriverJobV1 } from "../data/job-orders";
+import { applicationDestinationCountries, destinationCountries } from "../data/application-form-options";
 import { getRequiredProfileDocumentCategories } from "../lib/document-uploads";
 import { getPublicJobs } from "../lib/public-jobs";
-import { jobOrderRolesVersion, migrateJobOrderRoles, migrateJobOrderUpdates, migrateTrailerDriverJobOrder, trailerDriverJobOrderVersion } from "../lib/catalog-migration";
+import { jobOrderRolesVersion, migrateJobOrderRoles, migrateJobOrderUpdates, migrateTrailerDriverJobOrder, migrateTrailerDriverUpdates, trailerDriverJobOrderVersion } from "../lib/catalog-migration";
 import { closeDatabase, getDatabase } from "../lib/db";
 import { jobs, settings } from "../lib/schema";
 import { jobSchema } from "../lib/validation";
@@ -143,4 +144,37 @@ test("a staff-renamed Trailer Truck Driver row is not closed", async () => {
   await migrateTrailerDriverJobOrder(db);
   const [row] = await db.select().from(jobs).where(eq(jobs.id, old.id));
   assert.equal(row.status, "published");
+});
+
+test("the trailer driver is in the Czech Republic for applicants aged 50 or below", () => {
+  assert.equal(trailerDriverJob.location, "Czech Republic");
+  assert.equal(trailerDriverJob.requirements[0], "Applicants must be 50 years old or below.");
+  assert.match(trailerDriverJob.description, /Czech Republic/);
+  // Applicants can choose the job's country, while catalog roles keep their assigned destinations.
+  assert.ok(applicationDestinationCountries.some((country) => country === trailerDriverJob.location));
+  assert.equal((destinationCountries as readonly string[]).includes("Czech Republic"), false);
+  assert.equal(trailerDriverJobV1.location, "Croatia");
+  assert.equal(trailerDriverJobV1.requirements.some((item) => /50 years/.test(item)), false);
+});
+
+test("a stored first-version trailer driver moves to the Czech Republic once", async () => {
+  const db = await getDatabase();
+  const original = trailerDriverJobV1;
+  await db.insert(jobs).values({ id: original.id, slug: original.slug, status: original.status, data: original });
+  await migrateTrailerDriverUpdates(db);
+  await migrateTrailerDriverUpdates(db);
+  const [row] = await db.select().from(jobs).where(eq(jobs.id, original.id));
+  assert.equal(row.data.location, "Czech Republic");
+  assert.deepEqual(row.data.requirements, trailerDriverJob.requirements);
+  assert.equal(row.data.description, trailerDriverJob.description);
+});
+
+test("staff edits to a stored trailer driver are preserved", async () => {
+  const db = await getDatabase();
+  const edited = { ...trailerDriverJobV1, location: "Slovenia" };
+  await db.insert(jobs).values({ id: edited.id, slug: edited.slug, status: edited.status, data: edited });
+  await migrateTrailerDriverUpdates(db);
+  const [row] = await db.select().from(jobs).where(eq(jobs.id, edited.id));
+  assert.equal(row.data.location, "Slovenia");
+  assert.deepEqual(row.data.requirements, trailerDriverJob.requirements);
 });

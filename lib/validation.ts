@@ -2,7 +2,7 @@ import { z } from "zod";
 import { applicationStatuses, documentStatuses } from "./types";
 import { minimumExperienceYears } from "../data/employment";
 import { referralSources } from "./referral-sources";
-import { destinationCountries } from "../data/application-form-options";
+import { applicationDestinationCountries } from "../data/application-form-options";
 
 const shortText = (maximum = 160) =>
   z.string().trim().min(2, "Enter at least 2 characters.").max(maximum);
@@ -25,7 +25,7 @@ export const applicationProfileSchema = z.object({
   }, "Enter a real date of birth in the past."),
   placeOfBirth: profileText(120),
   // Preserve legacy values so retries retain the same submission digest.
-  destinationCountry: z.enum([...destinationCountries, "North Macedonia"]),
+  destinationCountry: z.enum([...applicationDestinationCountries, "North Macedonia"]),
   currentWorkCountry: profileText(80).min(2, "Enter your current work country."),
   secondaryJobTitle: profileText(160),
   englishProficiency: z.enum(["Yes", "No"], { error: "Please select Yes or No." }),

@@ -28,7 +28,7 @@ export default function About() {
         <div>
           <div data-reveal>
             <h2>A clearer way forward.</h2>
-            <p>Jobs in Croatia connects skilled workers from the Philippines with opportunities across manufacturing, construction, hospitality, transport, healthcare and more. Browse roles in Croatia, Slovenia, Serbia, Romania, Macedonia and Montenegro.</p>
+            <p>Jobs in Croatia connects skilled workers from the Philippines with opportunities across manufacturing, construction, hospitality, transport, healthcare and more. Browse roles in Croatia, Slovenia, Serbia, Romania, Macedonia, Montenegro and the Czech Republic.</p>
             <h3>Built around your skills</h3>
             <p>Find a role that matches your experience. Review its responsibilities, qualifications, salary range and benefits, then apply with your CV and relevant documents.</p>
           </div>

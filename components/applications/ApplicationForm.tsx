@@ -9,7 +9,7 @@ import { applicationSchema, fieldErrors } from "@/lib/validation";
 import { referralSources } from "@/lib/referral-sources";
 import { prepareApplicationUpload, stageApplicationUpload, resetStagedUpload, type PreparedApplicationUpload } from "@/lib/application-upload-client";
 import { MAX_PROFILE_UPLOAD_BYTES, MAX_PROFILE_RESUME_BYTES, MAX_SUPPORTING_DOCUMENT_BYTES, SUPPORTING_DOCUMENT_ACCEPT, supportingDocumentTypes, getRequiredProfileDocumentCategories, isDriverPosition, type SupportingDocumentCategory } from "@/lib/document-uploads";
-import { countryOptions, destinationCountries, secondaryJobPositions } from "@/data/application-form-options";
+import { applicationDestinationCountries, countryOptions, secondaryJobPositions } from "@/data/application-form-options";
 import { fairDocuments, fairDocumentTiming, fairNc2Requirements, nc2ElectricalNote } from "@/data/job-fair";
 import { BrandLockup } from "@/components/ui/Brand";
 import AttachmentUpload from "./AttachmentUpload";
@@ -43,7 +43,7 @@ export default function ApplicationForm({ job, jobs = job ? [job] : [], addition
   const [values, setValues] = useState<ApplicationInput>({
     jobId: job?.id || "", fullName: "", email: "", phone: "", country: "", referralSource: "", recentJobTitle: "", experienceYears: null,
     skills: "", education: "", summary: "", coverLetter: "", nc2Certificate: "", preferredEmployer: "",
-    profile: { ...emptyProfile, destinationCountry: destinationCountries.find((country) => country === job?.location) || emptyProfile.destinationCountry }, consent: false,
+    profile: { ...emptyProfile, destinationCountry: applicationDestinationCountries.find((country) => country === job?.location) || emptyProfile.destinationCountry }, consent: false,
   });
   const [resume, setResume] = useState<File | null>(null);
   const [supportingFiles, setSupportingFiles] = useState<Partial<Record<SupportingDocumentCategory, File>>>({});
@@ -285,7 +285,7 @@ export default function ApplicationForm({ job, jobs = job ? [job] : [], addition
             {textField("placeOfBirth", "Your place of birth", { placeholder: "City / province and country" })}
             {textField("fatherName", "Your father’s full name", { optional: true })}
             {textField("motherName", "Your mother’s full name", { optional: true })}
-            {profileSelect("destinationCountry", "Please select a country where you would like to apply", destinationCountries, true, "Select your preferred country for your application.")}
+            {profileSelect("destinationCountry", "Please select a country where you would like to apply", applicationDestinationCountries, true, "Select your preferred country for your application.")}
           </section>
           <section className={styles.section} aria-labelledby="work-heading">
             <h2 id="work-heading">Work Experience</h2><span className={styles.rule} />

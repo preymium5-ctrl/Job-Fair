@@ -1,6 +1,9 @@
 // Unique experience choices from the reference application form, in its order.
 // These positions are also available in a separate group for primary applications.
 export const destinationCountries = ["Croatia", "Slovenia", "Serbia", "Romania", "Macedonia", "Montenegro"] as const;
+// Every destination an applicant may choose. Job-order destinations are appended here
+// rather than to destinationCountries, which also assigns catalog roles their country by position.
+export const applicationDestinationCountries = [...destinationCountries, "Czech Republic"] as const;
 
 export const referenceJobPositions: readonly string[] = [
   "Waiter/Waitress",
