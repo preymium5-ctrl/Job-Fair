@@ -95,3 +95,9 @@ specific vacancy. The imagery change does not change application eligibility.
 The 17 new WebP assets in `public/images/jobs/proposed/` were created separately using the built-in image generation tool. They illustrate trades; they are not photographs of actual employers or workplaces. Full generation prompts, source filenames, output mapping, and alt descriptions are recorded in [prompt set A](docs/job-image-prompts-a.md) and [prompt set B](docs/job-image-prompts-b.md).
 
 Each job's image and alternative text are editable through job management. The per-role mapping is explicit in `data/jobs.ts`. There are no missing photo assets in this seed set.
+
+## Coldset printing press image — 31 October 2026
+
+- Asset: `public/images/jobs/offset-web-printing-press-operator-20261031.webp`
+- Created using the built-in image_gen tool as a fictional recruitment illustration.
+- Prompt: Photorealistic editorial recruitment image of an adult Filipino coldset newspaper web offset printing press operator in a navy work polo, safety glasses and hearing protection, checking newspaper print quality at an inspection console. A large blue-gray guarded newspaper web press, paper reel unwinder and continuous paper web are clearly visible, with orderly newspaper stacks in a spacious industrial print hall. Landscape 4:3, centered subjects for responsive crops, natural lighting. Fictional illustrative worker and workplace, no real employer represented, no text overlay, readable words, logos, brand names or watermarks.

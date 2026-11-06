@@ -4,6 +4,7 @@ import { additionalApplicationJobs, additionalApplicationJobOptions } from "../d
 import { countryOptions, destinationCountries, referenceJobPositions, secondaryJobPositions } from "../data/application-form-options";
 import { proposedJobs } from "../data/jobs";
 import { getRequiredProfileDocumentCategories, isDriverPosition } from "../lib/document-uploads";
+import { jobOrderJobs } from "../data/job-orders";
 
 // Independent snapshot of the unique primary-position choices in the linked form,
 // fetched on 20 October 2026. The source repeats CAD/CAM Designer three times.
@@ -122,7 +123,8 @@ test("all 101 unique primary roles from the linked form are represented exactly 
     assert.equal(choices.some((job) => job.title === title), false, title);
   assert.equal(additionalApplicationJobs.length, 99);
   for (const title of secondaryJobPositions.filter((title) => title !== "Other (enter below)" && title !== "No other position"))
-    assert.equal(choices.filter((job) => job.title === title).length, 1, title);
+    assert.equal([...choices, ...jobOrderJobs].filter((job) => job.title === title).length, 1, title);
+  assert.ok(secondaryJobPositions.includes("Offset Web Printing Press Operator (Coldset)"));
   const officialTitles = new Set(proposedJobs.map((job) => job.title.toLowerCase()));
   assert.ok(additionalApplicationJobs.every((job) => !officialTitles.has(job.title.toLowerCase())));
 });

@@ -1,6 +1,6 @@
 import { and, desc, eq } from "drizzle-orm";
 import { randomUUID } from "node:crypto";
-import { migrateJobOrderRoles, migrateProposedJobCatalog, migrateSeparatedCleaningRoles, migratePublicApplicationCatalog } from "./catalog-migration";
+import { migrateJobOrderRoles, migrateJobOrderUpdates, migrateTrailerDriverJobOrder, migrateProposedJobCatalog, migrateSeparatedCleaningRoles, migratePublicApplicationCatalog } from "./catalog-migration";
 import { getDatabase, localModeAllowed } from "./db";
 import { applications, audits, jobs, sheetDeliveries } from "./schema";
 import type { Application, ApplicationStatus, Job } from "./types";
@@ -28,6 +28,8 @@ async function ensureSeeded() {
       }
       await migratePublicApplicationCatalog(db);
       await migrateJobOrderRoles(db);
+      await migrateTrailerDriverJobOrder(db);
+      await migrateJobOrderUpdates(db);
     })().catch((error) => {
       seedPromise = undefined;
       throw error;

@@ -4,12 +4,11 @@ import { after, before, beforeEach, test } from "node:test";
 import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
-import { publishedCatalogJobs } from "../data/application-jobs";
-import { jobOrderJobs, printingPressOperatorJob, retiredApplicationRoles, trailerDriverJob } from "../data/job-orders";
-import { additionalApplicationJobOptions, additionalApplicationJobs } from "../data/application-jobs";
-import { getPublicJobs } from "../lib/public-jobs";
+import { additionalApplicationJobOptions, additionalApplicationJobs, publishedCatalogJobs } from "../data/application-jobs";
+import { jobOrderJobs, jobOrderJobsV1, printingPressOperatorJob, retiredApplicationRoles, trailerDriverJob } from "../data/job-orders";
 import { getRequiredProfileDocumentCategories } from "../lib/document-uploads";
-import { jobOrderRolesVersion, migrateJobOrderRoles } from "../lib/catalog-migration";
+import { getPublicJobs } from "../lib/public-jobs";
+import { jobOrderRolesVersion, migrateJobOrderRoles, migrateJobOrderUpdates, migrateTrailerDriverJobOrder, trailerDriverJobOrderVersion } from "../lib/catalog-migration";
 import { closeDatabase, getDatabase } from "../lib/db";
 import { jobs, settings } from "../lib/schema";
 import { jobSchema } from "../lib/validation";
@@ -41,19 +40,8 @@ test("the printing press operator job order is published with the supplied salar
   assert.equal(jobSchema.safeParse(job).success, true);
   assert.equal(job.salary, "€850–€1,000");
   assert.equal(job.salaryStatus, "proposed-net");
-  assert.equal(job.openings, 6);
+  assert.equal(job.openings, 100);
   assert.equal(job.location, "Croatia");
-  assert.equal(publishedCatalogJobs.filter(({ slug }) => slug === job.slug).length, 1);
-});
-
-test("the trailer driver job order shows the supplied salary and experience and requires a license", () => {
-  const job = trailerDriverJob;
-  assert.equal(jobSchema.safeParse(job).success, true);
-  assert.equal(job.salary, "€2,000");
-  assert.equal(job.salaryStatus, "proposed-net");
-  assert.match(job.experience, /5–10 years/);
-  assert.equal(job.openings, 50);
-  assert.ok(getRequiredProfileDocumentCategories(job.title).includes("driver-license"));
   assert.equal(publishedCatalogJobs.filter(({ slug }) => slug === job.slug).length, 1);
 });
 
@@ -73,7 +61,37 @@ test("job order roles are inserted into an existing catalog", async () => {
   await migrateJobOrderRoles(db);
   const rows = await db.select().from(jobs);
   assert.deepEqual(rows.map(({ id }) => id).sort(), jobOrderJobs.map(({ id }) => id).sort());
-  assert.equal(rows.find(({ id }) => id === trailerDriverJob.id)?.data.salary, "€2,000");
+  assert.equal(rows.find(({ id }) => id === printingPressOperatorJob.id)?.data.salary, "€850–€1,000");
+});
+
+test("published job-order copies take the new slots unless staff edited them", async () => {
+  const db = await getDatabase();
+  const original = jobOrderJobsV1[0];
+  await db.insert(jobs).values({ id: original.id, slug: original.slug, status: original.status, data: original });
+  await migrateJobOrderUpdates(db);
+  const [row] = await db.select().from(jobs);
+  assert.equal(row.data.openings, 100);
+  assert.doesNotMatch(row.data.description, /hiring 6 /);
+});
+
+test("staff-edited job-order slots are preserved", async () => {
+  const db = await getDatabase();
+  const edited = { ...jobOrderJobsV1[0], openings: 40 };
+  await db.insert(jobs).values({ id: edited.id, slug: edited.slug, status: edited.status, data: edited });
+  await migrateJobOrderUpdates(db);
+  const [row] = await db.select().from(jobs);
+  assert.equal(row.data.openings, 40);
+});
+
+test("the trailer driver job order shows the supplied salary, experience and positions and requires a license", () => {
+  const job = trailerDriverJob;
+  assert.equal(jobSchema.safeParse(job).success, true);
+  assert.equal(job.salary, "€2,000");
+  assert.equal(job.salaryStatus, "proposed-net");
+  assert.match(job.experience, /5–10 years/);
+  assert.equal(job.openings, 50);
+  assert.ok(getRequiredProfileDocumentCategories(job.title).includes("driver-license"));
+  assert.equal(publishedCatalogJobs.filter(({ slug }) => slug === job.slug).length, 1);
 });
 
 test("the old Trailer Truck Driver role is closed in the bundled catalog without shifting other roles", async () => {
@@ -95,22 +113,34 @@ test("the old Trailer Truck Driver role is closed in the bundled catalog without
   }
 });
 
-test("an existing published Trailer Truck Driver row is closed by the job order migration", async () => {
+test("a database that already ran the first job-order step receives the trailer driver and closes the old role once", async () => {
   const db = await getDatabase();
   const old = additionalApplicationJobs.find(({ id }) => id === retiredApplicationRoles[0].id)!;
-  await db.insert(jobs).values({ id: old.id, slug: old.slug, status: "published", data: { ...old, status: "published" } });
+  await db.insert(jobs).values([
+    { id: printingPressOperatorJob.id, slug: printingPressOperatorJob.slug, status: "published", data: { ...printingPressOperatorJob, openings: 40 } },
+    { id: old.id, slug: old.slug, status: "published", data: { ...old, status: "published" } },
+  ]);
+  await db.insert(settings).values({ key: jobOrderRolesVersion, value: "2026-10-31T00:00:00.000Z" });
   await migrateJobOrderRoles(db);
+  await migrateTrailerDriverJobOrder(db);
+  await migrateTrailerDriverJobOrder(db);
+  const [press] = await db.select().from(jobs).where(eq(jobs.id, printingPressOperatorJob.id));
+  assert.equal(press.data.openings, 40);
+  const [trailer] = await db.select().from(jobs).where(eq(jobs.id, trailerDriverJob.id));
+  assert.equal(trailer.data.salary, "€2,000");
+  assert.equal(trailer.data.openings, 50);
   const [row] = await db.select().from(jobs).where(eq(jobs.id, old.id));
   assert.equal(row.status, "closed");
   assert.equal(row.data.status, "closed");
   assert.equal(row.slug, old.slug);
+  assert.ok((await db.select().from(settings)).some(({ key }) => key === trailerDriverJobOrderVersion));
 });
 
 test("a staff-renamed Trailer Truck Driver row is not closed", async () => {
   const db = await getDatabase();
   const old = additionalApplicationJobs.find(({ id }) => id === retiredApplicationRoles[0].id)!;
   await db.insert(jobs).values({ id: old.id, slug: "staff-trailer", status: "published", data: { ...old, slug: "staff-trailer", status: "published" } });
-  await migrateJobOrderRoles(db);
+  await migrateTrailerDriverJobOrder(db);
   const [row] = await db.select().from(jobs).where(eq(jobs.id, old.id));
   assert.equal(row.status, "published");
 });
