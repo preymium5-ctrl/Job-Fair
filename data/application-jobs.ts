@@ -1,6 +1,6 @@
 import type { Job } from "../lib/types";
 import { proposedJobs } from "./jobs";
-import { referenceJobPositions, secondaryJobPositions } from "./application-form-options";
+import { addedApplicationRoleDestination, addedApplicationRoleTitles, referenceJobPositions, secondaryJobPositions } from "./application-form-options";
 import { applicationRoleDestination, getApplicationRoleTerms } from "./application-role-catalog";
 import { jobOrderJobs, retiredApplicationRoles } from "./job-orders";
 
@@ -25,14 +25,13 @@ export const previousAdditionalApplicationJobs: Job[] = referenceJobPositions
     };
   });
 
-// Promote the form's specific positions using the operator's display proposals.
-// Keep all established IDs/URLs so submitted applications retain their linkage.
-export const additionalApplicationJobs: Job[] = [...new Set([...referenceJobPositions, ...secondaryJobPositions])]
+const addedTitles = new Set<string>(addedApplicationRoleTitles);
+const buildAdditionalApplicationJobs = (useRotatedDestinationsOnly: boolean): Job[] => [...new Set([...referenceJobPositions, ...secondaryJobPositions])]
   .filter((title) => title !== "Other (enter below)" && title !== "No other position" && !officialTitles.has(title.toLowerCase()))
   .map((title, index) => {
     const slug = title.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
     const terms = getApplicationRoleTerms(title);
-    const location = applicationRoleDestination(index);
+    const location = !useRotatedDestinationsOnly && addedTitles.has(title) ? addedApplicationRoleDestination : applicationRoleDestination(index);
     const amount = (value: number) => `€${value.toLocaleString("en-US")}`;
     return {
       id: `additional-${slug}`, slug: `additional-${slug}`, title,
@@ -50,6 +49,13 @@ export const additionalApplicationJobs: Job[] = [...new Set([...referenceJobPosi
       salaryStatus: "proposed-net", openings: terms.openings,
     };
   });
+
+// Promote the form's specific positions using the operator's display proposals.
+// Keep all established IDs/URLs so submitted applications retain their linkage.
+export const additionalApplicationJobs: Job[] = buildAdditionalApplicationJobs(false);
+
+/** The 9 November 2026 roles as first published with rotated destinations, so stored copies update only where staff have not edited them. */
+export const addedApplicationJobsV1: Job[] = buildAdditionalApplicationJobs(true).filter(({ title }) => addedTitles.has(title));
 
 export const additionalApplicationJobOptions = additionalApplicationJobs.filter(({ status }) => status === "published").map(({ id, title, slug }) => ({ id, title, slug }));
 

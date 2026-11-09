@@ -116,6 +116,9 @@ export const referenceJobPositions: readonly string[] = [
 // choices rather than renaming them, so earlier applications keep their role links.
 // Mason was requested at the same time and is already a reference choice.
 export const addedApplicationRoleTitles = ["SteelFixer | Steelman", "Shuttering Carpenter"] as const;
+// The operator set both roles to Croatia on 9 November 2026, replacing the
+// rotated destinations (Romania and Macedonia) they were first published with.
+export const addedApplicationRoleDestination = "Croatia";
 
 export const secondaryJobPositions: readonly string[] = [
   ...referenceJobPositions.slice(0, -2),
