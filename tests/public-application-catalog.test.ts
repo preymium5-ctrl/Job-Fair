@@ -4,7 +4,7 @@ import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { eq } from "drizzle-orm";
-import { additionalApplicationJobs, previousAdditionalApplicationJobs, publishedCatalogJobs } from "../data/application-jobs";
+import { addedApplicationJobsV1, additionalApplicationJobs, previousAdditionalApplicationJobs, publishedCatalogJobs } from "../data/application-jobs";
 import { preExpansionRecruitmentJobs, proposedJobs } from "../data/jobs";
 import { hiringWorkerTotal } from "../data/hiring-allocations";
 import { addedApplicationRolesVersion, migrateAddedApplicationRoles, migratePublicApplicationCatalog, publicApplicationCatalogVersion } from "../lib/catalog-migration";
@@ -135,9 +135,30 @@ test("roles added on 9 November 2026 reach a catalog that was already published,
   assert.equal(steelman?.status, "published");
   assert.equal(steelman?.data.title, "SteelFixer | Steelman");
   assert.equal(steelman?.data.category, "Construction & Building Trades");
+  assert.equal(steelman?.data.location, "Croatia");
   assert.deepEqual(rows.find(({ id }) => id === owner.id)?.data, owner);
   assert.equal(rows.some(({ id }) => id === shuttering.id), false);
   const [audit, ...extra] = await db.select().from(audits).where(eq(audits.targetId, addedApplicationRolesVersion));
   assert.equal(extra.length, 0);
-  assert.deepEqual(audit.details, { addedIds: ["additional-steelfixer-steelman"], preservedIds: [owner.id] });
+  assert.deepEqual(audit.details, { addedIds: ["additional-steelfixer-steelman"], updatedIds: [], preservedIds: [owner.id] });
+});
+
+test("roles first seeded with rotated destinations move to Croatia unless staff edited the field", async () => {
+  const [steelmanV1, shutteringV1] = ["SteelFixer | Steelman", "Shuttering Carpenter"]
+    .map((title) => addedApplicationJobsV1.find((job) => job.title === title)!);
+  assert.equal(steelmanV1.location, "Romania");
+  assert.equal(shutteringV1.location, "Macedonia");
+  const edited = { ...shutteringV1, location: "Slovenia" };
+  await insert(steelmanV1);
+  const db = await insert(edited);
+  await migrateAddedApplicationRoles(db);
+  const rows = await db.select().from(jobs);
+  const steelman = rows.find(({ id }) => id === steelmanV1.id)!.data;
+  assert.equal(steelman.location, "Croatia");
+  assert.match(steelman.description, /Apply for SteelFixer \| Steelman in Croatia\./);
+  const shuttering = rows.find(({ id }) => id === shutteringV1.id)!.data;
+  assert.equal(shuttering.location, "Slovenia");
+  assert.match(shuttering.description, /in Croatia\./);
+  const [audit] = await db.select().from(audits).where(eq(audits.targetId, addedApplicationRolesVersion));
+  assert.deepEqual(audit.details, { addedIds: [], updatedIds: [steelmanV1.id, shutteringV1.id], preservedIds: [] });
 });

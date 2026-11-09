@@ -128,6 +128,7 @@ test("all 101 unique primary roles from the linked form are represented exactly 
   for (const title of ["Mason", "SteelFixer | Steelman", "Shuttering Carpenter"]) {
     assert.ok(secondaryJobPositions.includes(title), title);
     assert.equal(additionalApplicationJobOptions.filter((job) => job.title === title).length, 1, title);
+    assert.equal(additionalApplicationJobs.find((job) => job.title === title)!.location, "Croatia", title);
   }
   const officialTitles = new Set(proposedJobs.map((job) => job.title.toLowerCase()));
   assert.ok(additionalApplicationJobs.every((job) => !officialTitles.has(job.title.toLowerCase())));
