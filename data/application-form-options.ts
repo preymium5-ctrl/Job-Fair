@@ -111,11 +111,18 @@ export const referenceJobPositions: readonly string[] = [
   "No other position",
 ];
 
+// Construction roles added at the site operator's request on 9 November 2026.
+// They sit beside the existing "Steel Fixer" and "Carpenter/Shuttering Carpenter"
+// choices rather than renaming them, so earlier applications keep their role links.
+// Mason was requested at the same time and is already a reference choice.
+export const addedApplicationRoleTitles = ["SteelFixer | Steelman", "Shuttering Carpenter"] as const;
+
 export const secondaryJobPositions: readonly string[] = [
   ...referenceJobPositions.slice(0, -2),
   "Press Machine Technician",
   "Hair Transplant Nurse",
   "Offset Web Printing Press Operator (Coldset)",
+  ...addedApplicationRoleTitles,
   ...referenceJobPositions.slice(-2),
 ];
 

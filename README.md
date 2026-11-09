@@ -23,6 +23,12 @@ below, 50 positions, 5–10 years of experience, €2,000 NET per month. It
 replaces the older Trailer Truck Driver role, which is closed (not deleted) so
 existing applications keep their linkage.
 
+On 9 November 2026 two construction roles were added to both form role lists
+and the public catalogue: **SteelFixer | Steelman** and **Shuttering
+Carpenter** (alongside the existing Steel Fixer, Carpenter/Shuttering Carpenter
+and Mason choices). They reuse their sibling roles' €1,100–€1,600 NET range and
+1,000 slots and are seeded once into existing databases.
+
 ## Run locally
 
 Node.js 20.9+ is required. Dependencies are installed and locked in `package-lock.json`.

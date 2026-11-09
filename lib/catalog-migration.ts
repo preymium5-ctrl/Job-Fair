@@ -3,6 +3,7 @@ import { randomUUID } from "node:crypto";
 import { proposedJobs, proposalV1Jobs, previousRecruitmentJobs, combinedRoleRecruitmentJobs, preExpansionRecruitmentJobs } from "../data/jobs";
 import { additionalApplicationJobs, previousAdditionalApplicationJobs } from "../data/application-jobs";
 import { jobOrderJobs, jobOrderJobsV1, retiredApplicationRoles, trailerDriverJob, trailerDriverJobV1 } from "../data/job-orders";
+import { addedApplicationRoleTitles } from "../data/application-form-options";
 import { getJobFairRole, jobFair } from "../data/job-fair";
 import { maximumAgeRequirement, minimumExperienceRequirement } from "../data/employment";
 import type { Database } from "./db";
@@ -23,6 +24,7 @@ export const jobOrderRolesVersion = "job-order-printing-press-operator-2026-10-3
 export const jobOrderUpdatesVersion = "job-order-printing-press-operator-2026-10-31-v2";
 export const trailerDriverJobOrderVersion = "job-order-trailer-driver-2026-11-06-v1";
 export const trailerDriverUpdatesVersion = "job-order-trailer-driver-2026-11-07-v2";
+export const addedApplicationRolesVersion = "form-roles-steelfixer-shuttering-carpenter-2026-11-09-v1";
 const employerPositionsVersion = "employer-positions-pdf-2026-10-20-v1";
 export const legacyExampleJobIds = [
   "example-warehouse-01",
@@ -97,6 +99,30 @@ export async function migratePublicApplicationCatalog(db: Database) {
     await tx.insert(audits).values({
       id: randomUUID(), actorId: "system:catalog-migration", action: "catalog.form-roles-published",
       targetId: publicApplicationCatalogVersion, details: { updatedIds, addedIds, preservedIds },
+    });
+  });
+}
+
+/** Add form roles introduced after the public catalog was first published, never replacing a record that owns the ID or URL. */
+export async function migrateAddedApplicationRoles(db: Database) {
+  await db.transaction(async (tx) => {
+    if (process.env.DATABASE_URL) await tx.execute(sql`SELECT pg_advisory_xact_lock(621349133)`);
+    const [applied] = await tx.select().from(settings).where(eq(settings.key, addedApplicationRolesVersion));
+    if (applied) return;
+    const addedIds: string[] = [];
+    const preservedIds: string[] = [];
+    const titles = new Set<string>(addedApplicationRoleTitles);
+    for (const job of additionalApplicationJobs.filter(({ title }) => titles.has(title))) {
+      const [byId] = await tx.select().from(jobs).where(eq(jobs.id, job.id));
+      const [bySlug] = await tx.select().from(jobs).where(eq(jobs.slug, job.slug));
+      if (byId || bySlug) { preservedIds.push((byId ?? bySlug)!.id); continue; }
+      await tx.insert(jobs).values({ id: job.id, slug: job.slug, status: job.status, data: job });
+      addedIds.push(job.id);
+    }
+    await tx.insert(settings).values({ key: addedApplicationRolesVersion, value: new Date().toISOString() });
+    await tx.insert(audits).values({
+      id: randomUUID(), actorId: "system:catalog-migration", action: "catalog.form-roles-added",
+      targetId: addedApplicationRolesVersion, details: { addedIds, preservedIds },
     });
   });
 }

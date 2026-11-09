@@ -109,7 +109,9 @@ export const applicationRoleSectors: readonly Sector[] = [
     category: "Construction & Building Trades", image: "/images/jobs/categories/construction-building-trades.webp",
     summary: "Support accurate building work from the approved plans and the supervisor's confirmed instructions.",
     responsibilities: ["Review the assigned plans, measurements, materials, and work area before starting.", "Carry out authorised building tasks using suitable tools and site safety procedures.", "Check alignment, dimensions, and workmanship and report issues to the supervisor."],
-    roles: [["Construction Worker", 950, 1350, 1200], ["Carpenter/Shuttering Carpenter", 1100, 1600, 1000], ["Construction Carpenter", 1100, 1600, 950], ["Construction Foreman", 1400, 2000, 350], ["Facade Builder", 1100, 1600, 750], ["HVAC Installer", 1200, 1750, 650], ["Mason", 1050, 1550, 1100], ["Steel Fixer", 1100, 1600, 1000], ["Tile Fitter", 1100, 1600, 850]],
+    roles: [["Construction Worker", 950, 1350, 1200], ["Carpenter/Shuttering Carpenter", 1100, 1600, 1000], ["Construction Carpenter", 1100, 1600, 950], ["Construction Foreman", 1400, 2000, 350], ["Facade Builder", 1100, 1600, 750], ["HVAC Installer", 1200, 1750, 650], ["Mason", 1050, 1550, 1100], ["Steel Fixer", 1100, 1600, 1000], ["Tile Fitter", 1100, 1600, 850],
+      // 9 November 2026 additions reuse the salary range and slots of their sibling roles.
+      ["SteelFixer | Steelman", 1100, 1600, 1000], ["Shuttering Carpenter", 1100, 1600, 1000]],
   },
   {
     category: "Healthcare & Dental", image: "/images/jobs/categories/healthcare-dental.webp",
