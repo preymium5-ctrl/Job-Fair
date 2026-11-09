@@ -121,10 +121,14 @@ test("all 101 unique primary roles from the linked form are represented exactly 
   assert.deepEqual(referenceJobPositions.filter((title) => title !== "Other (enter below)" && title !== "No other position"), [...sourcePrimaryRoles]);
   for (const title of ["Other (enter below)", "No other position"])
     assert.equal(choices.some((job) => job.title === title), false, title);
-  assert.equal(additionalApplicationJobs.length, 99);
+  assert.equal(additionalApplicationJobs.length, 101);
   for (const title of secondaryJobPositions.filter((title) => title !== "Other (enter below)" && title !== "No other position"))
     assert.equal([...choices, ...jobOrderJobs].filter((job) => job.title === title).length, 1, title);
   assert.ok(secondaryJobPositions.includes("Offset Web Printing Press Operator (Coldset)"));
+  for (const title of ["Mason", "SteelFixer | Steelman", "Shuttering Carpenter"]) {
+    assert.ok(secondaryJobPositions.includes(title), title);
+    assert.equal(additionalApplicationJobOptions.filter((job) => job.title === title).length, 1, title);
+  }
   const officialTitles = new Set(proposedJobs.map((job) => job.title.toLowerCase()));
   assert.ok(additionalApplicationJobs.every((job) => !officialTitles.has(job.title.toLowerCase())));
 });

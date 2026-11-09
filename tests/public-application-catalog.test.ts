@@ -7,9 +7,9 @@ import { eq } from "drizzle-orm";
 import { additionalApplicationJobs, previousAdditionalApplicationJobs, publishedCatalogJobs } from "../data/application-jobs";
 import { preExpansionRecruitmentJobs, proposedJobs } from "../data/jobs";
 import { hiringWorkerTotal } from "../data/hiring-allocations";
-import { migratePublicApplicationCatalog, publicApplicationCatalogVersion } from "../lib/catalog-migration";
+import { addedApplicationRolesVersion, migrateAddedApplicationRoles, migratePublicApplicationCatalog, publicApplicationCatalogVersion } from "../lib/catalog-migration";
 import { closeDatabase, getDatabase } from "../lib/db";
-import { applications, audits, jobs } from "../lib/schema";
+import { applications, audits, jobs, settings } from "../lib/schema";
 import type { Application, Job } from "../lib/types";
 import { jobSchema } from "../lib/validation";
 
@@ -41,10 +41,10 @@ async function insert(data: Job) {
   return db;
 }
 
-test("119 public proposals keep distinct IDs and valid structured job data without attaching new employers", () => {
-  assert.equal(publishedCatalogJobs.length, 119);
-  assert.equal(new Set(publishedCatalogJobs.map(({ id }) => id)).size, 119);
-  assert.equal(new Set(publishedCatalogJobs.map(({ slug }) => slug)).size, 119);
+test("121 public proposals keep distinct IDs and valid structured job data without attaching new employers", () => {
+  assert.equal(publishedCatalogJobs.length, 121);
+  assert.equal(new Set(publishedCatalogJobs.map(({ id }) => id)).size, 121);
+  assert.equal(new Set(publishedCatalogJobs.map(({ slug }) => slug)).size, 121);
   for (const job of publishedCatalogJobs) assert.equal(jobSchema.safeParse(job).success, true, job.title);
   for (const job of additionalApplicationJobs) {
     assert.match(job.description, /operator-supplied proposals/);
@@ -97,7 +97,7 @@ test("deployed form choices become public while staff edits, closures, and appli
   assert.equal(retainedFair.status, "closed");
   assert.deepEqual(result.find(({ id }) => id === custom.id)!.data, custom);
   assert.deepEqual((await db.select().from(applications))[0].data, history);
-  assert.equal(result.filter(({ id }) => id.startsWith("additional-")).length, 99);
+  assert.equal(result.filter(({ id }) => id.startsWith("additional-")).length, 101);
   const later = { ...promoted.data, salary: "€1,234", openings: 321 };
   await db.update(jobs).set({ data: later }).where(eq(jobs.id, original.id));
   await migratePublicApplicationCatalog(db);
@@ -117,4 +117,27 @@ test("new role insertion preserves staff-owned URLs and never seeds missing fair
   assert.equal(rows.some(({ id }) => id === target.id), false);
   assert.deepEqual(rows.find(({ id }) => id === renamedOriginal.id)?.data, renamedOriginal);
   assert.equal(rows.some(({ id }) => id.startsWith("proposed-")), false);
+});
+
+test("roles added on 9 November 2026 reach a catalog that was already published, once", async () => {
+  const db = await getDatabase();
+  // A production catalog that ran the original publication before these roles existed.
+  await db.insert(settings).values({ key: publicApplicationCatalogVersion, value: "2026-10-21T00:00:00.000Z" });
+  const shuttering = additionalApplicationJobs.find(({ title }) => title === "Shuttering Carpenter")!;
+  const owner = { ...shuttering, id: "staff-shuttering", title: "Staff shuttering role", openings: 5 };
+  await insert(owner);
+  await migratePublicApplicationCatalog(db);
+  await migrateAddedApplicationRoles(db);
+  await migrateAddedApplicationRoles(db);
+  const rows = await db.select().from(jobs);
+  const steelman = rows.find(({ id }) => id === "additional-steelfixer-steelman");
+  assert.equal(steelman?.slug, "additional-steelfixer-steelman");
+  assert.equal(steelman?.status, "published");
+  assert.equal(steelman?.data.title, "SteelFixer | Steelman");
+  assert.equal(steelman?.data.category, "Construction & Building Trades");
+  assert.deepEqual(rows.find(({ id }) => id === owner.id)?.data, owner);
+  assert.equal(rows.some(({ id }) => id === shuttering.id), false);
+  const [audit, ...extra] = await db.select().from(audits).where(eq(audits.targetId, addedApplicationRolesVersion));
+  assert.equal(extra.length, 0);
+  assert.deepEqual(audit.details, { addedIds: ["additional-steelfixer-steelman"], preservedIds: [owner.id] });
 });
