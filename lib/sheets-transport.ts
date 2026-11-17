@@ -24,6 +24,20 @@ export interface SheetsPayload {
   resume: { name: string; mime: string; base64: string };
   documents?: SheetsDocument[];
 }
+/** Driver-only submissions go to the receiver's separate "Driver Applications" tab. */
+export interface DriverSheetsPayload {
+  kind: "driver-application";
+  version: 1;
+  application: {
+    id: string; reference: string; submittedAt: string; form: string; jobId: string; jobTitle: string;
+    firstName: string; lastName: string; fullName: string; email: string; phone: string; telegram: string;
+    dateOfBirth: string; currentCountry: string; currentLocation: string; destinationCountry: string;
+    licenseCategories: string; licenseExpiry: string; drivingExperienceYears: number; hasIdp: "Yes" | "No"; idpExpiry: string;
+    meetsCzechRequirement: "Yes" | "No"; shareWithTendaDom: "Yes" | "No"; englishProficiency: "Yes" | "No";
+    referralSource: string; termsAccepted: true; consent: true; applicationSource: "Jobs in Croatia";
+  };
+  documents: { id: string; category: string; name: string; mime: string; base64: string }[];
+}
 export interface SheetsAcknowledgement {
   ok: true;
   applicationId: string;
@@ -117,7 +131,7 @@ export function buildSheetsPayload(application: Application, resume: Buffer, job
   };
 }
 
-export function signedSheetsBody(payload: SheetsPayload, secret: string, timestamp = Date.now()) {
+export function signedSheetsBody(payload: SheetsPayload | DriverSheetsPayload, secret: string, timestamp = Date.now()) {
   const serialized = JSON.stringify(payload);
   return JSON.stringify({
     timestamp,
@@ -126,7 +140,7 @@ export function signedSheetsBody(payload: SheetsPayload, secret: string, timesta
   });
 }
 
-async function readAcknowledgement(response: Response, payload: SheetsPayload): Promise<SheetsAcknowledgement> {
+async function readAcknowledgement(response: Response, payload: SheetsPayload | DriverSheetsPayload): Promise<SheetsAcknowledgement> {
   if (!response.ok) throw new SheetsDeliveryError("WEBHOOK_REJECTED");
   const reader = response.body?.getReader();
   if (!reader) throw new SheetsDeliveryError("INVALID_ACKNOWLEDGEMENT");
@@ -153,7 +167,11 @@ async function readAcknowledgement(response: Response, payload: SheetsPayload): 
     row: answer.row, duplicate: answer.duplicate };
 }
 
-export const sendApplicationToSheets: SheetsTransport = async (payload, options) => {
+export type DriverSheetsTransport = (payload: DriverSheetsPayload, options?: { timeoutMs?: number }) => Promise<SheetsAcknowledgement>;
+export const sendDriverApplicationToSheets: DriverSheetsTransport = (payload, options) => deliver(payload, options);
+export const sendApplicationToSheets: SheetsTransport = (payload, options) => deliver(payload, options);
+
+async function deliver(payload: SheetsPayload | DriverSheetsPayload, options?: { timeoutMs?: number }): Promise<SheetsAcknowledgement> {
   const config = sheetsConfiguration();
   if (!config.valid) throw new SheetsDeliveryError(config.code!);
   const signal = AbortSignal.timeout(Math.min(120_000, Math.max(1000, options?.timeoutMs ?? 120_000)));
@@ -183,4 +201,4 @@ export const sendApplicationToSheets: SheetsTransport = async (payload, options)
     if (error instanceof SheetsDeliveryError) throw error;
     throw new SheetsDeliveryError("WEBHOOK_UNAVAILABLE");
   }
-};
+}

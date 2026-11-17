@@ -31,6 +31,17 @@ The application form displays **Macedonia**; historical `North Macedonia` answer
 
 The schema-7 receiver also accepts the earlier 35-column `A:AI` and deprecated 54-column `A:BB` layouts during rollout. Against 35 columns it retains incoming referral answers in the ID cell's technical note until owner setup restores them to AJ. Deploy this receiver before the owner runs setup. Keep schema 7 deployed after its first compact write: schema 6 cannot read the new referral metadata or write the 36-column layout. Do not manually delete or reorder columns.
 
+## Driver Applications tab
+
+Two driver-only forms send to a separate **Driver Applications** tab in the same spreadsheet, so licence answers never change the **Applications** layout:
+
+- `/apply/drivers`: the driver application form, listing only open driver roles (trailer, truck, bus, van, delivery…).
+- `/apply/drivers/czech-licence-check`: the Tenda Dom verification request. It requires licence categories C and CE, an International Driving Permit issued in the Philippines, licence front and back, all IDP pages, and the applicant's consent to share those documents with Tenda Dom.
+
+The receiver creates the tab and its 30-column `A:AD` header row on the first driver submission (override the name with the optional `CHAPTER_DRIVER_SHEET_NAME` script property). Files go to the same private Drive folder. **IDP pages** lists one private link per uploaded file (up to seven), one per line in the cell. **Meets Czech requirement (C + CE + IDP)** and **Agrees to share documents with Tenda Dom** are Yes/No columns for filtering. Share documents with Tenda Dom only for rows where the applicant answered Yes. Keep this tab's headers unchanged; a mismatch pauses driver delivery without touching rows. Driver forms work only in Google Sheets mode and are limited to 20 submissions per hour in total and three per email address.
+
+**Deploying the driver forms:** paste the updated `Code.gs` into the existing Apps Script project and update the **existing deployment** to a new version (**Deploy → Manage deployments → Edit → Version: New version**). The `/exec` URL, secret and Script Properties stay the same, and no setup function needs to run. Until the receiver is updated, driver submissions fail with a retry message and nothing is written.
+
 ## One-time Google authorization and deployment
 
 1. Open the target spreadsheet as its owner. Choose **Extensions → Apps Script**. Name the project `Job Fair 2026 application receiver`.

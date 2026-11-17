@@ -3,6 +3,7 @@ import { publishedCatalogJobs } from "../data/application-jobs";
 import { applicationSchema, fieldErrors } from "./validation";
 import { getRequiredProfileDocumentCategories, MAX_APPLICATION_UPLOAD_BYTES, MAX_PROFILE_RESUME_BYTES, MAX_SUPPORTING_DOCUMENT_BYTES, supportingDocumentTypes } from "./document-uploads";
 import { sheetsConfiguration, signedSheetsBody, type SheetsPayload } from "./sheets-transport";
+import { DRIVER_FILE_FIELDS, driverApplicationSchema, isDriverApplicationPayload, isDriverPosition, requiredDriverDocumentFields } from "./driver-applications";
 
 export const STAGED_UPLOAD_CHUNK_BYTES = 2 * 1024 * 1024;
 export const MAX_STAGED_ENVELOPE_BYTES = 16 * 1024 * 1024;
@@ -72,11 +73,31 @@ function digest(bytes: string | Uint8Array) { return createHash("sha256").update
 function privateKey(purpose: string, value: string) {
   return createHmac("sha256", secret()).update(`staged-upload-${purpose}-v1\0${value}`).digest("hex");
 }
-function payloadDigest(payload: unknown) {
+type StagedPayload = {
+  kind: "application" | "driver"; jobId: string; email: string; hash: string;
+  jobTitleFiles: (title: string) => { allowed: string[]; required: string[] };
+};
+function payloadDigest(payload: unknown): StagedPayload {
+  // Driver submissions carry their own form marker; each schema is strict, so a
+  // ticket issued for one form can never validate as the other.
+  if (isDriverApplicationPayload(payload)) {
+    const result = driverApplicationSchema.safeParse(payload);
+    if (!result.success) throw new StagedUploadError("UPLOAD_STAGE_INVALID", "Check the highlighted application details.", fieldErrors(result.error));
+    const value = result.data;
+    return { kind: "driver", jobId: value.jobId, email: value.email, hash: digest(JSON.stringify(value)),
+      jobTitleFiles: (title) => {
+        if (!isDriverPosition(title)) throw new StagedUploadError("UPLOAD_STAGE_CONFLICT", "Choose a driver position.");
+        return { allowed: DRIVER_FILE_FIELDS, required: requiredDriverDocumentFields(value) };
+      } };
+  }
   const result = applicationSchema.safeParse(payload);
   if (!result.success) throw new StagedUploadError("UPLOAD_STAGE_INVALID", "Check the highlighted application details.", fieldErrors(result.error));
   if (!result.data.profile) throw new StagedUploadError("UPLOAD_STAGE_INVALID", "Complete the current website application form.");
-  return { value: result.data, hash: digest(JSON.stringify(result.data)) };
+  return { kind: "application", jobId: result.data.jobId, email: result.data.email, hash: digest(JSON.stringify(result.data)),
+    jobTitleFiles: (title) => ({
+      allowed: ["resume", ...supportingDocumentTypes.map(({ id }) => `document:${id}`)],
+      required: ["resume", ...getRequiredProfileDocumentCategories(title).map((category) => `document:${category}`)],
+    }) };
 }
 function checkEnvelope(upload: unknown) {
   if (!exact(upload, ["sha256", "totalBytes", "chunkCount", "contentType"]) ||
@@ -87,10 +108,10 @@ function checkEnvelope(upload: unknown) {
     throw new StagedUploadError("UPLOAD_STAGE_INVALID");
   return upload as unknown as StagedUploadStart["upload"];
 }
-function checkFiles(files: unknown, jobTitle: string, envelopeBytes: number) {
-  if (!Array.isArray(files) || files.length < 1 || files.length > supportingDocumentTypes.length + 1)
+function checkFiles(files: unknown, rules: { allowed: string[]; required: string[] }, envelopeBytes: number) {
+  if (!Array.isArray(files) || files.length < 1 || files.length > rules.allowed.length)
     throw new StagedUploadError("UPLOAD_STAGE_INVALID");
-  const allowedFields = new Set(["resume", ...supportingDocumentTypes.map(({ id }) => `document:${id}`)]);
+  const allowedFields = new Set(rules.allowed);
   const seen = new Set<string>();
   const mimeByExtension: Record<string, string> = {
     pdf: "application/pdf", doc: "application/msword", docx: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
@@ -115,8 +136,7 @@ function checkFiles(files: unknown, jobTitle: string, envelopeBytes: number) {
   }
   if (total > MAX_APPLICATION_UPLOAD_BYTES || total >= envelopeBytes)
     throw new StagedUploadError("UPLOAD_STAGE_INVALID", "Keep all files together within 15 MB.", { documents: "Keep all files together within 15 MB." });
-  const required = ["resume", ...getRequiredProfileDocumentCategories(jobTitle).map((category) => `document:${category}`)];
-  const missing = Object.fromEntries(required.filter((field) => !seen.has(field)).map((field) => [field, "Attach the required application document."]));
+  const missing = Object.fromEntries(rules.required.filter((field) => !seen.has(field)).map((field) => [field, "Attach the required application document."]));
   if (Object.keys(missing).length) throw new StagedUploadError("UPLOAD_STAGE_INVALID", "Attach the required application documents.", missing);
 }
 
@@ -206,11 +226,12 @@ export async function initializeStagedUpload(input: unknown, clientAddress = "sh
   requireGoogleStorage();
   if (!exact(input, ["payload", "submissionKey", "upload", "files"]) || typeof input.submissionKey !== "string" || !UUID.test(input.submissionKey))
     throw new StagedUploadError("UPLOAD_STAGE_INVALID");
-  const { value, hash } = payloadDigest(input.payload);
+  const value = payloadDigest(input.payload);
+  const hash = value.hash;
   const job = publishedCatalogJobs.find(({ id }) => id === value.jobId);
   if (!job || job.status !== "published") throw new StagedUploadError("UPLOAD_STAGE_CONFLICT", "This position is no longer accepting applications.");
   const upload = checkEnvelope(input.upload);
-  checkFiles(input.files, job.title, upload.totalBytes);
+  checkFiles(input.files, value.jobTitleFiles(job.title), upload.totalBytes);
   const manifest: StageManifest = {
     id: randomUUID(), idempotencyKey: input.submissionKey, size: upload.totalBytes,
     chunkSize: STAGED_UPLOAD_CHUNK_BYTES, chunkCount: upload.chunkCount, sha256: upload.sha256,
@@ -275,7 +296,7 @@ export async function restoreStagedFormData(ticket: string): Promise<FormData> {
   try { payload = JSON.parse(String(form.get("payload"))); }
   catch { throw new StagedUploadError("UPLOAD_STAGE_INVALID"); }
   const parsed = payloadDigest(payload);
-  if (parsed.hash !== payloadHash || privateKey("email", parsed.value.email.trim().toLowerCase()) !== manifest.emailKey)
+  if (parsed.hash !== payloadHash || privateKey("email", parsed.email.trim().toLowerCase()) !== manifest.emailKey)
     throw new StagedUploadError("UPLOAD_STAGE_CONFLICT");
   // Leave private parts available until expiry: an acknowledgement may be lost.
   return form;

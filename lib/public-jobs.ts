@@ -1,6 +1,7 @@
 import { cache } from "react";
 import { additionalApplicationJobOptions, publishedCatalogJobs } from "../data/application-jobs";
 import { getJobBySlug, getJobs } from "./repository";
+import { isDriverPosition } from "./document-uploads";
 
 /** The public fair guide can run without a database; applicant/staff data never uses this fallback. */
 export function usesPublishedCatalog(env: Record<string, string | undefined> = process.env) {
@@ -28,4 +29,10 @@ export const getApplicationJobOptions = cache(async () => {
     .filter(({ title }) => !officialTitles.has(title.toLowerCase()))
     .map(({ id, title, slug }) => ({ id, title, slug }));
   return { jobs, additionalJobs };
+});
+
+/** Open driver roles (trailer, truck, bus, van, delivery…) for the driver-only form. */
+export const getDriverJobOptions = cache(async () => {
+  const { jobs, additionalJobs } = await getApplicationJobOptions();
+  return [...jobs, ...additionalJobs].filter(({ title }) => isDriverPosition(title));
 });
