@@ -846,10 +846,56 @@ function chapterDriverSheet_(config) {
     sheet.getRange(1, 1, 1, columns).setValues([CHAPTER_DRIVER_HEADERS.slice()]);
     sheet.getRange(1, 1, 1, columns).setFontWeight('bold');
     sheet.setFrozenRows(1);
+    // Cosmetic only: a styling problem must never block a driver submission.
+    try { chapterStyleDriverSheet_(spreadsheet, sheet, config); } catch (_) { /* keep the plain tab */ }
   }
   chapterAssert_(sheet.getMaxColumns() >= columns && sheet.getLastColumn() <= columns &&
     sheet.getRange(1, 1, 1, columns).getValues()[0].every(function (header, index) { return header === CHAPTER_DRIVER_HEADERS[index]; }), 'HEADER_MISMATCH');
   return { sheet: sheet, config: Object.assign({}, config, { sheetName: name }) };
+}
+
+/** Owner action: give the Driver Applications tab the same look as the Applications tab. Values are not changed. */
+function formatDriverApplicationsTab() {
+  const config = chapterConfig_();
+  const lock = LockService.getScriptLock();
+  chapterAssert_(lock.tryLock(25000), 'BUSY_RETRY');
+  try {
+    const target = chapterDriverSheet_(config);
+    chapterStyleDriverSheet_(SpreadsheetApp.openById(config.sheetId), target.sheet, config);
+    return { ok: true, sheetName: target.config.sheetName };
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+// Driver columns that share an Applications column take its exact header, cell format and width.
+const CHAPTER_DRIVER_STYLE_ALIASES = Object.freeze({ 'Driver position': 'Job position' });
+
+function chapterStyleDriverSheet_(spreadsheet, sheet, config) {
+  const source = spreadsheet.getSheetByName(config.sheetName);
+  if (!source || source.getSheetId() === sheet.getSheetId() || source.getLastColumn() < 2) return;
+  const columns = CHAPTER_DRIVER_HEADERS.length;
+  const sourceHeaders = source.getRange(1, 1, 1, source.getLastColumn()).getValues()[0];
+  // The Reference column is the template for driver-only questions.
+  const template = Math.max(1, sourceHeaders.indexOf('Reference') + 1);
+  const rows = sheet.getMaxRows();
+  CHAPTER_DRIVER_HEADERS.forEach(function (header, index) {
+    const match = sourceHeaders.indexOf(CHAPTER_DRIVER_STYLE_ALIASES[header] || header) + 1;
+    const from = match || template;
+    const column = index + 1;
+    source.getRange(1, from).copyFormatToRange(sheet, column, column, 1, 1);
+    if (source.getMaxRows() > 1 && rows > 1) source.getRange(2, from).copyFormatToRange(sheet, column, column, 2, rows);
+    sheet.setColumnWidth(column, source.getColumnWidth(from));
+  });
+  // Formats can carry tracker dropdowns; driver answers keep only their own values.
+  sheet.getRange(1, 1, rows, columns).clearDataValidations();
+  sheet.setRowHeight(1, source.getRowHeight(1));
+  if (source.getMaxRows() > 1 && rows > 1) sheet.setRowHeights(2, rows - 1, source.getRowHeight(2));
+  if (sourceHeaders[0] === 'Application ID' && source.isColumnHiddenByUser(1)) sheet.hideColumns(1);
+  sheet.setFrozenRows(Math.max(1, source.getFrozenRows()));
+  sheet.setFrozenColumns(Math.min(source.getFrozenColumns(), 5));
+  // A filter gives the header row its dropdowns and the green row/column markers, as on Applications.
+  if (!sheet.getFilter()) sheet.getRange(1, 1, rows, columns).createFilter();
 }
 
 function chapterSaveDriverApplication_(config, payload) {
