@@ -28,15 +28,18 @@ function answers(overrides: Record<string, unknown> = {}) {
     englishProficiency: "Yes", referralSource: "Facebook", termsAccepted: true, consent: true, ...overrides,
   };
 }
-function pdf(label: string) {
-  return new File([Buffer.from(`%PDF-1.4\n${label}\n%%EOF\n`)], `${label}.pdf`, { type: "application/pdf" });
+function pdf(label: string, size = 0) {
+  const bytes = Buffer.alloc(Math.max(size, 32), " ");
+  bytes.write(`%PDF-1.4\n${label}\n`);
+  bytes.write("\n%%EOF\n", bytes.length - 7);
+  return new File([bytes], `${label}.pdf`, { type: "application/pdf" });
 }
-function form(values: unknown, files: Record<string, File>, key = randomUUID()) {
+function form(values: unknown, files: Record<string, File | File[]>, key = randomUUID()) {
   const body = new FormData();
   body.set("payload", JSON.stringify(values));
   body.set("idempotencyKey", key);
   body.set("applicationCheck", "");
-  for (const [field, file] of Object.entries(files)) body.set(field, file);
+  for (const [field, value] of Object.entries(files)) for (const file of [value].flat()) body.append(field, file);
   return body;
 }
 function request(body: FormData, url = `${origin}/api/driver-applications`) {
@@ -79,14 +82,14 @@ test("the general driver form accepts drivers without CE or an IDP, but never sh
   assert.ok(driverApplicationSchema.safeParse(driver).success);
   assert.equal(driverApplicationSchema.safeParse({ ...driver, shareWithTendaDom: true }).success, false);
   assert.deepEqual(requiredDriverDocumentFields({ variant: "driver", shareWithTendaDom: false, hasIdp: "No" }), ["document:license-front", "document:license-back"]);
-  assert.deepEqual(requiredDriverDocumentFields({ variant: "driver", shareWithTendaDom: false, hasIdp: "Yes" }), ["document:license-front", "document:license-back", "document:idp-1"]);
-  assert.deepEqual(requiredDriverDocumentFields({ variant: "czech-licence-check", shareWithTendaDom: true, hasIdp: "Yes" }), ["document:license-front", "document:license-back", "document:idp-1"]);
+  assert.deepEqual(requiredDriverDocumentFields({ variant: "driver", shareWithTendaDom: false, hasIdp: "Yes" }), ["document:license-front", "document:license-back", "document:idp"]);
+  assert.deepEqual(requiredDriverDocumentFields({ variant: "czech-licence-check", shareWithTendaDom: true, hasIdp: "Yes" }), ["document:license-front", "document:license-back", "document:idp"]);
 });
 
-test("driver submissions are signed to the receiver with licence, IDP and CV files in their own categories", async () => {
+test("driver submissions are signed to the receiver with several files per box, numbered in the order added", async () => {
   const response = await submitDriverApplication(request(form(answers(), {
-    "document:license-front": pdf("front"), "document:license-back": pdf("back"),
-    "document:idp-1": pdf("idp-1"), "document:idp-2": pdf("idp-2"), resume: pdf("cv"),
+    "document:license-front": [pdf("front"), pdf("front-close-up")], "document:license-back": pdf("back"),
+    "document:idp": [pdf("idp-cover"), pdf("idp-page-2"), pdf("idp-page-3")], resume: pdf("cv"),
   })));
   assert.equal(response.status, 201);
   const body = await response.json();
@@ -99,18 +102,23 @@ test("driver submissions are signed to the receiver with licence, IDP and CV fil
   assert.equal(payload.application.licenseCategories, "B, C, CE");
   assert.equal(payload.application.meetsCzechRequirement, "Yes");
   assert.equal(payload.application.shareWithTendaDom, "Yes");
-  assert.deepEqual(payload.documents.map(({ category }) => category).sort(), ["cv", "idp-1", "idp-2", "license-back", "license-front"]);
+  assert.deepEqual(payload.documents.map(({ category, name }) => `${category}:${name}`), [
+    "license-front-1:front.pdf", "license-front-2:front-close-up.pdf", "license-back-1:back.pdf",
+    "idp-1:idp-cover.pdf", "idp-2:idp-page-2.pdf", "idp-3:idp-page-3.pdf", "cv:cv.pdf",
+  ]);
   assert.ok(payload.documents.every(({ id, category }) => id === `${payload.application.id}-${category}`));
 });
 
-test("the driver route rejects missing documents, gaps in IDP pages, non-driver roles and unknown files", async () => {
-  const files = { "document:license-front": pdf("front"), "document:license-back": pdf("back"), "document:idp-1": pdf("idp") };
-  let response = await submitDriverApplication(request(form(answers(), { "document:license-front": pdf("front"), "document:idp-1": pdf("idp") })));
+test("the driver route rejects missing documents, too many files, non-driver roles and unknown files", async () => {
+  const files = { "document:license-front": pdf("front"), "document:license-back": pdf("back"), "document:idp": pdf("idp") };
+  let response = await submitDriverApplication(request(form(answers(), { "document:license-front": pdf("front"), "document:idp": pdf("idp") })));
   assert.equal(response.status, 422);
   assert.ok((await response.json()).fieldErrors["document:license-back"]);
-  response = await submitDriverApplication(request(form(answers(), { ...files, "document:idp-3": pdf("idp-3") })));
+  response = await submitDriverApplication(request(form(answers(), { ...files, "document:license-front": [1, 2, 3, 4].map((page) => pdf(`front-${page}`)) })));
   assert.equal(response.status, 422);
-  assert.ok((await response.json()).fieldErrors["document:idp-1"]);
+  assert.match((await response.json()).fieldErrors["document:license-front"], /up to 3 files/);
+  response = await submitDriverApplication(request(form(answers(), { ...files, "document:idp-1": pdf("old-field-name") })));
+  assert.equal(response.status, 422);
   response = await submitDriverApplication(request(form(answers({ variant: "driver", jobId: "proposed-fabricator-01", shareWithTendaDom: false }), files)));
   assert.equal(response.status, 409);
   response = await submitDriverApplication(request(form(answers(), { ...files, "document:passport": pdf("passport") })));
@@ -124,17 +132,42 @@ test("driver payloads cannot be submitted through the general application route"
   assert.equal(delivered.length, 0);
 });
 
-test("large driver uploads can be staged, but only with the driver file fields", async () => {
-  const start = (files: { field: string; name: string; size: number; type: string }[]) => initializeStagedUpload({
+test("each driver file may be 10 MB and all files together 30 MB", async () => {
+  const MB = 1024 * 1024;
+  let response = await submitDriverApplication(request(form(answers(), {
+    "document:license-front": pdf("front"), "document:license-back": pdf("back"), "document:idp": pdf("idp-scan", 9 * MB),
+  })));
+  assert.equal(response.status, 201);
+  response = await submitDriverApplication(request(form(answers(), {
+    "document:license-front": pdf("front"), "document:license-back": pdf("back"), "document:idp": pdf("idp-scan", 11 * MB),
+  })));
+  assert.equal(response.status, 422);
+  assert.match((await response.json()).fieldErrors["document:idp"], /10 MB/);
+  response = await submitDriverApplication(request(form(answers(), {
+    "document:license-front": pdf("front", 8 * MB), "document:license-back": pdf("back", 8 * MB),
+    "document:idp": [pdf("idp-1", 8 * MB), pdf("idp-2", 7 * MB)],
+  })));
+  assert.equal(response.status, 422);
+  assert.match((await response.json()).fieldErrors.documents, /30 MB/);
+  assert.equal(delivered.length, 1);
+});
+
+test("large driver uploads can be staged up to 30 MB, but only with the driver file fields", async () => {
+  const MB = 1024 * 1024;
+  const start = (files: { field: string; name: string; size: number; type: string }[], totalBytes = 5 * MB) => initializeStagedUpload({
     payload: answers(), submissionKey: randomUUID(), files,
-    upload: { sha256: "a".repeat(64), totalBytes: 5_000_000, chunkCount: 3, contentType: "multipart/form-data; boundary=driverBoundary" },
+    upload: { sha256: "a".repeat(64), totalBytes, chunkCount: Math.ceil(totalBytes / (2 * MB)), contentType: "multipart/form-data; boundary=driverBoundary" },
   });
-  const file = (field: string) => ({ field, name: `${field.replace(":", "-")}.jpg`, size: 900_000, type: "image/jpeg" });
-  const staged = await start([file("document:license-front"), file("document:license-back"), file("document:idp-1"), file("document:idp-2")]);
+  const file = (field: string, size = 900_000) => ({ field, name: `${field.replace(":", "-")}.jpg`, size, type: "image/jpeg" });
+  const staged = await start([file("document:license-front"), file("document:license-back"), file("document:idp"), file("document:idp"), file("document:idp")]);
   assert.equal(staged.chunkCount, 3);
-  await assert.rejects(start([file("document:license-front"), file("document:idp-1")]), (error: unknown) =>
+  const large = await start([file("document:license-front", 9 * MB), file("document:license-back", 9 * MB), file("document:idp", 9 * MB)], 28 * MB);
+  assert.equal(large.chunkCount, 14);
+  await assert.rejects(start([file("document:license-front"), file("document:license-back"), file("document:idp")], 33 * MB), StagedUploadError);
+  await assert.rejects(start([file("document:license-front"), file("document:idp")]), (error: unknown) =>
     error instanceof StagedUploadError && Boolean(error.fieldErrors?.["document:license-back"]));
-  await assert.rejects(start([file("document:license-front"), file("document:license-back"), file("document:idp-1"), file("document:passport")]), StagedUploadError);
+  await assert.rejects(start([file("document:license-front"), file("document:license-back"), file("document:idp"), file("document:passport")]), StagedUploadError);
+  await assert.rejects(start([file("document:license-front"), file("document:license-back"), file("document:idp", 11 * MB)], 14 * MB), StagedUploadError);
 });
 
 test("a mismatched receiver acknowledgement never confirms a driver application", async () => {
@@ -214,7 +247,7 @@ test("the receiver writes driver applications to their own tab, with private fil
       drivingExperienceYears: 8, hasIdp: "Yes", idpExpiry: nextYear, meetsCzechRequirement: "Yes", shareWithTendaDom: "Yes",
       englishProficiency: "Yes", referralSource: "Facebook", termsAccepted: true, consent: true, applicationSource: "Jobs in Croatia",
     },
-    documents: ["license-front", "license-back", "idp-1", "idp-2"].map(document),
+    documents: ["license-front-1", "license-front-2", "license-back-1", "idp-1", "idp-2", "idp-3"].map(document),
   };
   const post = (body: unknown) => {
     const timestamp = Date.now();
@@ -232,13 +265,26 @@ test("the receiver writes driver applications to their own tab, with private fil
   assert.equal(row[5], "=SUM(1,1)"); // written RAW, never as a formula
   assert.equal(row[15], "B, C, CE");
   assert.equal(row[20], "Yes");
-  assert.match(String(row[22]), /^https:\/\/drive\.google\.com\/file\/d\/private-file-\d\/view$/);
-  assert.equal(String(row[24]).split("\n").length, 2);
+  // One cell per box, one private link per line, in the order added.
+  const links = (cell: unknown) => String(cell).split("\n");
+  assert.deepEqual(links(row[22]), ["https://drive.google.com/file/d/private-file-1/view", "https://drive.google.com/file/d/private-file-2/view"]);
+  assert.equal(links(row[23]).length, 1);
+  assert.deepEqual(links(row[24]), [4, 5, 6].map((n) => `https://drive.google.com/file/d/private-file-${n}/view`));
   assert.equal(row[25], "");
   assert.deepEqual(tabs.get("Applications")!.rows, [["untouched"]]);
   assert.deepEqual(post(payload), { ...first, duplicate: true });
-  assert.equal(files.length, 4);
+  assert.equal(files.length, 6);
   assert.equal(tab.rows.length, 2);
-  assert.deepEqual(post({ ...payload, documents: payload.documents.filter(({ category }) => category !== "license-back") }), { ok: false, code: "INVALID_DOCUMENT" });
+  assert.deepEqual(post({ ...payload, documents: payload.documents.filter(({ category }) => category !== "license-back-1") }), { ok: false, code: "INVALID_DOCUMENT" });
   assert.deepEqual(post({ ...payload, documents: [...payload.documents, document("passport")] }), { ok: false, code: "INVALID_DOCUMENT" });
+  assert.deepEqual(post({ ...payload, documents: [...payload.documents, document("license-front-3"), document("license-front-4")] }), { ok: false, code: "INVALID_DOCUMENT" });
+  // The previous website release sends single-file names; they stay accepted during the update.
+  const legacyId = `dr-${randomUUID()}`;
+  const legacy = {
+    ...payload, application: { ...payload.application, id: legacyId, reference: "DR-ABCDEF0123456789ABCDEF01" },
+    documents: ["license-front", "license-back", "idp-1"].map((category) => ({ ...document(category), id: `${legacyId}-${category}` })),
+  };
+  assert.deepEqual(post(legacy), { ok: true, applicationId: legacyId, reference: legacy.application.reference, row: 3, duplicate: false });
+  assert.equal(links(tab.rows[2][22]).length, 1);
+  assert.equal(links(tab.rows[2][24]).length, 1);
 });

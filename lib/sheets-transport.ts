@@ -174,7 +174,7 @@ export const sendApplicationToSheets: SheetsTransport = (payload, options) => de
 async function deliver(payload: SheetsPayload | DriverSheetsPayload, options?: { timeoutMs?: number }): Promise<SheetsAcknowledgement> {
   const config = sheetsConfiguration();
   if (!config.valid) throw new SheetsDeliveryError(config.code!);
-  const signal = AbortSignal.timeout(Math.min(120_000, Math.max(1000, options?.timeoutMs ?? 120_000)));
+  const signal = AbortSignal.timeout(Math.min(280_000, Math.max(1000, options?.timeoutMs ?? 120_000)));
   try {
     let response = await fetch(process.env.GOOGLE_SHEETS_WEBHOOK_URL!, {
       method: "POST",

@@ -47,12 +47,12 @@ async function uploadRequest(body: unknown): Promise<Record<string, unknown>> {
   return result;
 }
 
-export async function prepareApplicationUpload(form: FormData, key: string): Promise<PreparedApplicationUpload> {
+export async function prepareApplicationUpload(form: FormData, key: string, limits = { envelopeBytes: MAX_ENVELOPE_BYTES, label: "15 MB" }): Promise<PreparedApplicationUpload> {
   // Keep this exact multipart boundary and its bytes for an unchanged retry.
   const serialized = new Response(form);
   const bytes = new Uint8Array(await serialized.arrayBuffer());
-  if (bytes.length > MAX_ENVELOPE_BYTES)
-    throw new ApplicationUploadError("Keep all files together within 15 MB and try again.");
+  if (bytes.length > limits.envelopeBytes)
+    throw new ApplicationUploadError(`Keep all files together within ${limits.label} and try again.`);
   return {
     key, form, bytes, contentType: serialized.headers.get("content-type") || "",
     sha256: bytes.length > DIRECT_REQUEST_BYTES ? await digest(bytes) : "",

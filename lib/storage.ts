@@ -154,9 +154,10 @@ function validateDocx(bytes: Buffer) {
 export function validateResumeBytes(
   bytes: Buffer,
   filename: string,
+  maxBytes = MAX_RESUME_BYTES,
 ): ValidatedResume {
-  if (!bytes.length || bytes.length > MAX_RESUME_BYTES)
-    throw new UploadError("The resume must be no larger than 5 MB.");
+  if (!bytes.length || bytes.length > maxBytes)
+    throw new UploadError(maxBytes === MAX_RESUME_BYTES ? "The resume must be no larger than 5 MB." : `Each file must be no larger than ${maxBytes / 1024 / 1024} MB.`);
   const extension = path.extname(filename).toLowerCase().slice(1);
   let mime: string;
   if (extension === "pdf") {
@@ -267,11 +268,12 @@ export async function storeResume(resume: ValidatedResume) {
   await writeObject(key, resume.bytes, resume.mime);
   return key;
 }
-export async function validateSupportingDocument(file: File) {
-  if (!file.size || file.size > MAX_SUPPORTING_DOCUMENT_BYTES)
-    throw new UploadError("Each supporting document must be 5 MB or smaller.");
+export async function validateSupportingDocument(file: File, maxBytes = MAX_SUPPORTING_DOCUMENT_BYTES) {
+  const limit = `${maxBytes / 1024 / 1024} MB`;
+  if (!file.size || file.size > maxBytes)
+    throw new UploadError(`Each supporting document must be ${limit} or smaller.`);
   const bytes = Buffer.from(await file.arrayBuffer());
-  if (/\.(pdf|doc|docx)$/i.test(file.name)) return validateResumeBytes(bytes, file.name);
+  if (/\.(pdf|doc|docx)$/i.test(file.name)) return validateResumeBytes(bytes, file.name, maxBytes === MAX_SUPPORTING_DOCUMENT_BYTES ? undefined : maxBytes);
   if (!/\.(jpe?g|png)$/i.test(file.name))
     throw new UploadError("Supporting documents must be PDF, DOC, DOCX, JPG, or PNG files.");
   try {
@@ -281,10 +283,10 @@ export async function validateSupportingDocument(file: File) {
     if (metadata.format !== expected || !metadata.width || !metadata.height || (metadata.pages || 1) !== 1)
       throw new Error("Invalid scan");
     const sanitized = await image.rotate().flatten({ background: "#ffffff" }).jpeg({ quality: 90 }).toBuffer();
-    if (sanitized.length > MAX_SUPPORTING_DOCUMENT_BYTES) throw new Error("Scan too large");
+    if (sanitized.length > maxBytes) throw new Error("Scan too large");
     return { bytes: sanitized, extension: "jpg" as const, mime: "image/jpeg",
       name: path.basename(file.name.replace(/\\/g, "/")).replace(/[^a-zA-Z0-9._ ()-]/g, "_").replace(/\.(png|jpe?g)$/i, "").slice(0, 140) + ".jpg" };
-  } catch { throw new UploadError("Upload a valid JPG or PNG scan no larger than 5 MB."); }
+  } catch { throw new UploadError(`Upload a valid JPG or PNG scan no larger than ${limit}.`); }
 }
 export async function storeSupportingDocument(document: Awaited<ReturnType<typeof validateSupportingDocument>>) {
   const key = `documents/${randomUUID()}.${document.extension}`;

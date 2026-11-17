@@ -4,8 +4,8 @@ import { failure, json, limitedFormData, limitedJson, serverFailure } from "@/li
 import { sameOrigin } from "@/lib/auth";
 import { fieldErrors } from "@/lib/validation";
 import { UploadError, validateResume, validateSupportingDocument } from "@/lib/storage";
-import { MAX_APPLICATION_UPLOAD_BYTES, MAX_PROFILE_RESUME_BYTES } from "@/lib/document-uploads";
-import { DRIVER_FILE_FIELDS, driverApplicationSchema, driverDocumentFields, isDriverPosition, requiredDriverDocumentFields } from "@/lib/driver-applications";
+import { MAX_PROFILE_RESUME_BYTES } from "@/lib/document-uploads";
+import { DRIVER_FILE_LIMITS, DRIVER_MAX_ENVELOPE_BYTES, DRIVER_MAX_FILE_BYTES, DRIVER_MAX_TOTAL_BYTES, driverApplicationSchema, driverUploadFields, isDriverPosition, requiredDriverDocumentFields } from "@/lib/driver-applications";
 import { saveDriverApplicationToGoogle, type DriverUpload } from "@/lib/driver-application-storage";
 import { usesGoogleApplicationStorage } from "@/lib/google-application-storage";
 import { sheetsConfiguration, SheetsDeliveryError } from "@/lib/sheets-transport";
@@ -30,7 +30,7 @@ export async function POST(request: NextRequest) {
           !("stagedUploadTicket" in staged) || typeof staged.stagedUploadTicket !== "string")
         return failure("Use the website application form.", 400);
       form = await restoreStagedFormData(staged.stagedUploadTicket);
-    } else form = await limitedFormData(request, MAX_APPLICATION_UPLOAD_BYTES + 1024 * 1024);
+    } else form = await limitedFormData(request, DRIVER_MAX_ENVELOPE_BYTES);
     if (form.getAll("applicationCheck").some((value) => typeof value !== "string" || value.trim()))
       return failure("The application could not be accepted.", 400);
     const key = String(form.get("idempotencyKey") || "").toLowerCase();
@@ -47,43 +47,40 @@ export async function POST(request: NextRequest) {
     if (!job || job.status !== "published" || !isDriverPosition(job.title))
       return failure("This driver position is no longer accepting applications.", 409, { fieldErrors: { jobId: "Choose an open driver position." } });
 
-    const allowed = new Set(DRIVER_FILE_FIELDS);
     for (const [field, item] of form.entries())
-      if (item instanceof File && !allowed.has(field))
+      if (item instanceof File && !Object.hasOwn(DRIVER_FILE_LIMITS, field))
         return failure("Choose a supported document.", 422, { fieldErrors: { documents: "Choose a supported document." } });
     const missing = Object.fromEntries(requiredDriverDocumentFields(result.data)
       .filter((field) => !(form.get(field) instanceof File))
       .map((field) => [field, "Attach this document."]));
     if (Object.keys(missing).length) return failure("Attach the required documents.", 422, { fieldErrors: missing });
-    // IDP files must be filled in order so the tracker lists every page.
-    const idpFields = driverDocumentFields.filter(({ id }) => id.startsWith("idp-")).map(({ id }) => `document:${id}`);
-    const lastIdp = idpFields.findLastIndex((field) => form.get(field) instanceof File);
-    if (idpFields.slice(0, lastIdp + 1).some((field) => !(form.get(field) instanceof File)))
-      return failure("Attach your IDP pages again.", 422, { fieldErrors: { "document:idp-1": "Attach your IDP pages again." } });
 
     const uploads: DriverUpload[] = [];
+    const totalMessage = `Keep all files together within ${DRIVER_MAX_TOTAL_BYTES / 1024 / 1024} MB.`;
     let total = 0;
-    for (const field of DRIVER_FILE_FIELDS) {
+    for (const { field, maxFiles } of driverUploadFields) {
       const files = form.getAll(field);
-      if (files.length > 1 || files.some((item) => !(item instanceof File)))
-        return failure("Attach one file per document.", 422, { fieldErrors: { [field]: "Attach one file per document." } });
-      const file = files[0];
-      if (!(file instanceof File)) continue;
-      total += file.size;
-      if (total > MAX_APPLICATION_UPLOAD_BYTES)
-        return failure("Keep all uploads together within 15 MB.", 422, { fieldErrors: { documents: "Keep all uploads together within 15 MB." } });
-      try {
-        if (field === "resume") {
-          if (file.size > MAX_PROFILE_RESUME_BYTES) throw new UploadError("Your CV must be 5 MB or smaller.");
-          const resume = await validateResume(file);
-          uploads.push({ field, name: resume.name, mime: resume.mime, bytes: resume.bytes });
-        } else {
-          const document = await validateSupportingDocument(file);
-          uploads.push({ field, name: document.name, mime: document.mime, bytes: document.bytes });
+      if (files.some((item) => !(item instanceof File)))
+        return failure("Attach your documents again.", 422, { fieldErrors: { [field]: "Attach your documents again." } });
+      if (files.length > maxFiles)
+        return failure(`Attach up to ${maxFiles} files here.`, 422, { fieldErrors: { [field]: `Attach up to ${maxFiles} files here.` } });
+      // Files keep the order the applicant added them, so IDP pages stay in page order.
+      for (const file of files as File[]) {
+        total += file.size;
+        if (total > DRIVER_MAX_TOTAL_BYTES) return failure(totalMessage, 422, { fieldErrors: { documents: totalMessage } });
+        try {
+          if (field === "resume") {
+            if (file.size > MAX_PROFILE_RESUME_BYTES) throw new UploadError("Your CV must be 5 MB or smaller.");
+            const resume = await validateResume(file);
+            uploads.push({ field, name: resume.name, mime: resume.mime, bytes: resume.bytes });
+          } else {
+            const document = await validateSupportingDocument(file, DRIVER_MAX_FILE_BYTES);
+            uploads.push({ field, name: document.name, mime: document.mime, bytes: document.bytes });
+          }
+        } catch (error) {
+          if (error instanceof UploadError) return failure(`${file.name}: ${error.message}`, 422, { fieldErrors: { [field]: `${file.name}: ${error.message}` } });
+          throw error;
         }
-      } catch (error) {
-        if (error instanceof UploadError) return failure(error.message, 422, { fieldErrors: { [field]: error.message } });
-        throw error;
       }
     }
     const digest = createHash("sha256").update(JSON.stringify(result.data));
@@ -98,7 +95,7 @@ export async function POST(request: NextRequest) {
       return failure("We couldn’t confirm your application with Google Sheets. Please try again; your reference will be recovered if it was received.", 503);
     }
     if (error instanceof Error && error.message === "BODY_TOO_LARGE")
-      return failure("The upload is too large. Keep all files together within 15 MB.", 413);
+      return failure("The upload is too large. Keep all files together within 30 MB.", 413);
     if (error instanceof Error && error.message === "INVALID_MULTIPART") return failure("Use the website application form.", 400);
     return serverFailure(error);
   }

@@ -1,5 +1,5 @@
 import { createHmac } from "node:crypto";
-import { driverFormLabels, meetsCzechRequirement, type DriverApplication } from "./driver-applications";
+import { driverFormLabels, driverUploadFields, meetsCzechRequirement, type DriverApplication } from "./driver-applications";
 import { sendDriverApplicationToSheets, type DriverSheetsPayload, type DriverSheetsTransport } from "./sheets-transport";
 import type { Job } from "./types";
 
@@ -40,12 +40,16 @@ export async function saveDriverApplicationToGoogle(
       englishProficiency: input.englishProficiency, referralSource: input.referralSource,
       termsAccepted: true, consent: true, applicationSource: "Jobs in Croatia",
     },
-    documents: uploads.map(({ field, name, mime, bytes }) => {
-      const category = field === "resume" ? "cv" : field.replace(/^document:/, "");
+    // Number each box's files in the order they were added: license-front-1, idp-1, idp-2…
+    documents: uploads.map(({ field, name, mime, bytes }, index) => {
+      const base = driverUploadFields.find((item) => item.field === field)?.category;
+      if (!base) throw new Error("UNKNOWN_DRIVER_UPLOAD");
+      const category = base === "cv" ? "cv" : `${base}-${uploads.slice(0, index + 1).filter((item) => item.field === field).length}`;
       return { id: `${id}-${category}`, category, name, mime, base64: bytes.toString("base64") };
     }),
   };
-  const acknowledgement = await transport(payload, { timeoutMs: 100_000 });
+  // Up to 30 MB of files: allow the receiver time to store each one privately in Drive.
+  const acknowledgement = await transport(payload, { timeoutMs: 250_000 });
   // Never show a success/reference until the durable receiver confirms this record.
   if (acknowledgement.ok !== true || acknowledgement.applicationId !== id || acknowledgement.reference !== reference ||
       !Number.isSafeInteger(acknowledgement.row) || acknowledgement.row < 2 || typeof acknowledgement.duplicate !== "boolean")

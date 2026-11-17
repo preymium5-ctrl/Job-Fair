@@ -8,16 +8,18 @@ import type { Job } from "@/lib/types";
 import { fieldErrors } from "@/lib/validation";
 import { referralSources } from "@/lib/referral-sources";
 import { prepareApplicationUpload, stageApplicationUpload, resetStagedUpload, type PreparedApplicationUpload } from "@/lib/application-upload-client";
-import { MAX_APPLICATION_UPLOAD_BYTES, MAX_PROFILE_RESUME_BYTES, MAX_SUPPORTING_DOCUMENT_BYTES } from "@/lib/document-uploads";
+import { MAX_PROFILE_RESUME_BYTES } from "@/lib/document-uploads";
 import {
-  DRIVER_FORM_VERSION, MAX_IDP_FILES, driverApplicationSchema, holdsCzechTruckCategories, meetsCzechRequirement,
+  DRIVER_FORM_VERSION, DRIVER_FILE_LIMITS, DRIVER_MAX_ENVELOPE_BYTES, DRIVER_MAX_FILE_BYTES, DRIVER_MAX_TOTAL_BYTES, driverApplicationSchema, holdsCzechTruckCategories, meetsCzechRequirement,
   philippineLicenseCategories, requiredDriverDocumentFields, type DriverFormVariant, type PhilippineLicenseCategory,
 } from "@/lib/driver-applications";
 import { shrinkPhoto } from "@/lib/shrink-photo";
 import { applicationDestinationCountries, countryOptions } from "@/data/application-form-options";
 import { BrandLockup } from "@/components/ui/Brand";
 import AttachmentUpload from "./AttachmentUpload";
+import MultiFileUpload from "./MultiFileUpload";
 import styles from "./ApplicationForm.module.css";
+import driverStyles from "./DriverApplicationForm.module.css";
 
 type FormErrors = Record<string, string | undefined>;
 type JobOption = Pick<Job, "id" | "title" | "slug">;
@@ -28,9 +30,14 @@ type Answers = {
   hasIdp: "" | "Yes" | "No"; idpExpiry: string; shareWithTendaDom: boolean; englishProficiency: "" | "Yes" | "No";
   referralSource: string; termsAccepted: boolean; consent: boolean;
 };
-const PHOTO_SELECTION_BYTES = 25 * 1024 * 1024;
 const DOCUMENT_ACCEPT = ".pdf,.jpg,.jpeg,.png";
-const idpFields = Array.from({ length: MAX_IDP_FILES }, (_, index) => `document:idp-${index + 1}`);
+const TOTAL_MB = DRIVER_MAX_TOTAL_BYTES / 1024 / 1024;
+const FILE_MB = DRIVER_MAX_FILE_BYTES / 1024 / 1024;
+const missingMessages: Record<string, string> = {
+  "document:license-front": "Add a photo or scan of the FRONT of your licence.",
+  "document:license-back": "Add a photo or scan of the BACK of your licence.",
+  "document:idp": "Add photos or scans of all pages of your International Driving Permit.",
+};
 
 export default function DriverApplicationForm({ variant, jobs, defaultJobId = "" }: { variant: DriverFormVariant; jobs: JobOption[]; defaultJobId?: string }) {
   const czech = variant === "czech-licence-check";
@@ -41,7 +48,9 @@ export default function DriverApplicationForm({ variant, jobs, defaultJobId = ""
     hasIdp: czech ? "Yes" : "", idpExpiry: "", shareWithTendaDom: false, englishProficiency: "", referralSource: "",
     termsAccepted: false, consent: false,
   });
-  const [files, setFiles] = useState<Record<string, File | undefined>>({});
+  // Every upload box holds a list of files; the CV box holds at most one.
+  const [files, setFiles] = useState<Record<string, File[]>>({});
+  const [preparing, setPreparing] = useState<Record<string, boolean>>({});
   const [errors, setErrors] = useState<FormErrors>({});
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
@@ -59,8 +68,8 @@ export default function DriverApplicationForm({ variant, jobs, defaultJobId = ""
   const qualifies = meetsCzechRequirement(values);
   const showTendaDom = czech || qualifies;
   const requiredFields = requiredDriverDocumentFields({ variant, shareWithTendaDom: values.shareWithTendaDom, hasIdp: values.hasIdp });
-  const idpCount = idpFields.filter((field) => files[field]).length;
-  const totalUploadBytes = Object.values(files).reduce((sum, file) => sum + (file?.size || 0), 0);
+  const totalUploadBytes = Object.values(files).flat().reduce((sum, file) => sum + file.size, 0);
+  const totalFiles = Object.values(files).flat().length;
 
   function invalidateSubmission() { idempotencyRef.current = null; preparedUploadRef.current = null; }
   function update<K extends keyof Answers>(key: K, value: Answers[K]) {
@@ -71,32 +80,38 @@ export default function DriverApplicationForm({ variant, jobs, defaultJobId = ""
       if (!czech && !meetsCzechRequirement(next)) next.shareWithTendaDom = false;
       return next;
     });
-    setErrors((current) => ({ ...current, [key]: undefined, ...(key === "hasIdp" ? { idpExpiry: undefined, "document:idp-1": undefined } : {}) }));
+    setErrors((current) => ({ ...current, [key]: undefined, ...(key === "hasIdp" ? { idpExpiry: undefined, "document:idp": undefined } : {}) }));
   }
   function toggleCategory(category: PhilippineLicenseCategory, checked: boolean) {
     update("licenseCategories", checked ? [...values.licenseCategories, category] : values.licenseCategories.filter((item) => item !== category));
   }
   function fileError(field: string, file: File) {
     const isResume = field === "resume";
-    const max = isResume ? MAX_PROFILE_RESUME_BYTES : MAX_SUPPORTING_DOCUMENT_BYTES;
+    const max = isResume ? MAX_PROFILE_RESUME_BYTES : DRIVER_MAX_FILE_BYTES;
     if (!(isResume ? /\.(pdf|doc|docx)$/i : /\.(pdf|jpe?g|png)$/i).test(file.name))
       return isResume ? "Choose a PDF, DOC, or DOCX file." : "Choose a PDF, JPG, or PNG file.";
-    if (!file.size || file.size > max)
-      return /\.pdf$/i.test(file.name) && !isResume ? "This PDF is larger than 5 MB. Upload photos instead, or a smaller PDF." : `Choose a non-empty file of ${max / 1024 / 1024} MB or less.`;
+    if (!file.size) return "This file is empty. Choose it again.";
+    if (file.size > max)
+      return isResume ? "Your CV must be 5 MB or smaller." : `This file is larger than ${FILE_MB} MB. Upload photos instead, or a smaller PDF.`;
   }
-  async function chooseFile(field: string, file: File | null) {
+  async function addFiles(field: string, chosen: File[]) {
     invalidateSubmission();
-    const prepared = file && field !== "resume" ? await shrinkPhoto(file) : file;
-    setFiles((current) => {
-      const next = { ...current, [field]: prepared || undefined };
-      // Keep IDP pages contiguous so the tracker lists every page in order.
-      if (!prepared && field.startsWith("document:idp-")) {
-        const remaining = idpFields.map((item) => next[item]).filter(Boolean) as File[];
-        idpFields.forEach((item, index) => { next[item] = remaining[index]; });
-      }
-      return next;
-    });
-    setErrors((current) => ({ ...current, [field]: prepared ? fileError(field, prepared) : undefined, documents: undefined, ...(field.startsWith("document:idp-") ? Object.fromEntries(idpFields.map((item) => [item, undefined])) : {}) }));
+    setPreparing((current) => ({ ...current, [field]: true }));
+    // Phone photos are resized here so many pages fit within the limit.
+    const prepared = field === "resume" ? chosen : await Promise.all(chosen.map((file) => shrinkPhoto(file)));
+    setFiles((current) => ({ ...current, [field]: [...(current[field] || []), ...prepared].slice(0, DRIVER_FILE_LIMITS[field]) }));
+    setPreparing((current) => ({ ...current, [field]: false }));
+    setErrors((current) => ({ ...current, [field]: undefined, documents: undefined }));
+  }
+  function setResume(file: File) {
+    invalidateSubmission();
+    setFiles((current) => ({ ...current, resume: [file] }));
+    setErrors((current) => ({ ...current, resume: fileError("resume", file), documents: undefined }));
+  }
+  function removeFile(field: string, index: number) {
+    invalidateSubmission();
+    setFiles((current) => ({ ...current, [field]: (current[field] || []).filter((_, item) => item !== index) }));
+    setErrors((current) => ({ ...current, [field]: undefined, documents: undefined }));
   }
   function payload() {
     const years = values.drivingExperienceYears.trim() === "" ? undefined : Number(values.drivingExperienceYears);
@@ -112,9 +127,12 @@ export default function DriverApplicationForm({ variant, jobs, defaultJobId = ""
   }
   function validateFiles() {
     const next: FormErrors = {};
-    for (const field of requiredFields) if (!files[field]) next[field] = field === "document:idp-1" ? "Attach your International Driving Permit pages." : "Attach this side of your licence.";
-    for (const [field, file] of Object.entries(files)) if (file && fileError(field, file)) next[field] = fileError(field, file);
-    if (totalUploadBytes > MAX_APPLICATION_UPLOAD_BYTES) next.documents = "Keep all files together within 15 MB. Remove a file or upload smaller photos.";
+    for (const field of requiredFields) if (!files[field]?.length) next[field] = missingMessages[field];
+    for (const [field, list] of Object.entries(files)) {
+      const problem = list.map((file) => fileError(field, file)).find(Boolean);
+      if (problem) next[field] = `Remove or replace the file marked in red. ${problem}`;
+    }
+    if (totalUploadBytes > DRIVER_MAX_TOTAL_BYTES) next.documents = `All your files together are ${(totalUploadBytes / 1024 / 1024).toFixed(1)} MB. Keep them within ${TOTAL_MB} MB: remove a file or upload smaller photos.`;
     return next;
   }
   function showErrors(next: FormErrors) {
@@ -141,14 +159,15 @@ export default function DriverApplicationForm({ variant, jobs, defaultJobId = ""
     idempotencyRef.current ||= crypto.randomUUID();
     const body = new FormData();
     body.append("payload", JSON.stringify(parsed.data));
-    for (const [field, file] of Object.entries(files)) if (file) body.append(field, file);
+    // Append in the order added, so IDP pages arrive in page order.
+    for (const [field, list] of Object.entries(files)) for (const file of list) body.append(field, file);
     body.append("applicationCheck", applicationCheck);
     body.append("idempotencyKey", idempotencyRef.current);
     const fail = (message: string) => { setError(message); setBusy(false); submittingRef.current = false; };
     let transmission: Awaited<ReturnType<typeof stageApplicationUpload>>;
     try {
       if (preparedUploadRef.current?.key !== idempotencyRef.current)
-        preparedUploadRef.current = await prepareApplicationUpload(body, idempotencyRef.current);
+        preparedUploadRef.current = await prepareApplicationUpload(body, idempotencyRef.current, { envelopeBytes: DRIVER_MAX_ENVELOPE_BYTES, label: `${TOTAL_MB} MB` });
       transmission = await stageApplicationUpload(preparedUploadRef.current, setProgress);
     } catch (problem) {
       fail(problem instanceof Error ? problem.message : "We couldn’t upload your files. Select Submit to retry.");
@@ -162,7 +181,7 @@ export default function DriverApplicationForm({ variant, jobs, defaultJobId = ""
     xhr.onerror = () => fail("We couldn’t connect. Your application has not been confirmed. Check your connection and try again.");
     xhr.ontimeout = () => fail("The request timed out. Try again; your reference will be recovered if the application was received.");
     xhr.onload = () => {
-      if (xhr.status === 413) { showErrors({ documents: "Choose smaller files, with all files together within 15 MB." }); fail("We couldn’t transfer the files. Check their sizes and select Submit to retry."); return; }
+      if (xhr.status === 413) { showErrors({ documents: `Choose smaller files, with all files together within ${TOTAL_MB} MB.` }); fail("We couldn’t transfer the files. Check their sizes and select Submit to retry."); return; }
       let response: { error?: string; code?: string; fieldErrors?: FormErrors; reference?: string; jobTitle?: string };
       try { response = JSON.parse(xhr.responseText); }
       catch { fail("We couldn’t confirm your application. Please try again."); return; }
@@ -215,14 +234,15 @@ export default function DriverApplicationForm({ variant, jobs, defaultJobId = ""
       {errorText(key)}
     </fieldset>;
   }
-  function upload(field: string, label: string, required: boolean, hint: string, resume = false) {
-    return <AttachmentUpload key={field} id={field.replace(":", "-")} label={label} required={required} hint={hint}
-      accept={resume ? ".pdf,.doc,.docx" : DOCUMENT_ACCEPT} maxBytes={resume ? MAX_PROFILE_RESUME_BYTES : PHOTO_SELECTION_BYTES}
-      file={files[field] || null} error={errors[field]} disabled={busy} onChange={(file) => { void chooseFile(field, file); }} />;
+  function upload(field: string, label: string, required: boolean, hint: string) {
+    const list = files[field] || [];
+    return <MultiFileUpload key={field} id={field.replace(":", "-")} label={label} required={required} hint={hint}
+      accept={DOCUMENT_ACCEPT} maxFiles={DRIVER_FILE_LIMITS[field]} limitsText={`PDF, JPG or PNG · up to ${FILE_MB} MB per file`}
+      files={list} fileErrors={list.map((file) => fileError(field, file))} error={errors[field]} disabled={busy} busy={Boolean(preparing[field])}
+      onAdd={(chosen) => { void addFiles(field, chosen); }} onRemove={(index) => removeFile(field, index)} />;
   }
 
-  const visibleIdpSlots = Math.min(MAX_IDP_FILES, idpCount + 1);
-  const idpRequired = requiredFields.includes("document:idp-1");
+  const idpRequired = requiredFields.includes("document:idp");
   const errorCount = Object.values(errors).filter(Boolean).length;
 
   return <div className={styles.page}>
@@ -247,13 +267,26 @@ export default function DriverApplicationForm({ variant, jobs, defaultJobId = ""
           <div className={styles.intro}>
             <h1 ref={headingRef} tabIndex={-1}>{czech ? "Czech Republic licence check for C and CE drivers" : "Driver application form"}</h1>
             {czech ? <>
-              <p>Our employer partner in the Czech Republic, Tenda Dom, wants to confirm with the Czech authorities whether a driver with a valid Philippine driver’s licence showing categories C and CE, together with an International Driving Permit (IDP) issued in the Philippines, is allowed to drive a truck in the Czech Republic.</p>
-              <p>If you hold both and are willing to help, please send:</p>
-              <ul className={styles.documentList}>
-                <li>A photo or scan of the front and back of your Philippine driver’s licence.</li>
-                <li>Photos or scans of all pages of your International Driving Permit.</li>
-              </ul>
-              <p>Your documents are shared with Tenda Dom only for this verification, and only if you agree below.</p>
+              <p><strong>What is this about?</strong> Tenda Dom, our employer partner in the Czech Republic, wants to ask the Czech authorities one question: can a driver with a valid <strong>Philippine driver’s licence with categories C and CE</strong>, together with an <strong>International Driving Permit (IDP) issued in the Philippines</strong>, legally drive a truck in the Czech Republic? To ask, they need to show the authorities the documents of real drivers.</p>
+              <div className={driverStyles.box}>
+                <h2>Can I send my documents?</h2>
+                <p>Yes, if all three are true:</p>
+                <ul className={driverStyles.checks}>
+                  <li><CheckCircle2 size={18} aria-hidden="true" /><span>Your Philippine driver’s licence is valid and shows categories <strong>C and CE</strong>.</span></li>
+                  <li><CheckCircle2 size={18} aria-hidden="true" /><span>You have an <strong>International Driving Permit</strong> issued in the Philippines that is still valid.</span></li>
+                  <li><CheckCircle2 size={18} aria-hidden="true" /><span>You <strong>agree</strong> that we share these documents with Tenda Dom for this verification.</span></li>
+                </ul>
+              </div>
+              <div className={driverStyles.box}>
+                <h2>What to send</h2>
+                <ol className={driverStyles.steps}>
+                  <li>A photo or scan of the <strong>front</strong> of your Philippine driving licence.</li>
+                  <li>A photo or scan of the <strong>back</strong> of your Philippine driving licence.</li>
+                  <li>Photos or scans of <strong>all pages</strong> of your International Driving Permit, from the cover to the last page.</li>
+                </ol>
+                <p>Each upload box takes <strong>several files</strong>, so you can select many photos at once. Up to {TOTAL_MB} MB in total. Big phone photos are made smaller automatically.</p>
+              </div>
+              <p className={driverStyles.tip}><strong>Photo tips:</strong> lay the document flat in good light, show all four corners, avoid glare, and check that every word can be read.</p>
             </> : <>
               <p>This form is only for professional drivers, such as trailer, truck, bus, van and delivery drivers. Please enter your details as they appear on your passport and driver’s licence.</p>
               <p>Do you have categories C and CE on your Philippine licence and an International Driving Permit? Fill in the IDP questions below. You can also send your documents through the <Link href="/apply/drivers/czech-licence-check">Czech Republic licence check</Link>.</p>
@@ -300,26 +333,27 @@ export default function DriverApplicationForm({ variant, jobs, defaultJobId = ""
           </section>
 
           <section className={styles.section} aria-labelledby="documents-heading">
-            <h2 id="documents-heading">Document uploads</h2><span className={styles.rule} />
-            <p className={styles.sectionIntro}>Upload clear photos or scans in which every word is readable. Large photos are resized automatically. PDFs must be 5 MB or smaller, and all files together must be within 15 MB.</p>
+            <h2 id="documents-heading">Upload your documents</h2><span className={styles.rule} />
+            <p className={styles.sectionIntro}>Each box below takes <strong>several files</strong>. Tap a box, then select one or more photos or PDF scans. Make sure every word is readable. All files together can be up to {TOTAL_MB} MB ({FILE_MB} MB per file); big phone photos are made smaller automatically.</p>
             <div className={styles.uploads}>
-              {upload("document:license-front", "Philippine driver’s licence — front", true, "A photo or scan of the front of your valid licence, showing your categories.")}
-              {upload("document:license-back", "Philippine driver’s licence — back", true, "A photo or scan of the back of your licence, including restriction codes and conditions.")}
-              {Array.from({ length: visibleIdpSlots }, (_, index) => upload(idpFields[index],
-                index === 0 ? "Please upload photos or scans of all pages of your International Driving Permit (IDP)" : `More pages of your International Driving Permit (file ${index + 1} of up to ${MAX_IDP_FILES})`,
-                index === 0 && idpRequired,
-                index === 0 ? `Photos or scans of all pages of your International Driving Permit. Upload one PDF with every page, or one photo per page (two facing pages per photo is fine). Another upload box appears after each file, up to ${MAX_IDP_FILES} files.${idpRequired ? "" : " Optional if you do not have an IDP."}` : "Photos or scans of the remaining pages of your International Driving Permit, if any."))}
-              {upload("resume", "CV / Resume", false, "Optional. Attach your updated CV if you have one.", true)}
+              {upload("document:license-front", "Step 1: Front of your Philippine driver’s licence", true, "A photo or scan of the FRONT of your licence, showing your name, photo and licence categories (for example C and CE).")}
+              {upload("document:license-back", "Step 2: Back of your Philippine driver’s licence", true, "A photo or scan of the BACK of your licence, showing the restriction codes and conditions.")}
+              {upload("document:idp", "Step 3: Please upload photos or scans of all pages of your International Driving Permit (IDP)", idpRequired,
+                `Photos or scans of all pages of your International Driving Permit, from the cover to the last page. Select all your photos at once (up to ${DRIVER_FILE_LIMITS["document:idp"]} files), or upload one PDF with every page. Add them in page order if you can.${idpRequired ? "" : " Leave this empty if you do not have an IDP."}`)}
+              <AttachmentUpload id="resume" label="CV / Resume" hint="Optional. Attach your updated CV if you have one." accept=".pdf,.doc,.docx"
+                maxBytes={MAX_PROFILE_RESUME_BYTES} file={files.resume?.[0] || null} error={errors.resume} disabled={busy}
+                onChange={(file) => { if (file) setResume(file); else removeFile("resume", 0); }} />
             </div>
-            <p className={styles.help} role="status">{idpCount} IDP file{idpCount === 1 ? "" : "s"} attached · {(totalUploadBytes / 1024 / 1024).toFixed(1)} MB of 15 MB used.</p>
+            <p className={styles.help} role="status">{totalFiles} file{totalFiles === 1 ? "" : "s"} added · {(totalUploadBytes / 1024 / 1024).toFixed(1)} MB of {TOTAL_MB} MB used.</p>
             {errors.documents && <p className={styles.errorSummary} role="alert" data-form-error tabIndex={-1}>{errors.documents}</p>}
             <p className={styles.privacyHint}><LockKeyhole size={16} aria-hidden="true" />Your files are private and available only to authorized recruitment staff{showTendaDom ? " and, with your consent, Tenda Dom" : ""}.</p>
           </section>
 
           {showTendaDom && <section className={styles.section} aria-labelledby="tenda-dom-heading">
-            <h2 id="tenda-dom-heading">Consent to share with Tenda Dom</h2><span className={styles.rule} />
+            <h2 id="tenda-dom-heading">Your agreement to share documents with Tenda Dom</h2><span className={styles.rule} />
+            <p className={styles.sectionIntro}>Tenda Dom can only ask the Czech authorities about your case if they can see your documents. We will share <strong>only</strong> your Philippine driver’s licence and your International Driving Permit, <strong>only</strong> with Tenda Dom, and <strong>only</strong> for this verification.{czech ? " We cannot send your documents unless you tick the box." : " This is optional."}</p>
             <label className={styles.consent}><input id="shareWithTendaDom" type="checkbox" checked={values.shareWithTendaDom} disabled={busy} aria-required={czech} aria-invalid={Boolean(errors.shareWithTendaDom)} aria-describedby={errors.shareWithTendaDom ? "shareWithTendaDom-error" : undefined} onChange={(event) => update("shareWithTendaDom", event.target.checked)} />
-              <span>I agree that Jobs in Croatia may share my Philippine driver’s licence and International Driving Permit with Tenda Dom, so that Tenda Dom can verify with the relevant Czech authorities whether I am allowed to drive a truck in the Czech Republic.{czech ? "" : " (Optional)"}</span></label>
+              <span>Yes, I agree to have my Philippine driver’s licence and International Driving Permit shared with Tenda Dom for verification purposes.</span></label>
             {errorText("shareWithTendaDom")}
           </section>}
 

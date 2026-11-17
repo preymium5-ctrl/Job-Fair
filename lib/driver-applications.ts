@@ -21,15 +21,23 @@ export const philippineLicenseCategories = ["A", "A1", "B", "B1", "B2", "BE", "C
 export type PhilippineLicenseCategory = (typeof philippineLicenseCategories)[number];
 export const czechTruckCategories = ["C", "CE"] as const;
 
-/** The receiver lists at most 10 private files per application: CV, licence front/back and 7 IDP files. */
-export const MAX_IDP_FILES = 7;
-export const driverDocumentFields = [
-  { id: "license-front", label: "Philippine driver’s licence (front)" },
-  { id: "license-back", label: "Philippine driver’s licence (back)" },
-  ...Array.from({ length: MAX_IDP_FILES }, (_, index) => ({ id: `idp-${index + 1}`, label: `International Driving Permit (file ${index + 1})` })),
-] as const satisfies readonly { id: string; label: string }[];
-export type DriverDocumentCategory = "license-front" | "license-back" | `idp-${number}`;
-export const DRIVER_FILE_FIELDS = ["resume", ...driverDocumentFields.map(({ id }) => `document:${id}`)];
+/**
+ * Each upload box accepts several files. All files together may total 30 MB;
+ * a single file may be 10 MB (photos are resized in the browser first). The
+ * Google receiver enforces the same limits.
+ */
+export const DRIVER_MAX_TOTAL_BYTES = 30 * 1024 * 1024;
+export const DRIVER_MAX_FILE_BYTES = 10 * 1024 * 1024;
+/** Multipart envelope for staged uploads: the files plus form fields and boundaries. */
+export const DRIVER_MAX_ENVELOPE_BYTES = 32 * 1024 * 1024;
+export const driverUploadFields = [
+  { field: "document:license-front", category: "license-front", maxFiles: 3 },
+  { field: "document:license-back", category: "license-back", maxFiles: 3 },
+  { field: "document:idp", category: "idp", maxFiles: 20 },
+  { field: "resume", category: "cv", maxFiles: 1 },
+] as const;
+export type DriverUploadField = (typeof driverUploadFields)[number]["field"];
+export const DRIVER_FILE_LIMITS: Record<string, number> = Object.fromEntries(driverUploadFields.map(({ field, maxFiles }) => [field, maxFiles]));
 
 export function holdsCzechTruckCategories(categories: readonly string[]) {
   return czechTruckCategories.every((category) => categories.includes(category));
@@ -41,8 +49,8 @@ export function meetsCzechRequirement(input: { licenseCategories: readonly strin
 
 /** File fields that must be attached for this answer set (excluding the optional CV). */
 export function requiredDriverDocumentFields(input: { variant: DriverFormVariant; shareWithTendaDom: boolean; hasIdp: string }) {
-  const required = ["document:license-front", "document:license-back"];
-  if (input.variant === "czech-licence-check" || input.shareWithTendaDom || input.hasIdp === "Yes") required.push("document:idp-1");
+  const required: DriverUploadField[] = ["document:license-front", "document:license-back"];
+  if (input.variant === "czech-licence-check" || input.shareWithTendaDom || input.hasIdp === "Yes") required.push("document:idp");
   return required;
 }
 
