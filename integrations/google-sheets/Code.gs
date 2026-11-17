@@ -879,18 +879,20 @@ function chapterStyleDriverSheet_(spreadsheet, sheet, config) {
   // The Reference column is the template for driver-only questions.
   const template = Math.max(1, sourceHeaders.indexOf('Reference') + 1);
   const rows = sheet.getMaxRows();
+  // Copy body formatting from the newest applicant row: the first rows may be highlighted test entries.
+  const sample = source.getLastRow();
   CHAPTER_DRIVER_HEADERS.forEach(function (header, index) {
     const match = sourceHeaders.indexOf(CHAPTER_DRIVER_STYLE_ALIASES[header] || header) + 1;
     const from = match || template;
     const column = index + 1;
     source.getRange(1, from).copyFormatToRange(sheet, column, column, 1, 1);
-    if (source.getMaxRows() > 1 && rows > 1) source.getRange(2, from).copyFormatToRange(sheet, column, column, 2, rows);
+    if (sample > 1 && rows > 1) source.getRange(sample, from).copyFormatToRange(sheet, column, column, 2, rows);
     sheet.setColumnWidth(column, source.getColumnWidth(from));
   });
   // Formats can carry tracker dropdowns; driver answers keep only their own values.
   sheet.getRange(1, 1, rows, columns).clearDataValidations();
   sheet.setRowHeight(1, source.getRowHeight(1));
-  if (source.getMaxRows() > 1 && rows > 1) sheet.setRowHeights(2, rows - 1, source.getRowHeight(2));
+  if (sample > 1 && rows > 1) sheet.setRowHeights(2, rows - 1, source.getRowHeight(sample));
   if (sourceHeaders[0] === 'Application ID' && source.isColumnHiddenByUser(1)) sheet.hideColumns(1);
   sheet.setFrozenRows(Math.max(1, source.getFrozenRows()));
   sheet.setFrozenColumns(Math.min(source.getFrozenColumns(), 5));
