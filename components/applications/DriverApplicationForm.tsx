@@ -306,9 +306,9 @@ export default function DriverApplicationForm({ variant, jobs, defaultJobId = ""
               {upload("document:license-front", "Philippine driver’s licence — front", true, "A photo or scan of the front of your valid licence, showing your categories.")}
               {upload("document:license-back", "Philippine driver’s licence — back", true, "A photo or scan of the back of your licence, including restriction codes and conditions.")}
               {Array.from({ length: visibleIdpSlots }, (_, index) => upload(idpFields[index],
-                index === 0 ? "International Driving Permit — all pages" : `International Driving Permit — more pages (${index + 1} of up to ${MAX_IDP_FILES})`,
+                index === 0 ? "Please upload photos or scans of all pages of your International Driving Permit (IDP)" : `More pages of your International Driving Permit (file ${index + 1} of up to ${MAX_IDP_FILES})`,
                 index === 0 && idpRequired,
-                index === 0 ? `Upload every page of your IDP: one PDF with all pages, or one photo per page (or two facing pages per photo). Another upload box appears after each file, up to ${MAX_IDP_FILES} files.${idpRequired ? "" : " Optional if you do not have an IDP."}` : "Add the next page(s) of your IDP, if any."))}
+                index === 0 ? `Photos or scans of all pages of your International Driving Permit. Upload one PDF with every page, or one photo per page (two facing pages per photo is fine). Another upload box appears after each file, up to ${MAX_IDP_FILES} files.${idpRequired ? "" : " Optional if you do not have an IDP."}` : "Photos or scans of the remaining pages of your International Driving Permit, if any."))}
               {upload("resume", "CV / Resume", false, "Optional. Attach your updated CV if you have one.", true)}
             </div>
             <p className={styles.help} role="status">{idpCount} IDP file{idpCount === 1 ? "" : "s"} attached · {(totalUploadBytes / 1024 / 1024).toFixed(1)} MB of 15 MB used.</p>
