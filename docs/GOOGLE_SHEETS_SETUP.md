@@ -58,6 +58,22 @@ The browser reads the video length before uploading and refuses videos shorter t
 
 **Deploying the video form:** paste the updated `Code.gs` into the existing Apps Script project and update the **existing deployment** to a new version, exactly as for the driver forms. The health response then shows `videoApplications: 2` (the photo-capable receiver). No new scopes, Script Properties or setup runs are needed. Until the receiver is updated, the form shows "We couldn’t start the video upload" and nothing is stored; a receiver still on `videoApplications: 1` accepts the video upload but refuses the final submission, so applicants see a retry message.
 
+### Google Form version
+
+The same questions are also available as a Google Form, for applicants you would rather send a Google link. Its answers go to a separate **Video Applications (Google Form)** tab in the same spreadsheet. Google writes them there directly, with one column per question and private Drive links for the photo and video. The website's tabs are never changed.
+
+1. Paste the updated `Code.gs` into the Apps Script project. In the project's `appsscript.json`, add `https://www.googleapis.com/auth/forms` to `oauthScopes` (as in `integrations/google-sheets/appsscript.json`); without it the run stops with "Specified permissions are not sufficient to call FormApp.create". Updating the web app deployment is not needed for the form.
+2. In the editor, choose **`setupVideoApplicationGoogleForm`** and select **Run**. Google asks you to allow the script to manage your forms the first time. The execution log shows `formEditUrl`, `formLink` and the name of the responses tab.
+3. Open `formEditUrl`. Google does not let scripts create file upload questions, so add two by hand. Select the **Your photo and work video** heading, then **Add question** (the ⊕ button) twice. Google asks you to confirm that respondents must sign in and that files go to your Drive.
+   - **Upload your photo**: type *File upload*, required, **Allow only specific file types → Image**, maximum 1 file, maximum size 10 MB.
+   - **Upload your work video (at least 1 minute)**: type *File upload*, required, **Allow only specific file types → Video**, maximum 1 file, maximum size **100 MB**. Description: *At least one minute of you doing the actual work, up to 100 MB.*
+   - In the form's **Settings → Responses → Total size limit for all uploaded files**, raise the default 1 GB (about ten 100 MB videos) to **10 GB**, or more if your Drive has the space.
+4. Run `setupVideoApplicationGoogleForm` again. The log should say *Ready: share formLink with applicants.* Share `formLink`.
+
+Running the function again never makes a second form; it keeps the same form (its ID is in the `CHAPTER_VIDEO_FORM_ID` script property) and refreshes the position list. The position list is `CHAPTER_VIDEO_FORM_POSITIONS` in `Code.gs`, copied from the website's job list; a test fails when the two differ. After changing jobs, update that list, paste `Code.gs` again and rerun the function.
+
+Differences from the website form, all set by Google: applicants must sign in to a Google account to upload files. Uploaded files are stored in your own Drive, in a folder Google creates next to the form, not in the private applicant folder. Google Forms cannot check that a video is at least one minute long, so check the length when reviewing.
+
 ## One-time Google authorization and deployment
 
 1. Open the target spreadsheet as its owner. Choose **Extensions → Apps Script**. Name the project `Job Fair 2026 application receiver`.

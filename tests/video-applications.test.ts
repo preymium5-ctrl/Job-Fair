@@ -303,3 +303,102 @@ test("the receiver opens a Drive upload for the site's origin, then writes the v
   assert.equal(tab.rows.length, 2);
   assert.deepEqual(tabs.get("Applications")!.rows, [["untouched"]]);
 });
+
+test("the Google Form builder asks the website's questions and sends answers to its own tab", async () => {
+  const { publishedCatalogJobs, additionalApplicationJobOptions } = await import("../data/application-jobs");
+  const source = readFileSync(new URL("../integrations/google-sheets/Code.gs", import.meta.url), "utf8");
+  const properties = new Map<string, string>([["CHAPTER_WEBHOOK_SECRET", "form-test-secret-".repeat(3)]]);
+  type Item = { type: string; title: string; help?: string; required?: boolean; choices?: string[]; pattern?: string };
+  const items: Item[] = [];
+  const settings: Record<string, unknown> = {};
+  let destination = "";
+  let forms = 0;
+  const builder = (item: Item) => {
+    const chain: Record<string, (...args: unknown[]) => unknown> = {
+      setTitle: (title) => { item.title = String(title); return chain; },
+      setHelpText: (help) => { item.help = String(help); return chain; },
+      setRequired: (required) => { item.required = Boolean(required); return chain; },
+      setChoiceValues: (choices) => { item.choices = [...(choices as string[])]; return chain; },
+      setValidation: (validation) => { item.pattern = (validation as { pattern: string }).pattern; return chain; },
+    };
+    items.push(item);
+    return chain;
+  };
+  const form = {
+    getId: () => "form-123", getEditUrl: () => "https://docs.google.com/forms/d/form-123/edit",
+    getPublishedUrl: () => "https://docs.google.com/forms/d/e/published/viewform",
+    setDescription: (value: string) => { settings.description = value; }, setConfirmationMessage: (value: string) => { settings.confirmation = value; },
+    setAllowResponseEdits: (value: boolean) => { settings.edits = value; }, setShowLinkToRespondAgain: () => undefined,
+    setCollectEmail: () => undefined, setPublished: (value: boolean) => { settings.published = value; },
+    setAcceptingResponses: (value: boolean) => { settings.accepting = value; },
+    addTextItem: () => builder({ type: "TEXT", title: "" }), addListItem: () => builder({ type: "LIST", title: "" }),
+    addSectionHeaderItem: () => builder({ type: "SECTION_HEADER", title: "" }), addCheckboxItem: () => builder({ type: "CHECKBOX", title: "" }),
+    getItems: (type: string) => items.filter((item) => item.type === type).map((item) => ({
+      getTitle: () => item.title, asListItem: () => ({ setChoiceValues: (choices: string[]) => { item.choices = [...choices]; } }),
+    })),
+    getDestinationId: () => { if (!destination) throw new Error("no destination"); return destination; },
+    setDestination: (_type: string, id: string) => { destination = id; tabs.push({ name: "Form Responses 1", formUrl: "https://docs.google.com/forms/d/form-123/viewform", frozen: 0 }); },
+  };
+  const tabs = [{ name: "Applications", formUrl: null as string | null, frozen: 1 }, { name: "Video Applications", formUrl: null as string | null, frozen: 1 }];
+  const handle = (tab: (typeof tabs)[number]) => ({ getFormUrl: () => tab.formUrl, getName: () => tab.name,
+    setName: (name: string) => { tab.name = name; }, setFrozenRows: (count: number) => { tab.frozen = count; } });
+  const context = vm.createContext({
+    PropertiesService: { getScriptProperties: () => ({ getProperty: (key: string) => properties.get(key) ?? null, setProperty: (key: string, value: string) => properties.set(key, value) }) },
+    FormApp: {
+      ItemType: { LIST: "LIST", FILE_UPLOAD: "FILE_UPLOAD" }, DestinationType: { SPREADSHEET: "SPREADSHEET" },
+      create: () => { forms++; return form; }, openById: (id: string) => { if (id !== "form-123") throw new Error("missing"); return form; },
+      createTextValidation: () => { const validation = { pattern: "", requireTextMatchesPattern: (pattern: string) => { validation.pattern = pattern; return validation; },
+        setHelpText: () => validation, build: () => validation }; return validation; },
+    },
+    SpreadsheetApp: { flush: () => undefined, openById: () => ({ getSheets: () => tabs.map(handle),
+      getSheetByName: (name: string) => tabs.some((tab) => tab.name === name) ? {} : null }) },
+    Logger: { log: () => undefined },
+  });
+  vm.runInContext(source, context);
+  const result = vm.runInContext("setupVideoApplicationGoogleForm()", context) as Record<string, unknown>;
+
+  assert.equal(result.created, true);
+  assert.equal(result.formLink, "https://docs.google.com/forms/d/e/published/viewform");
+  assert.match(String(result.nextStep), /add the photo and video upload questions/);
+  assert.equal(properties.get("CHAPTER_VIDEO_FORM_ID"), "form-123");
+  assert.equal(destination, vm.runInContext("CHAPTER_SHEET_ID", context), "answers go to the same spreadsheet");
+  assert.deepEqual(tabs.map(({ name }) => name), ["Applications", "Video Applications", "Video Applications (Google Form)"]);
+  assert.equal(tabs[2].frozen, 1);
+  assert.deepEqual(items.map(({ type, title, required }) => [type, title, required ?? false]), [
+    ["TEXT", "Your complete name", true], ["TEXT", "Age", true], ["TEXT", "Nationality", true], ["LIST", "Position applying for", true],
+    ["TEXT", "Total years of experience in this position", true], ["TEXT", "WhatsApp number", true], ["TEXT", "Telegram number", true],
+    ["SECTION_HEADER", "Your photo and work video", false], ["SECTION_HEADER", "Terms and Conditions", false],
+    ["CHECKBOX", "Terms and conditions", true], ["CHECKBOX", "Privacy policy", true],
+  ]);
+  assert.equal(settings.published, true);
+  assert.equal(settings.accepting, true);
+  assert.equal(settings.edits, false);
+  assert.match(String(items[7].help), /at least one minute/);
+
+  // The answer patterns match the website's rules.
+  const pattern = (title: string) => new RegExp(items.find((item) => item.title === title)!.pattern!);
+  for (const age of ["18", "34", "70", " 45 "]) assert.match(age, pattern("Age"));
+  for (const age of ["17", "71", "3.5", "thirty", ""]) assert.doesNotMatch(age, pattern("Age"));
+  for (const years of ["0", "6", "50"]) assert.match(years, pattern("Total years of experience in this position"));
+  for (const years of ["51", "-1", "2.5"]) assert.doesNotMatch(years, pattern("Total years of experience in this position"));
+  for (const phone of ["+63 917 123 4567", "09171234567", "+385 (91) 123-4567"]) assert.match(phone, pattern("WhatsApp number"));
+  for (const phone of ["", "12345", "call me", "+63 917 abc 4567"]) assert.doesNotMatch(phone, pattern("Telegram number"));
+  assert.doesNotMatch("Jo", pattern("Your complete name"));
+  assert.match("Juan Santos Dela Cruz", pattern("Your complete name"));
+
+  // Same positions as the website's video form, in the same order.
+  const open = publishedCatalogJobs.filter((job) => job.status === "published" && !job.isExample && !job.applicationOnly).map(({ title }) => title);
+  const official = new Set(open.map((title) => title.toLowerCase()));
+  const expected = [...open, ...additionalApplicationJobOptions.filter(({ title }) => !official.has(title.toLowerCase())).map(({ title }) => title)];
+  assert.deepEqual(items[3].choices, expected, "update CHAPTER_VIDEO_FORM_POSITIONS in Code.gs when the job list changes");
+
+  // Running it again keeps the same form and only refreshes the positions.
+  items[3].choices = ["Old position"];
+  const again = vm.runInContext("setupVideoApplicationGoogleForm()", context) as Record<string, unknown>;
+  assert.equal(again.created, false);
+  assert.equal(forms, 1);
+  assert.equal(items.length, 11);
+  assert.deepEqual(items[3].choices, expected);
+  assert.equal(tabs.length, 3);
+  assert.equal(again.responsesTab, "Video Applications (Google Form)");
+});

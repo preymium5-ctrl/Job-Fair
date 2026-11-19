@@ -1211,6 +1211,132 @@ function chapterSaveVideoApplication_(config, payload) {
   return { ok: true, applicationId: application.id, reference: application.reference, row: rowNumber, duplicate: false };
 }
 
+/* ---------- Google Form version of the video application ---------- */
+
+// Same questions as the website's video form. Answers go to their own tab in this spreadsheet.
+// Regenerate this list from the website's job catalog when positions change (a test checks it).
+const CHAPTER_VIDEO_FORM_POSITIONS = Object.freeze([
+  'Fabricator', 'TIG / REL Welder', 'Pipe Fitter', 'M/G Winding Insulator', 'M/G Winding Production Worker',
+  'M/G Winding Processing Worker', 'Sheet Metal / Tinsmith Processor', 'M/G Assembly Fitter', 'MIG MAG / TIG / REL Welder',
+  'Electrical Installer', 'Electrical Assembler', 'Welder', 'MIG MAG / TIG Welder', 'CNC Operator', 'Industrial Spray Painter',
+  'Robotic Welding Machine Operator', 'Grinder', 'Cleaner', 'Waiter/Waitress', 'Production worker (Concrete Molder)',
+  'Grinder (Propeller)', 'Car Mechanic', 'Forklift Electrician', 'Bartender', 'Massage Therapist', 'Housekeeping',
+  'Cashier/Store Assistant', 'Deck Hand Sailor', 'Sailor', 'Sushi Chef', 'Baker', 'Kitchen Helper', 'Grill Cook',
+  'Tow Truck Driver', 'Farm Worker', 'Barber', 'Seamstress/Tailoring', 'Butcher', 'Furniture Assembler', 'Yacht Maintenance',
+  'Van Driver', 'Production and Fabrication of Aluminum and PVC (Doors, Windows, etc.)', 'Forklift Mechanic / Mechatronics',
+  'Welder TIG', 'Automotive Electrician', 'Car Electrician', 'Auto Tinsmith / Auto Bodyworker', 'Bus Driver', 'Forklift Operator',
+  'Construction Worker', 'Assistant Cook', 'Delivery Driver', 'Barista', 'Beautician', 'Building Maintenance',
+  'Car Interior Upholstery', 'Car Painter', 'Caregiver', 'Carpenter/Shuttering Carpenter', 'Chef', 'Construction Carpenter',
+  'Construction Electrician', 'Construction Foreman', 'Cook', 'Dentist', 'Domestic Helper', 'Electrician', 'Electrical Engineer',
+  'Facade Builder', 'Factory Worker', 'Fish Cutter', 'Fisherman', 'Gardener', 'HVAC Installer', 'Hairdresser',
+  'Heavy Truck Driver (Dumptruck)', 'Heavy Vehicle Mechanic', 'High-Voltage Electrician', 'Hostess', 'Industrial Painter',
+  'Industrial Fitter', 'Laundry Staff', 'Machine Operator', 'Mason', 'Nail Technician', 'Nanny', 'Nurse', 'Pet Groomer',
+  'Pizza Maker', 'Production Worker', 'Room Attendant', 'Shipfitter', 'Spray Painter', 'Steel Fixer', 'Tile Fitter',
+  'Tire Changer - Vulcanizer', 'Warehouseman', 'Welder Mig/Mag', 'Welder Tig/Mig', 'Wood Workers', 'Workshop Machinist',
+  'Yacht Carpenter', 'Yacht Painter', 'Receptionist', '3D Designer / Interior Architect', 'Dental Technician', 'News Presenter',
+  'ESO Cut and CAD/CAM Dental Labotary Technician', 'Bread Baker', 'Dental Technician (Prosthetics/ Denture Specialist)',
+  'Dental Technician (Ceramist/ Porcelain Specialist)', 'Dental Technician (CAD/ CAM Designer)',
+  'Sales Executive/ Medical Tourism', 'Dishwasher', 'Press Machine Technician', 'Hair Transplant Nurse', 'SteelFixer | Steelman',
+  'Shuttering Carpenter', 'Offset Web Printing Press Operator (Coldset)', 'Trailer Driver'
+]);
+const CHAPTER_VIDEO_FORM_ID = 'CHAPTER_VIDEO_FORM_ID';
+const CHAPTER_VIDEO_FORM_TAB = 'Video Applications (Google Form)';
+const CHAPTER_VIDEO_FORM_POSITION_TITLE = 'Position applying for';
+const CHAPTER_VIDEO_FORM_UPLOAD_TITLE = 'Your photo and work video';
+
+/**
+ * Owner action: run from the editor. Creates the Google Form once and links it to this spreadsheet;
+ * running it again only refreshes the position list. Google does not let scripts add file upload
+ * questions, so add the photo and video upload questions by hand (see docs/GOOGLE_SHEETS_SETUP.md).
+ */
+function setupVideoApplicationGoogleForm() {
+  const config = chapterConfig_(true);
+  const properties = PropertiesService.getScriptProperties();
+  const savedId = properties.getProperty(CHAPTER_VIDEO_FORM_ID);
+  let form = null;
+  if (savedId) {
+    try { form = FormApp.openById(savedId); } catch (_) { form = null; }
+  }
+  const created = !form;
+  if (created) {
+    form = chapterBuildVideoForm_();
+    properties.setProperty(CHAPTER_VIDEO_FORM_ID, form.getId());
+  } else {
+    const positions = form.getItems(FormApp.ItemType.LIST).filter(function (item) { return item.getTitle() === CHAPTER_VIDEO_FORM_POSITION_TITLE; });
+    chapterAssert_(positions.length === 1, 'FORM_POSITION_QUESTION_MISSING');
+    positions[0].asListItem().setChoiceValues(CHAPTER_VIDEO_FORM_POSITIONS.slice());
+  }
+  const sheetName = chapterLinkVideoForm_(form, config);
+  const hasUploads = form.getItems(FormApp.ItemType.FILE_UPLOAD).length >= 2;
+  const result = { ok: true, created: created, formEditUrl: form.getEditUrl(), formLink: form.getPublishedUrl(),
+    responsesTab: sheetName, positions: CHAPTER_VIDEO_FORM_POSITIONS.length,
+    nextStep: hasUploads ? 'Ready: share formLink with applicants.'
+      : 'Open formEditUrl and add the photo and video upload questions under "' + CHAPTER_VIDEO_FORM_UPLOAD_TITLE + '".' };
+  Logger.log(JSON.stringify(result, null, 2));
+  return result;
+}
+
+function chapterBuildVideoForm_() {
+  const form = FormApp.create('Video Application — Jobs in Croatia');
+  form.setDescription('Answer a few short questions and send us a video of yourself doing the actual work. It only takes a few minutes.\n\n' +
+    'You need a clear, recent photo of yourself and a video of at least 1 minute (up to 100 MB) of you doing the work for the position you choose. ' +
+    'Google asks you to sign in to your Google account to upload the files.\n\nNo placement fee.');
+  form.setConfirmationMessage('Thank you! We received your video application. Our recruitment team will contact you on WhatsApp or Telegram.');
+  form.setAllowResponseEdits(false);
+  form.setShowLinkToRespondAgain(false);
+  form.setCollectEmail(false);
+  const text = function (title, help, pattern, patternHelp) {
+    form.addTextItem().setTitle(title).setHelpText(help).setRequired(true)
+      .setValidation(FormApp.createTextValidation().requireTextMatchesPattern(pattern).setHelpText(patternHelp).build());
+  };
+  text('Your complete name', 'First name, middle name and last name, as written on your passport.',
+    '^\\s*\\S[\\s\\S]{1,118}\\S\\s*$', 'Write your complete name.');
+  text('Age', 'For example: 32', '^\\s*(1[89]|[2-6][0-9]|70)\\s*$', 'Write your age as a number from 18 to 70.');
+  text('Nationality', 'For example: Filipino', '^\\s*\\S[\\s\\S]{0,58}\\S\\s*$', 'Write your nationality.');
+  form.addListItem().setTitle(CHAPTER_VIDEO_FORM_POSITION_TITLE).setChoiceValues(CHAPTER_VIDEO_FORM_POSITIONS.slice()).setRequired(true);
+  text('Total years of experience in this position', 'Count only your experience in the position you selected above. For example: 5',
+    '^\\s*([0-9]|[1-4][0-9]|50)\\s*$', 'Write a whole number of years from 0 to 50.');
+  const phone = '^\\s*\\+?[0-9][0-9 ().-]{5,28}[0-9]\\s*$';
+  text('WhatsApp number', 'Include the country code, for example +63 912 345 6789.', phone, 'Write your WhatsApp number with the country code.');
+  text('Telegram number', 'Include the country code, for example +63 912 345 6789.', phone, 'Write your Telegram number with the country code.');
+  // The owner adds the two file upload questions directly below this heading.
+  form.addSectionHeaderItem().setTitle(CHAPTER_VIDEO_FORM_UPLOAD_TITLE).setHelpText(
+    'Upload a clear, recent photo of yourself. Then record at least one minute of yourself doing the actual work for the position you chose, ' +
+    'for example welding, cooking, cleaning a room, driving or operating a machine. Make sure we can see your face and your hands at work. ' +
+    'Your photo and video are private and available only to authorized recruitment staff.');
+  form.addSectionHeaderItem().setTitle('Terms and Conditions');
+  form.addCheckboxItem().setTitle('Terms and conditions').setRequired(true).setChoiceValues([
+    'I agree to the terms and conditions provided by Jobs in Croatia (https://www.jobsincroatiaa.com/terms). ' +
+    'By providing my contact details, I agree to receive messages about my application.']);
+  form.addCheckboxItem().setTitle('Privacy policy').setRequired(true).setChoiceValues([
+    'I agree to the privacy policy provided by Jobs in Croatia (https://www.jobsincroatiaa.com/privacy) and understand that ' +
+    'my information, photo and video will be used in accordance with the policy.']);
+  // Newer Google Forms must be published before they accept answers.
+  try { if (typeof form.setPublished === 'function') form.setPublished(true); } catch (_) { /* older forms are always published */ }
+  form.setAcceptingResponses(true);
+  return form;
+}
+
+/** Sends the form's answers to this spreadsheet and names their tab. Never renames the website's tabs. */
+function chapterLinkVideoForm_(form, config) {
+  let linked = '';
+  try { linked = form.getDestinationId(); } catch (_) { linked = ''; }
+  if (linked !== config.sheetId) form.setDestination(FormApp.DestinationType.SPREADSHEET, config.sheetId);
+  SpreadsheetApp.flush();
+  const spreadsheet = SpreadsheetApp.openById(config.sheetId);
+  const sheet = spreadsheet.getSheets().filter(function (tab) {
+    const url = tab.getFormUrl();
+    return Boolean(url) && url.indexOf(form.getId()) !== -1;
+  })[0];
+  if (!sheet) return 'Google is still creating the responses tab: run this again in a minute to name it.';
+  const websiteTabs = [config.sheetName, chapterDriverSheetName_(config),
+    PropertiesService.getScriptProperties().getProperty('CHAPTER_VIDEO_SHEET_NAME') || 'Video Applications'];
+  if (sheet.getName() !== CHAPTER_VIDEO_FORM_TAB && !spreadsheet.getSheetByName(CHAPTER_VIDEO_FORM_TAB) &&
+      websiteTabs.indexOf(sheet.getName()) === -1) sheet.setName(CHAPTER_VIDEO_FORM_TAB);
+  sheet.setFrozenRows(1);
+  return sheet.getName();
+}
+
 function chapterColumnName_(number) {
   let name = '';
   while (number > 0) {
