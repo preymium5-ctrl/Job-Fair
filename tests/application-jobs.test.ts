@@ -1,7 +1,8 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { additionalApplicationJobs, additionalApplicationJobOptions } from "../data/application-jobs";
-import { countryOptions, destinationCountries, referenceJobPositions, secondaryJobPositions } from "../data/application-form-options";
+import { additionalApplicationJobs, additionalApplicationJobOptions, applicantRequestedApplicationJobs } from "../data/application-jobs";
+import { jobSchema } from "../lib/validation";
+import { applicantRequestedJobPositions, countryOptions, destinationCountries, referenceJobPositions, secondaryJobPositions } from "../data/application-form-options";
 import { proposedJobs } from "../data/jobs";
 import { getRequiredProfileDocumentCategories, isDriverPosition } from "../lib/document-uploads";
 import { jobOrderJobs } from "../data/job-orders";
@@ -151,7 +152,26 @@ test("application choices have distinct persistent identifiers and preserve repr
     assert.equal(job?.slug, id, title);
   }
   // Closed roles (replaced by a job order) keep their IDs but are no longer offered.
-  assert.deepEqual(additionalApplicationJobOptions, additionalApplicationJobs.filter(({ status }) => status === "published").map(({ id, title, slug }) => ({ id, title, slug })));
+  assert.deepEqual(additionalApplicationJobOptions, [...additionalApplicationJobs, ...applicantRequestedApplicationJobs]
+    .filter(({ status }) => status === "published").map(({ id, title, slug }) => ({ id, title, slug })));
+});
+
+test("positions applicants asked for are offered once, as form choices without a public listing", () => {
+  assert.equal(applicantRequestedApplicationJobs.length, applicantRequestedJobPositions.length);
+  const existing = [...proposedJobs, ...additionalApplicationJobs, ...jobOrderJobs].map(({ title }) => title.toLowerCase());
+  const all = [...existing, ...applicantRequestedApplicationJobs.map(({ title }) => title.toLowerCase())];
+  assert.equal(new Set(all).size, all.length, "no position is listed twice");
+  const ids = [...proposedJobs, ...additionalApplicationJobs, ...jobOrderJobs, ...applicantRequestedApplicationJobs].map(({ id }) => id);
+  assert.equal(new Set(ids).size, ids.length);
+  for (const job of applicantRequestedApplicationJobs) {
+    assert.equal(job.applicationOnly, true, job.title);
+    assert.equal(job.status, "published", job.title);
+    assert.equal(job.salary, undefined, job.title);
+    assert.equal(job.openings, undefined, job.title);
+    assert.equal(jobSchema.safeParse(job).success, true, job.title);
+    assert.equal(additionalApplicationJobOptions.filter(({ id }) => id === job.id).length, 1, job.title);
+  }
+  assert.equal(applicantRequestedApplicationJobs.find(({ title }) => title === "Fruit Picker")?.id, "additional-fruit-picker");
 });
 
 test("all offered roles have operator-proposed pay and slots within the requested bounds", () => {

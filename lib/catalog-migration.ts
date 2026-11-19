@@ -1,7 +1,7 @@
 import { eq, sql } from "drizzle-orm";
 import { randomUUID } from "node:crypto";
 import { proposedJobs, proposalV1Jobs, previousRecruitmentJobs, combinedRoleRecruitmentJobs, preExpansionRecruitmentJobs } from "../data/jobs";
-import { addedApplicationJobsV1, additionalApplicationJobs, previousAdditionalApplicationJobs } from "../data/application-jobs";
+import { addedApplicationJobsV1, additionalApplicationJobs, applicantRequestedApplicationJobs, previousAdditionalApplicationJobs } from "../data/application-jobs";
 import { jobOrderJobs, jobOrderJobsV1, retiredApplicationRoles, trailerDriverJob, trailerDriverJobV1 } from "../data/job-orders";
 import { addedApplicationRoleTitles } from "../data/application-form-options";
 import { getJobFairRole, jobFair } from "../data/job-fair";
@@ -26,6 +26,7 @@ export const trailerDriverJobOrderVersion = "job-order-trailer-driver-2026-11-06
 export const trailerDriverUpdatesVersion = "job-order-trailer-driver-2026-11-07-v2";
 // v2 also moves rows seeded by v1 to Croatia; a database that applied v1 runs v2 once more.
 export const addedApplicationRolesVersion = "form-roles-steelfixer-shuttering-carpenter-2026-11-09-v2";
+export const applicantRequestedRolesVersion = "form-roles-applicant-requested-2026-11-19-v1";
 const employerPositionsVersion = "employer-positions-pdf-2026-10-20-v1";
 export const legacyExampleJobIds = [
   "example-warehouse-01",
@@ -139,6 +140,29 @@ export async function migrateAddedApplicationRoles(db: Database) {
     await tx.insert(audits).values({
       id: randomUUID(), actorId: "system:catalog-migration", action: "catalog.form-roles-added",
       targetId: addedApplicationRolesVersion, details: { addedIds, updatedIds, preservedIds },
+    });
+  });
+}
+
+/** Add the form-only positions applicants asked for, once, never replacing a record that owns the ID or URL. */
+export async function migrateApplicantRequestedRoles(db: Database) {
+  await db.transaction(async (tx) => {
+    if (process.env.DATABASE_URL) await tx.execute(sql`SELECT pg_advisory_xact_lock(621349133)`);
+    const [applied] = await tx.select().from(settings).where(eq(settings.key, applicantRequestedRolesVersion));
+    if (applied) return;
+    const addedIds: string[] = [];
+    const preservedIds: string[] = [];
+    for (const job of applicantRequestedApplicationJobs) {
+      const [byId] = await tx.select().from(jobs).where(eq(jobs.id, job.id));
+      const [bySlug] = await tx.select().from(jobs).where(eq(jobs.slug, job.slug));
+      if (byId || bySlug) { preservedIds.push((byId ?? bySlug)!.id); continue; }
+      await tx.insert(jobs).values({ id: job.id, slug: job.slug, status: job.status, data: job });
+      addedIds.push(job.id);
+    }
+    await tx.insert(settings).values({ key: applicantRequestedRolesVersion, value: new Date().toISOString() });
+    await tx.insert(audits).values({
+      id: randomUUID(), actorId: "system:catalog-migration", action: "catalog.form-roles-added",
+      targetId: applicantRequestedRolesVersion, details: { addedIds, preservedIds },
     });
   });
 }

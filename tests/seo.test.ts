@@ -101,7 +101,8 @@ test("database-free production renders the published fair catalog without touchi
     process.env = { ...original, NODE_ENV: "production" };
     delete process.env.DATABASE_URL;
     delete process.env.CHAPTER_LOCAL_MODE;
-    assert.equal((await getPublicJobs()).length, publishedCatalogJobs.filter(({ status }) => status === "published").length);
+    assert.equal((await getPublicJobs()).length, publishedCatalogJobs.filter(({ status, applicationOnly }) => status === "published" && !applicationOnly).length);
+    assert.equal(await getPublicJobBySlug("additional-fruit-picker"), undefined, "form-only positions have no public page");
     assert.equal((await getPublicJobBySlug("additional-nurse"))?.title, "Nurse");
     assert.equal((await getPublicJobBySlug("electrical-installer"))?.title, "Electrical Installer");
     assert.equal(await getPublicJobBySlug("missing-job"), undefined);

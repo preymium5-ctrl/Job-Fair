@@ -120,6 +120,64 @@ export const addedApplicationRoleTitles = ["SteelFixer | Steelman", "Shuttering 
 // rotated destinations (Romania and Macedonia) they were first published with.
 export const addedApplicationRoleDestination = "Croatia";
 
+// Positions Philippine applicants asked for in the operator's applicant list
+// (PH_APPLICANT.xlsx, 19 November 2026) that no form offered yet. They are form
+// choices only: no public listing, salary or slots until the operator sets them.
+// Misspellings were corrected and variants merged; choices already covered by an
+// existing role (for example "Barista (Mainly Coffee)" or "Trailer Truck Driver") are left out.
+export type ApplicantRequestedSector =
+  | "agriculture" | "automotive" | "construction" | "electrical" | "facilities" | "healthcare"
+  | "hospitality" | "machining" | "maritime" | "metal" | "production" | "sales" | "transport";
+export const applicantRequestedJobRoles: readonly (readonly [title: string, sector: ApplicantRequestedSector])[] = [
+  ["Fruit Picker", "agriculture"],
+  ["Sales Associate (Salesman/Saleslady)", "sales"],
+  ["Airport Ground Staff", "transport"],
+  ["B Category Driver (Light Vehicle Driver)", "transport"],
+  ["Delivery Helper", "transport"],
+  ["E-bike Delivery Rider", "transport"],
+  ["Taxi Driver", "transport"],
+  ["Aircon Maintenance Technician", "construction"],
+  ["Lifeguard", "maritime"],
+  ["Medium Truck Driver", "transport"],
+  ["Maintenance Man", "facilities"],
+  ["Scaffolder", "construction"],
+  ["Excavator Operator", "transport"],
+  ["Heavy Truck Driver (Delivery)", "transport"],
+  ["Bakery Sales Associate", "sales"],
+  ["Shelf Stocker/Retail Assistant", "sales"],
+  ["Caterer", "hospitality"],
+  ["Digital Printer Operator", "production"],
+  ["Automotive Refrigeration Technician", "automotive"],
+  ["Milling Machinist", "machining"],
+  ["Milling Machine Operator", "machining"],
+  ["Lathe Machinist", "machining"],
+  ["Loader Operator", "transport"],
+  ["Structural Fitter", "metal"],
+  ["Glass Installer", "construction"],
+  ["Exterior and Interior Finisher (Gypsum or Cement Plaster, Facade, Painting)", "construction"],
+  ["Print Finishing Worker", "production"],
+  ["Drilling Machine Operator", "machining"],
+  ["Fresh Meat & Fish Sales Associate", "sales"],
+  ["Pool Cleaner", "facilities"],
+  ["Croupier (Gambling Table Assistant)", "hospitality"],
+  ["Crane Operator", "transport"],
+  ["Truck Mechanic", "automotive"],
+  ["Iron Fitter", "metal"],
+  ["Construction Elements Installer", "construction"],
+  ["Brick Worker / Brick Mason", "construction"],
+  ["Jet Pump Operator", "construction"],
+  ["Plaster Worker", "construction"],
+  ["Yacht Plasticizing Worker", "maritime"],
+  ["DTF Printer Operator", "production"],
+  ["Event Support Technician", "sales"],
+  ["Bus Electrician", "electrical"],
+  ["Dental Hygienist", "healthcare"],
+  ["Event Organizer", "sales"],
+  ["Metal Caster", "metal"],
+  ["Bulldozer Operator", "transport"],
+];
+export const applicantRequestedJobPositions: readonly string[] = applicantRequestedJobRoles.map(([title]) => title);
+
 export const secondaryJobPositions: readonly string[] = [
   ...referenceJobPositions.slice(0, -2),
   "Press Machine Technician",

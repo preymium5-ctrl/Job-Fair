@@ -327,7 +327,7 @@ test("the Google Form builder asks the website's questions and sends answers to 
   const form = {
     getId: () => "form-123", getEditUrl: () => "https://docs.google.com/forms/d/form-123/edit",
     getPublishedUrl: () => "https://docs.google.com/forms/d/e/published/viewform",
-    setDescription: (value: string) => { settings.description = value; }, setConfirmationMessage: (value: string) => { settings.confirmation = value; },
+    setTitle: (value: string) => { settings.title = value; }, setDescription: (value: string) => { settings.description = value; }, setConfirmationMessage: (value: string) => { settings.confirmation = value; },
     setAllowResponseEdits: (value: boolean) => { settings.edits = value; }, setShowLinkToRespondAgain: () => undefined,
     setCollectEmail: () => undefined, setPublished: (value: boolean) => { settings.published = value; },
     setAcceptingResponses: (value: boolean) => { settings.accepting = value; },
@@ -346,7 +346,7 @@ test("the Google Form builder asks the website's questions and sends answers to 
     PropertiesService: { getScriptProperties: () => ({ getProperty: (key: string) => properties.get(key) ?? null, setProperty: (key: string, value: string) => properties.set(key, value) }) },
     FormApp: {
       ItemType: { LIST: "LIST", FILE_UPLOAD: "FILE_UPLOAD" }, DestinationType: { SPREADSHEET: "SPREADSHEET" },
-      create: () => { forms++; return form; }, openById: (id: string) => { if (id !== "form-123") throw new Error("missing"); return form; },
+      create: (title: string) => { forms++; settings.title = title; return form; }, openById: (id: string) => { if (id !== "form-123") throw new Error("missing"); return form; },
       createTextValidation: () => { const validation = { pattern: "", requireTextMatchesPattern: (pattern: string) => { validation.pattern = pattern; return validation; },
         setHelpText: () => validation, build: () => validation }; return validation; },
     },
@@ -393,9 +393,12 @@ test("the Google Form builder asks the website's questions and sends answers to 
   assert.deepEqual(items[3].choices, expected, "update CHAPTER_VIDEO_FORM_POSITIONS in Code.gs when the job list changes");
 
   // Running it again keeps the same form and only refreshes the positions.
+  assert.equal(settings.title, "Application for Job in Europe");
   items[3].choices = ["Old position"];
+  settings.title = "Video Application — Jobs in Croatia";
   const again = vm.runInContext("setupVideoApplicationGoogleForm()", context) as Record<string, unknown>;
   assert.equal(again.created, false);
+  assert.equal(settings.title, "Application for Job in Europe", "rerunning renames an older form");
   assert.equal(forms, 1);
   assert.equal(items.length, 11);
   assert.deepEqual(items[3].choices, expected);

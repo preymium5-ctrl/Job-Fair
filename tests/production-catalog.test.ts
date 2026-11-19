@@ -4,7 +4,7 @@ import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { combinedRoleRecruitmentJobs, proposedJobs } from "../data/jobs";
-import { additionalApplicationJobs } from "../data/application-jobs";
+import { additionalApplicationJobs, applicantRequestedApplicationJobs } from "../data/application-jobs";
 import { jobOrderJobs } from "../data/job-orders";
 import { closeDatabase, getDatabase } from "../lib/db";
 import { getJobById, getJobs } from "../lib/repository";
@@ -33,8 +33,11 @@ test("an existing production catalog receives new roles without initial seeding 
     const applicationJobs = await getJobs({ includeApplicationOnly: true });
     assert.equal(applicationJobs.some(({ id }) => id === closedAdditional.id), false);
     assert.equal(applicationJobs.filter(({ id }) => id.startsWith("additional-")).length,
-      additionalApplicationJobs.filter(({ id, status }) => id !== closedAdditional.id && status === "published").length);
-    assert.equal(applicationJobs.some(({ applicationOnly }) => applicationOnly), false);
+      additionalApplicationJobs.filter(({ id, status }) => id !== closedAdditional.id && status === "published").length + applicantRequestedApplicationJobs.length);
+    // Only the positions applicants asked for are form-only; they never appear among public jobs.
+    assert.deepEqual(applicationJobs.filter(({ applicationOnly }) => applicationOnly).map(({ id }) => id).sort(),
+      applicantRequestedApplicationJobs.map(({ id }) => id).sort());
+    assert.equal(publicJobs.some(({ applicationOnly }) => applicationOnly), false);
   } finally {
     await closeDatabase();
     if (!path.resolve(directory).startsWith(path.resolve(tmpdir()) + path.sep) || !path.basename(directory).startsWith("chapter-production-catalog-"))

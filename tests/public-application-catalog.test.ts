@@ -4,10 +4,10 @@ import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { eq } from "drizzle-orm";
-import { addedApplicationJobsV1, additionalApplicationJobs, previousAdditionalApplicationJobs, publishedCatalogJobs } from "../data/application-jobs";
+import { addedApplicationJobsV1, additionalApplicationJobs, applicantRequestedApplicationJobs, previousAdditionalApplicationJobs, publishedCatalogJobs } from "../data/application-jobs";
 import { preExpansionRecruitmentJobs, proposedJobs } from "../data/jobs";
 import { hiringWorkerTotal } from "../data/hiring-allocations";
-import { addedApplicationRolesVersion, migrateAddedApplicationRoles, migratePublicApplicationCatalog, publicApplicationCatalogVersion } from "../lib/catalog-migration";
+import { addedApplicationRolesVersion, applicantRequestedRolesVersion, migrateAddedApplicationRoles, migrateApplicantRequestedRoles, migratePublicApplicationCatalog, publicApplicationCatalogVersion } from "../lib/catalog-migration";
 import { closeDatabase, getDatabase } from "../lib/db";
 import { applications, audits, jobs, settings } from "../lib/schema";
 import type { Application, Job } from "../lib/types";
@@ -42,9 +42,10 @@ async function insert(data: Job) {
 }
 
 test("121 public proposals keep distinct IDs and valid structured job data without attaching new employers", () => {
-  assert.equal(publishedCatalogJobs.length, 121);
-  assert.equal(new Set(publishedCatalogJobs.map(({ id }) => id)).size, 121);
-  assert.equal(new Set(publishedCatalogJobs.map(({ slug }) => slug)).size, 121);
+  assert.equal(publishedCatalogJobs.filter(({ applicationOnly }) => !applicationOnly).length, 121);
+  assert.equal(publishedCatalogJobs.length, 121 + applicantRequestedApplicationJobs.length);
+  assert.equal(new Set(publishedCatalogJobs.map(({ id }) => id)).size, publishedCatalogJobs.length);
+  assert.equal(new Set(publishedCatalogJobs.map(({ slug }) => slug)).size, publishedCatalogJobs.length);
   for (const job of publishedCatalogJobs) assert.equal(jobSchema.safeParse(job).success, true, job.title);
   for (const job of additionalApplicationJobs) {
     assert.match(job.description, /operator-supplied proposals/);
@@ -103,6 +104,22 @@ test("deployed form choices become public while staff edits, closures, and appli
   await migratePublicApplicationCatalog(db);
   assert.deepEqual((await db.select().from(jobs).where(eq(jobs.id, original.id)))[0].data, later);
   assert.equal((await db.select().from(audits).where(eq(audits.targetId, publicApplicationCatalogVersion))).length, 1);
+});
+
+test("positions applicants asked for reach an existing database once, as form-only roles, keeping staff-owned URLs", async () => {
+  const fruit = applicantRequestedApplicationJobs.find(({ title }) => title === "Fruit Picker")!;
+  const owner = { ...fruit, id: "staff-fruit", title: "Staff fruit role" };
+  const db = await insert(owner);
+  await migrateApplicantRequestedRoles(db);
+  await migrateApplicantRequestedRoles(db);
+  const rows = await db.select().from(jobs);
+  assert.deepEqual(rows.find(({ id }) => id === owner.id)?.data, owner);
+  assert.equal(rows.some(({ id }) => id === fruit.id), false);
+  const added = applicantRequestedApplicationJobs.filter(({ id }) => id !== fruit.id);
+  for (const job of added) assert.deepEqual(rows.find(({ id }) => id === job.id)?.data, job, job.title);
+  const [audit, ...extra] = await db.select().from(audits).where(eq(audits.targetId, applicantRequestedRolesVersion));
+  assert.equal(extra.length, 0);
+  assert.deepEqual(audit.details, { addedIds: added.map(({ id }) => id), preservedIds: [owner.id] });
 });
 
 test("new role insertion preserves staff-owned URLs and never seeds missing fair jobs in production", async () => {

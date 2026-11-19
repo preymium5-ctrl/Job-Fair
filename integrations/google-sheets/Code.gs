@@ -1237,16 +1237,27 @@ const CHAPTER_VIDEO_FORM_POSITIONS = Object.freeze([
   'ESO Cut and CAD/CAM Dental Labotary Technician', 'Bread Baker', 'Dental Technician (Prosthetics/ Denture Specialist)',
   'Dental Technician (Ceramist/ Porcelain Specialist)', 'Dental Technician (CAD/ CAM Designer)',
   'Sales Executive/ Medical Tourism', 'Dishwasher', 'Press Machine Technician', 'Hair Transplant Nurse', 'SteelFixer | Steelman',
-  'Shuttering Carpenter', 'Offset Web Printing Press Operator (Coldset)', 'Trailer Driver'
+  'Shuttering Carpenter', 'Offset Web Printing Press Operator (Coldset)', 'Trailer Driver', 'Fruit Picker',
+  'Sales Associate (Salesman/Saleslady)', 'Airport Ground Staff', 'B Category Driver (Light Vehicle Driver)', 'Delivery Helper',
+  'E-bike Delivery Rider', 'Taxi Driver', 'Aircon Maintenance Technician', 'Lifeguard', 'Medium Truck Driver', 'Maintenance Man',
+  'Scaffolder', 'Excavator Operator', 'Heavy Truck Driver (Delivery)', 'Bakery Sales Associate', 'Shelf Stocker/Retail Assistant',
+  'Caterer', 'Digital Printer Operator', 'Automotive Refrigeration Technician', 'Milling Machinist', 'Milling Machine Operator',
+  'Lathe Machinist', 'Loader Operator', 'Structural Fitter', 'Glass Installer',
+  'Exterior and Interior Finisher (Gypsum or Cement Plaster, Facade, Painting)', 'Print Finishing Worker',
+  'Drilling Machine Operator', 'Fresh Meat & Fish Sales Associate', 'Pool Cleaner', 'Croupier (Gambling Table Assistant)',
+  'Crane Operator', 'Truck Mechanic', 'Iron Fitter', 'Construction Elements Installer', 'Brick Worker / Brick Mason',
+  'Jet Pump Operator', 'Plaster Worker', 'Yacht Plasticizing Worker', 'DTF Printer Operator', 'Event Support Technician',
+  'Bus Electrician', 'Dental Hygienist', 'Event Organizer', 'Metal Caster', 'Bulldozer Operator'
 ]);
 const CHAPTER_VIDEO_FORM_ID = 'CHAPTER_VIDEO_FORM_ID';
+const CHAPTER_VIDEO_FORM_TITLE = 'Application for Job in Europe';
 const CHAPTER_VIDEO_FORM_TAB = 'Video Applications (Google Form)';
 const CHAPTER_VIDEO_FORM_POSITION_TITLE = 'Position applying for';
 const CHAPTER_VIDEO_FORM_UPLOAD_TITLE = 'Your photo and work video';
 
 /**
  * Owner action: run from the editor. Creates the Google Form once and links it to this spreadsheet;
- * running it again only refreshes the position list. Google does not let scripts add file upload
+ * running it again only refreshes the title and the position list. Google does not let scripts add file upload
  * questions, so add the photo and video upload questions by hand (see docs/GOOGLE_SHEETS_SETUP.md).
  */
 function setupVideoApplicationGoogleForm() {
@@ -1265,6 +1276,7 @@ function setupVideoApplicationGoogleForm() {
     const positions = form.getItems(FormApp.ItemType.LIST).filter(function (item) { return item.getTitle() === CHAPTER_VIDEO_FORM_POSITION_TITLE; });
     chapterAssert_(positions.length === 1, 'FORM_POSITION_QUESTION_MISSING');
     positions[0].asListItem().setChoiceValues(CHAPTER_VIDEO_FORM_POSITIONS.slice());
+    form.setTitle(CHAPTER_VIDEO_FORM_TITLE);
   }
   const sheetName = chapterLinkVideoForm_(form, config);
   const hasUploads = form.getItems(FormApp.ItemType.FILE_UPLOAD).length >= 2;
@@ -1277,7 +1289,7 @@ function setupVideoApplicationGoogleForm() {
 }
 
 function chapterBuildVideoForm_() {
-  const form = FormApp.create('Video Application — Jobs in Croatia');
+  const form = FormApp.create(CHAPTER_VIDEO_FORM_TITLE);
   form.setDescription('Answer a few short questions and send us a video of yourself doing the actual work. It only takes a few minutes.\n\n' +
     'You need a clear, recent photo of yourself and a video of at least 1 minute (up to 100 MB) of you doing the work for the position you choose. ' +
     'Google asks you to sign in to your Google account to upload the files.\n\nNo placement fee.');
