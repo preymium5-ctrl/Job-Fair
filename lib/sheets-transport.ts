@@ -7,7 +7,7 @@ import type { Job } from "./types";
 import { getRetiredEmployerContext } from "./catalog-history";
 
 export const TARGET_SPREADSHEET_ID = "1v9-lAvpJPUCxCqr03EkVwKKAfedEDtckHir4ro6cyeU";
-export type SheetsErrorCode = "NOT_CONFIGURED" | "CONFIGURATION_INVALID" | "WEBHOOK_UNAVAILABLE" | "WEBHOOK_REJECTED" | "INVALID_ACKNOWLEDGEMENT" | "RESUME_UNAVAILABLE" | "SUBMISSION_RATE_LIMIT" | "DUPLICATE_CONFLICT";
+export type SheetsErrorCode = "NOT_CONFIGURED" | "CONFIGURATION_INVALID" | "WEBHOOK_UNAVAILABLE" | "WEBHOOK_REJECTED" | "INVALID_ACKNOWLEDGEMENT" | "RESUME_UNAVAILABLE" | "SUBMISSION_RATE_LIMIT" | "DUPLICATE_CONFLICT" | "VIDEO_UNAVAILABLE";
 export class SheetsDeliveryError extends Error {
   constructor(public readonly code: SheetsErrorCode) { super(code); }
 }
@@ -38,6 +38,31 @@ export interface DriverSheetsPayload {
   };
   documents: { id: string; category: string; name: string; mime: string; base64: string }[];
 }
+/** Quick video application: answers plus the Drive ID of a video the browser already uploaded. */
+export interface VideoSheetsPayload {
+  kind: "video-application";
+  version: 1;
+  application: {
+    id: string; reference: string; submittedAt: string; jobId: string; jobTitle: string;
+    fullName: string; age: number; nationality: string; experienceYears: number;
+    phone: string; telegram: string; termsAccepted: true; consent: true; applicationSource: "Jobs in Croatia";
+  };
+  video: { uploadId: string; fileId: string; name: string; mime: string; size: number; durationSeconds: number | null };
+}
+/** Asks the receiver to open a private Drive upload that the applicant's browser fills directly. */
+export interface VideoUploadSessionPayload {
+  kind: "video-upload-session";
+  version: 1;
+  uploadId: string;
+  name: string;
+  mime: string;
+  size: number;
+  /** The website origin; Drive allows browser uploads to the session only from it. */
+  origin: string;
+  /** Keyed hash of the WhatsApp number, used only for rate limits. */
+  contactKey: string;
+}
+type ReceiverPayload = SheetsPayload | DriverSheetsPayload | VideoSheetsPayload | VideoUploadSessionPayload;
 export interface SheetsAcknowledgement {
   ok: true;
   applicationId: string;
@@ -131,7 +156,7 @@ export function buildSheetsPayload(application: Application, resume: Buffer, job
   };
 }
 
-export function signedSheetsBody(payload: SheetsPayload | DriverSheetsPayload, secret: string, timestamp = Date.now()) {
+export function signedSheetsBody(payload: ReceiverPayload, secret: string, timestamp = Date.now()) {
   const serialized = JSON.stringify(payload);
   return JSON.stringify({
     timestamp,
@@ -140,7 +165,7 @@ export function signedSheetsBody(payload: SheetsPayload | DriverSheetsPayload, s
   });
 }
 
-async function readAcknowledgement(response: Response, payload: SheetsPayload | DriverSheetsPayload): Promise<SheetsAcknowledgement> {
+async function readReceiverJson(response: Response) {
   if (!response.ok) throw new SheetsDeliveryError("WEBHOOK_REJECTED");
   const reader = response.body?.getReader();
   if (!reader) throw new SheetsDeliveryError("INVALID_ACKNOWLEDGEMENT");
@@ -156,10 +181,16 @@ async function readAcknowledgement(response: Response, payload: SheetsPayload | 
     }
     chunks.push(item.value);
   }
-  let answer: Record<string, unknown>;
+  let answer: unknown;
   try { answer = JSON.parse(Buffer.concat(chunks).toString("utf8")); }
   catch { throw new SheetsDeliveryError("INVALID_ACKNOWLEDGEMENT"); }
-  if (answer && answer.ok === false && (answer.code === "SUBMISSION_RATE_LIMIT" || answer.code === "DUPLICATE_CONFLICT"))
+  if (!answer || typeof answer !== "object" || Array.isArray(answer)) throw new SheetsDeliveryError("INVALID_ACKNOWLEDGEMENT");
+  return answer as Record<string, unknown>;
+}
+
+async function readAcknowledgement(response: Response, payload: SheetsPayload | DriverSheetsPayload | VideoSheetsPayload): Promise<SheetsAcknowledgement> {
+  const answer = await readReceiverJson(response);
+  if (answer && answer.ok === false && (answer.code === "SUBMISSION_RATE_LIMIT" || answer.code === "DUPLICATE_CONFLICT" || answer.code === "VIDEO_UNAVAILABLE"))
     throw new SheetsDeliveryError(answer.code);
   if (!answer || answer.ok !== true || answer.applicationId !== payload.application.id || answer.reference !== payload.application.reference || typeof answer.row !== "number" || !Number.isSafeInteger(answer.row) || answer.row < 2 || typeof answer.duplicate !== "boolean")
     throw new SheetsDeliveryError("INVALID_ACKNOWLEDGEMENT");
@@ -170,11 +201,35 @@ async function readAcknowledgement(response: Response, payload: SheetsPayload | 
 export type DriverSheetsTransport = (payload: DriverSheetsPayload, options?: { timeoutMs?: number }) => Promise<SheetsAcknowledgement>;
 export const sendDriverApplicationToSheets: DriverSheetsTransport = (payload, options) => deliver(payload, options);
 export const sendApplicationToSheets: SheetsTransport = (payload, options) => deliver(payload, options);
+export type VideoSheetsTransport = (payload: VideoSheetsPayload, options?: { timeoutMs?: number }) => Promise<SheetsAcknowledgement>;
+export const sendVideoApplicationToSheets: VideoSheetsTransport = (payload, options) => deliver(payload, options);
 
-async function deliver(payload: SheetsPayload | DriverSheetsPayload, options?: { timeoutMs?: number }): Promise<SheetsAcknowledgement> {
+export type VideoUploadSessionTransport = (payload: VideoUploadSessionPayload) => Promise<{ uploadUrl: string }>;
+/** Returns the private Drive upload URL for this one video. */
+export const requestVideoUploadSession: VideoUploadSessionTransport = async (payload) => {
+  const answer = await callReceiver(payload, 60_000, readReceiverJson);
+  if (answer.ok === false && answer.code === "SUBMISSION_RATE_LIMIT") throw new SheetsDeliveryError("SUBMISSION_RATE_LIMIT");
+  const uploadUrl = answer.uploadUrl;
+  if (answer.ok !== true || answer.uploadId !== payload.uploadId || typeof uploadUrl !== "string" || uploadUrl.length > 2000)
+    throw new SheetsDeliveryError("INVALID_ACKNOWLEDGEMENT");
+  let url: URL;
+  try { url = new URL(uploadUrl); }
+  catch { throw new SheetsDeliveryError("INVALID_ACKNOWLEDGEMENT"); }
+  // Only ever hand the browser a Google Drive upload address.
+  if (url.protocol !== "https:" || url.hostname !== "www.googleapis.com" || url.port || url.username || url.password ||
+      url.pathname !== "/upload/drive/v3/files" || !url.searchParams.get("upload_id"))
+    throw new SheetsDeliveryError("INVALID_ACKNOWLEDGEMENT");
+  return { uploadUrl: url.toString() };
+};
+
+function deliver(payload: SheetsPayload | DriverSheetsPayload | VideoSheetsPayload, options?: { timeoutMs?: number }): Promise<SheetsAcknowledgement> {
+  return callReceiver(payload, options?.timeoutMs ?? 120_000, (response) => readAcknowledgement(response, payload));
+}
+
+async function callReceiver<T>(payload: ReceiverPayload, timeoutMs: number, read: (response: Response) => Promise<T>): Promise<T> {
   const config = sheetsConfiguration();
   if (!config.valid) throw new SheetsDeliveryError(config.code!);
-  const signal = AbortSignal.timeout(Math.min(280_000, Math.max(1000, options?.timeoutMs ?? 120_000)));
+  const signal = AbortSignal.timeout(Math.min(280_000, Math.max(1000, timeoutMs)));
   try {
     let response = await fetch(process.env.GOOGLE_SHEETS_WEBHOOK_URL!, {
       method: "POST",
@@ -196,7 +251,7 @@ async function deliver(payload: SheetsPayload | DriverSheetsPayload, options?: {
       await response.body?.cancel();
       response = await fetch(redirect, { method: "GET", signal, redirect: "error", cache: "no-store" });
     }
-    return await readAcknowledgement(response, payload);
+    return await read(response);
   } catch (error) {
     if (error instanceof SheetsDeliveryError) throw error;
     throw new SheetsDeliveryError("WEBHOOK_UNAVAILABLE");

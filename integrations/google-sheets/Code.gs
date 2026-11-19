@@ -54,12 +54,29 @@ const CHAPTER_DRIVER_MAX_FILES = 27; // every box at its limit, plus one CV
 const CHAPTER_DRIVER_MAX_FILE_BYTES = 10 * 1024 * 1024;
 const CHAPTER_DRIVER_MAX_TOTAL_BYTES = 30 * 1024 * 1024;
 
+// Quick video application: a few answers and one work video, on its own tab.
+// The applicant's browser uploads the video straight into the private folder
+// through a Drive upload link opened here; the row is written afterwards.
+const CHAPTER_VIDEO_HEADERS = Object.freeze([
+  'Application ID', 'Reference', 'Submitted at (UTC)', 'Complete name', 'Age', 'Nationality',
+  'Position applying for', 'Years of experience (position)', 'WhatsApp number', 'Telegram number',
+  'Work video', 'Video length', 'Video file name', 'Terms accepted', 'Privacy consent'
+]);
+const CHAPTER_VIDEO_MAX_BYTES = 100 * 1024 * 1024;
+const CHAPTER_VIDEO_MIN_SECONDS = 60;
+const CHAPTER_VIDEO_TYPES = Object.freeze({ mp4: 'video/mp4', m4v: 'video/x-m4v', mov: 'video/quicktime', webm: 'video/webm', '3gp': 'video/3gpp' });
+const CHAPTER_VIDEO_SESSIONS = 'CHAPTER_VIDEO_SESSIONS';
+// Upload links opened per hour: in total, and per WhatsApp number.
+const CHAPTER_VIDEO_SESSION_LIMITS = Object.freeze({ total: 40, contact: 5 });
+// Unsubmitted videos (upload finished, form never sent) are moved to the bin after this.
+const CHAPTER_VIDEO_PENDING_LIFETIME = 24 * 60 * 60 * 1000;
+
 /** Public health response intentionally exposes no configuration or applicant data. */
 function doGet() {
   return chapterJson_({ ok: true, service: 'chapter-applications', version: 1, schemaVersion: 7,
     columns: CHAPTER_FORM_HEADERS.length, supportedColumns: [CHAPTER_FORM_HEADERS.length, CHAPTER_V6_FORM_COLUMNS.length, CHAPTER_HEADERS.length],
     stagedUploads: 1, maxFileBytes: CHAPTER_MAX_CV_BYTES, maxUploadBytes: 15 * 1024 * 1024,
-    uploadChunkBytes: CHAPTER_UPLOAD_CHUNK_BYTES });
+    uploadChunkBytes: CHAPTER_UPLOAD_CHUNK_BYTES, videoApplications: 1, maxVideoBytes: CHAPTER_VIDEO_MAX_BYTES });
 }
 
 function doPost(event) {
@@ -96,6 +113,22 @@ function doPost(event) {
       }
       chapterPrivateFolder_(config.folderId);
       return chapterJson_(chapterUploadStage_(config, parsed));
+    }
+    if (parsed && parsed.kind === 'video-upload-session') {
+      const session = chapterValidateVideoSession_(parsed);
+      chapterPrivateFolder_(config.folderId);
+      lock = LockService.getScriptLock();
+      locked = lock.tryLock(25000);
+      chapterAssert_(locked, 'BUSY_RETRY');
+      return chapterJson_(chapterOpenVideoUpload_(config, session));
+    }
+    if (parsed && parsed.kind === 'video-application') {
+      const videoPayload = chapterValidateVideoPayload_(parsed);
+      chapterPrivateFolder_(config.folderId);
+      lock = LockService.getScriptLock();
+      locked = lock.tryLock(25000);
+      chapterAssert_(locked, 'BUSY_RETRY');
+      return chapterJson_(chapterSaveVideoApplication_(config, videoPayload));
     }
     if (parsed && parsed.kind === 'driver-application') {
       const driverPayload = chapterValidateDriverPayload_(parsed);
@@ -867,7 +900,7 @@ function chapterDriverSheet_(config) {
     sheet.getRange(1, 1, 1, columns).setFontWeight('bold');
     sheet.setFrozenRows(1);
     // Cosmetic only: a styling problem must never block a driver submission.
-    try { chapterStyleDriverSheet_(spreadsheet, sheet, config); } catch (_) { /* keep the plain tab */ }
+    try { chapterStyleDriverSheet_(spreadsheet, sheet, config, CHAPTER_DRIVER_HEADERS); } catch (_) { /* keep the plain tab */ }
   }
   chapterAssert_(sheet.getMaxColumns() >= columns && sheet.getLastColumn() <= columns &&
     sheet.getRange(1, 1, 1, columns).getValues()[0].every(function (header, index) { return header === CHAPTER_DRIVER_HEADERS[index]; }), 'HEADER_MISMATCH');
@@ -881,7 +914,7 @@ function formatDriverApplicationsTab() {
   chapterAssert_(lock.tryLock(25000), 'BUSY_RETRY');
   try {
     const target = chapterDriverSheet_(config);
-    chapterStyleDriverSheet_(SpreadsheetApp.openById(config.sheetId), target.sheet, config);
+    chapterStyleDriverSheet_(SpreadsheetApp.openById(config.sheetId), target.sheet, config, CHAPTER_DRIVER_HEADERS);
     return { ok: true, sheetName: target.config.sheetName };
   } finally {
     lock.releaseLock();
@@ -889,19 +922,21 @@ function formatDriverApplicationsTab() {
 }
 
 // Driver columns that share an Applications column take its exact header, cell format and width.
-const CHAPTER_DRIVER_STYLE_ALIASES = Object.freeze({ 'Driver position': 'Job position' });
+const CHAPTER_DRIVER_STYLE_ALIASES = Object.freeze({ 'Driver position': 'Job position', 'Position applying for': 'Job position',
+  'Complete name': 'Full name', 'Work video': 'CV link', 'Years of experience (position)': 'Experience (years)' });
 
-function chapterStyleDriverSheet_(spreadsheet, sheet, config) {
+/** Styles a driver or video tab like the Applications tab, using that tab's own header list. */
+function chapterStyleDriverSheet_(spreadsheet, sheet, config, headers) {
   const source = spreadsheet.getSheetByName(config.sheetName);
   if (!source || source.getSheetId() === sheet.getSheetId() || source.getLastColumn() < 2) return;
-  const columns = CHAPTER_DRIVER_HEADERS.length;
+  const columns = headers.length;
   const sourceHeaders = source.getRange(1, 1, 1, source.getLastColumn()).getValues()[0];
   // The Reference column is the template for driver-only questions.
   const template = Math.max(1, sourceHeaders.indexOf('Reference') + 1);
   const rows = sheet.getMaxRows();
   // Copy body formatting from the newest applicant row: the first rows may be highlighted test entries.
   const sample = source.getLastRow();
-  CHAPTER_DRIVER_HEADERS.forEach(function (header, index) {
+  headers.forEach(function (header, index) {
     const match = sourceHeaders.indexOf(CHAPTER_DRIVER_STYLE_ALIASES[header] || header) + 1;
     const from = match || template;
     const column = index + 1;
@@ -977,6 +1012,180 @@ function chapterSaveDriverApplication_(config, payload, links) {
     application.meetsCzechRequirement, application.shareWithTendaDom, chapterDriverLinks_(links, 'license-front'),
     chapterDriverLinks_(links, 'license-back'), chapterDriverLinks_(links, 'idp'), links.cv || '',
     application.englishProficiency, application.referralSource, 'Yes', 'Yes'];
+  const rowNumber = sheet.getLastRow() + 1;
+  if (rowNumber > sheet.getMaxRows()) sheet.insertRowsAfter(sheet.getMaxRows(), 100);
+  chapterWriteValues_(target.config, rowNumber, 'A', chapterColumnName_(row.length), row);
+  return { ok: true, applicationId: application.id, reference: application.reference, row: rowNumber, duplicate: false };
+}
+
+/* ---------- Video applications ---------- */
+
+function chapterVideoType_(name, mime) {
+  const match = /\.([a-z0-9]+)$/i.exec(name);
+  const extension = match ? match[1].toLowerCase() : '';
+  return Object.prototype.hasOwnProperty.call(CHAPTER_VIDEO_TYPES, extension) && CHAPTER_VIDEO_TYPES[extension] === mime;
+}
+
+function chapterValidateVideoFile_(name, mime, size) {
+  chapterAssert_(typeof name === 'string' && name.length >= 1 && name.length <= 200 && !/[\\/\x00-\x1f\x7f]/.test(name) &&
+    chapterVideoType_(name, mime) && Number.isSafeInteger(size) && size > 0 && size <= CHAPTER_VIDEO_MAX_BYTES, 'INVALID_VIDEO');
+}
+
+function chapterValidateVideoSession_(payload) {
+  chapterKeys_(payload, ['kind', 'version', 'uploadId', 'name', 'mime', 'size', 'origin', 'contactKey']);
+  chapterAssert_(payload.version === 1 && chapterUploadUuid_(payload.uploadId) && chapterUploadHash_(payload.contactKey), 'INVALID_VIDEO');
+  chapterValidateVideoFile_(payload.name, payload.mime, payload.size);
+  // The upload link answers browser requests only from this origin.
+  chapterAssert_(typeof payload.origin === 'string' && payload.origin.length <= 200 &&
+    /^(https:\/\/[a-z0-9.-]+|http:\/\/(localhost|127\.0\.0\.1)(:\d{1,5})?)$/.test(payload.origin), 'INVALID_VIDEO');
+  return payload;
+}
+
+/** Runs under the script lock: count the link against the hourly limits, then open it. */
+function chapterOpenVideoUpload_(config, session) {
+  const properties = PropertiesService.getScriptProperties();
+  const now = Date.now();
+  let ledger = [];
+  try { ledger = JSON.parse(properties.getProperty(CHAPTER_VIDEO_SESSIONS) || '[]'); } catch (_) { ledger = []; }
+  if (!Array.isArray(ledger)) ledger = [];
+  ledger = ledger.filter(function (item) { return item && item.t > now - 60 * 60 * 1000 && item.t <= now; });
+  const contact = session.contactKey.slice(0, 20);
+  // Retrying the same upload ID (a lost reply) does not use up another slot.
+  if (!ledger.some(function (item) { return item.u === session.uploadId; })) {
+    chapterAssert_(ledger.length < CHAPTER_VIDEO_SESSION_LIMITS.total &&
+      ledger.filter(function (item) { return item.k === contact; }).length < CHAPTER_VIDEO_SESSION_LIMITS.contact, 'SUBMISSION_RATE_LIMIT');
+    ledger.push({ t: now, u: session.uploadId, k: contact });
+  }
+  properties.setProperty(CHAPTER_VIDEO_SESSIONS, JSON.stringify(ledger));
+  try { chapterCleanupPendingVideos_(config, now); } catch (_) { /* cleanup must never block an applicant */ }
+  const response = chapterGoogleFetch_('https://www.googleapis.com/upload/drive/v3/files?uploadType=resumable&fields=id',
+    { method: 'post', contentType: 'application/json; charset=UTF-8', headers: {
+      'X-Upload-Content-Type': session.mime, 'X-Upload-Content-Length': String(session.size),
+      // Drive accepts the browser's upload requests only from this origin.
+      Origin: session.origin
+    }, payload: JSON.stringify({ name: 'Unsubmitted video application — ' + session.name, mimeType: session.mime,
+      parents: [config.folderId], appProperties: { chapterVideoUploadId: session.uploadId, chapterVideoPending: '1' } }) }, 'VIDEO_UPLOAD_FAILED');
+  const headers = response.getAllHeaders();
+  const locationKey = Object.keys(headers).find(function (name) { return name.toLowerCase() === 'location'; });
+  const location = locationKey && headers[locationKey];
+  chapterAssert_(typeof location === 'string' && /^https:\/\/www\.googleapis\.com\/upload\/drive\/v3\/files\?/.test(location), 'VIDEO_UPLOAD_FAILED');
+  return { ok: true, uploadId: session.uploadId, uploadUrl: location };
+}
+
+/** Moves a few videos that were uploaded but never submitted to the bin. */
+function chapterCleanupPendingVideos_(config, now) {
+  const cutoff = new Date(now - CHAPTER_VIDEO_PENDING_LIFETIME).toISOString();
+  const query = "trashed = false and '" + config.folderId + "' in parents and appProperties has { key='chapterVideoPending' and value='1' } and createdTime < '" + cutoff + "'";
+  const search = chapterGoogleJson_('https://www.googleapis.com/drive/v3/files?q=' + encodeURIComponent(query) +
+    '&pageSize=5&fields=' + encodeURIComponent('files(' + CHAPTER_FILE_FIELDS + ')'), {}, 'RECEIVER_ERROR');
+  const files = Array.isArray(search.files) ? search.files : [];
+  files.forEach(function (file) {
+    const properties = file.appProperties || {};
+    if (properties.chapterVideoPending !== '1' || properties.chapterApplicationId || !properties.chapterVideoUploadId ||
+        !Array.isArray(file.parents) || file.parents.indexOf(config.folderId) === -1) return;
+    chapterGoogleJson_('https://www.googleapis.com/drive/v3/files/' + encodeURIComponent(file.id) + '?fields=id,trashed',
+      { method: 'patch', contentType: 'application/json', payload: JSON.stringify({ trashed: true }) }, 'RECEIVER_ERROR');
+  });
+  return files.length;
+}
+
+/** Owner action (optional): run from the editor, or on a daily time trigger, to bin unsubmitted videos. */
+function cleanupUnsubmittedVideos() {
+  const config = chapterConfig_();
+  for (let round = 0; round < 20; round++) if (chapterCleanupPendingVideos_(config, Date.now()) === 0) break;
+}
+
+function chapterValidateVideoPayload_(payload) {
+  chapterKeys_(payload, ['kind', 'version', 'application', 'video']);
+  chapterAssert_(payload.version === 1, 'INVALID_VERSION');
+  const application = payload.application;
+  chapterKeys_(application, ['id', 'reference', 'submittedAt', 'jobId', 'jobTitle', 'fullName', 'age', 'nationality',
+    'experienceYears', 'phone', 'telegram', 'termsAccepted', 'consent', 'applicationSource']);
+  [['id', 100, 1], ['reference', 80, 1], ['jobId', 100, 1], ['jobTitle', 160, 2], ['fullName', 120, 3],
+    ['nationality', 60, 2], ['phone', 30, 7], ['telegram', 30, 7], ['applicationSource', 80, 1]
+  ].forEach(function (rule) { chapterText_(application[rule[0]], rule[1], rule[2]); });
+  chapterAssert_(/^va-[a-f0-9-]{36}$/.test(application.id) && /^VA-[A-F0-9]{24}$/.test(application.reference) &&
+    application.applicationSource === 'Jobs in Croatia', 'INVALID_APPLICATION');
+  chapterAssert_(typeof application.submittedAt === 'string' && application.submittedAt.length <= 35 &&
+    /^\d{4}-\d{2}-\d{2}T/.test(application.submittedAt) && Number.isFinite(Date.parse(application.submittedAt)), 'INVALID_APPLICATION');
+  ['phone', 'telegram'].forEach(function (key) {
+    chapterAssert_(/^[+\d\s().-]+$/.test(application[key]) && application[key].replace(/\D/g, '').length >= 7, 'INVALID_APPLICATION');
+  });
+  chapterAssert_(Number.isSafeInteger(application.age) && application.age >= 18 && application.age <= 70 &&
+    Number.isSafeInteger(application.experienceYears) && application.experienceYears >= 0 && application.experienceYears <= 50 &&
+    application.termsAccepted === true && application.consent === true, 'INVALID_APPLICATION');
+  const video = payload.video;
+  chapterKeys_(video, ['uploadId', 'fileId', 'name', 'mime', 'size', 'durationSeconds']);
+  chapterAssert_(chapterUploadUuid_(video.uploadId) && typeof video.fileId === 'string' && /^[A-Za-z0-9_-]{10,200}$/.test(video.fileId) &&
+    (video.durationSeconds === null || Number.isSafeInteger(video.durationSeconds) &&
+      video.durationSeconds >= CHAPTER_VIDEO_MIN_SECONDS && video.durationSeconds <= 4 * 60 * 60), 'INVALID_VIDEO');
+  chapterValidateVideoFile_(video.name, video.mime, video.size);
+  return { application: application, video: video };
+}
+
+function chapterVideoSheet_(config) {
+  const name = PropertiesService.getScriptProperties().getProperty('CHAPTER_VIDEO_SHEET_NAME') || 'Video Applications';
+  chapterAssert_(name.length <= 100 && !/[\[\]*?:/\\]/.test(name) && name !== config.sheetName && name !== chapterDriverSheetName_(config), 'INVALID_CONFIGURATION');
+  const spreadsheet = SpreadsheetApp.openById(config.sheetId);
+  const sheet = spreadsheet.getSheetByName(name) || spreadsheet.insertSheet(name);
+  const columns = CHAPTER_VIDEO_HEADERS.length;
+  if (sheet.getLastRow() === 0 && sheet.getLastColumn() === 0) {
+    if (sheet.getMaxColumns() < columns) sheet.insertColumnsAfter(sheet.getMaxColumns(), columns - sheet.getMaxColumns());
+    sheet.getRange(1, 1, 1, columns).setValues([CHAPTER_VIDEO_HEADERS.slice()]);
+    sheet.getRange(1, 1, 1, columns).setFontWeight('bold');
+    sheet.setFrozenRows(1);
+    // Cosmetic only: a styling problem must never block a submission.
+    try { chapterStyleDriverSheet_(spreadsheet, sheet, config, CHAPTER_VIDEO_HEADERS); } catch (_) { /* keep the plain tab */ }
+  }
+  chapterAssert_(sheet.getMaxColumns() >= columns && sheet.getLastColumn() <= columns &&
+    sheet.getRange(1, 1, 1, columns).getValues()[0].every(function (header, index) { return header === CHAPTER_VIDEO_HEADERS[index]; }), 'HEADER_MISMATCH');
+  return { sheet: sheet, config: Object.assign({}, config, { sheetName: name }) };
+}
+
+function chapterVideoRateLimit_(sheet, application) {
+  const count = sheet.getLastRow() - 1;
+  if (count < 1) return;
+  const now = Date.now();
+  const phone = application.phone.replace(/\D/g, '');
+  let total = 0;
+  let matchingPhone = 0;
+  sheet.getRange(2, 1, count, 9).getValues().forEach(function (row) {
+    const submittedAt = new Date(row[2]).getTime();
+    if (!Number.isFinite(submittedAt) || submittedAt < now - 60 * 60 * 1000 || submittedAt > now) return;
+    total++;
+    if (String(row[8]).replace(/\D/g, '') === phone) matchingPhone++;
+  });
+  chapterAssert_(total < 30 && matchingPhone < 3, 'SUBMISSION_RATE_LIMIT');
+}
+
+/** Runs under the writer lock: check the uploaded video, label it, then write one row. */
+function chapterSaveVideoApplication_(config, payload) {
+  const application = payload.application;
+  const video = payload.video;
+  const target = chapterVideoSheet_(config);
+  const sheet = target.sheet;
+  const existing = chapterFindRow_(sheet, application.id, application.reference);
+  if (existing) return { ok: true, applicationId: application.id, reference: application.reference, row: existing, duplicate: true };
+  chapterVideoRateLimit_(sheet, application);
+  let file;
+  try { file = chapterDriveGet_(video.fileId); } catch (_) { chapterAssert_(false, 'VIDEO_UNAVAILABLE'); }
+  const properties = file && file.appProperties || {};
+  // Only a complete, private video uploaded through this form's own link is accepted.
+  chapterAssert_(file && file.id === video.fileId && !file.trashed && !file.driveId && Array.isArray(file.parents) &&
+    file.parents.indexOf(config.folderId) !== -1 && file.mimeType === video.mime && Number(file.size) === video.size &&
+    Number(file.size) <= CHAPTER_VIDEO_MAX_BYTES && properties.chapterVideoUploadId === video.uploadId &&
+    (!properties.chapterApplicationId || properties.chapterApplicationId === application.id), 'VIDEO_UNAVAILABLE');
+  chapterPrivatePermissions_(file.id);
+  // Name the file after the application so staff can find it in the Drive folder.
+  chapterGoogleJson_('https://www.googleapis.com/drive/v3/files/' + encodeURIComponent(file.id) + '?fields=id',
+    { method: 'patch', contentType: 'application/json', payload: JSON.stringify({
+      name: application.reference + ' — ' + application.fullName + ' — ' + video.name,
+      appProperties: { chapterApplicationId: application.id, chapterReference: application.reference, chapterVideoPending: null } }) }, 'VIDEO_UPLOAD_FAILED');
+  const length = video.durationSeconds === null ? 'Not checked'
+    : Math.floor(video.durationSeconds / 60) + ':' + ('0' + video.durationSeconds % 60).slice(-2);
+  const row = [application.id, application.reference, new Date(application.submittedAt).toISOString(), application.fullName,
+    application.age, application.nationality, application.jobTitle, application.experienceYears, application.phone, application.telegram,
+    'https://drive.google.com/file/d/' + file.id + '/view', length, video.name, 'Yes', 'Yes'];
   const rowNumber = sheet.getLastRow() + 1;
   if (rowNumber > sheet.getMaxRows()) sheet.insertRowsAfter(sheet.getMaxRows(), 100);
   chapterWriteValues_(target.config, rowNumber, 'A', chapterColumnName_(row.length), row);
