@@ -1306,10 +1306,10 @@ function chapterBuildVideoForm_() {
     'Your photo and video are private and available only to authorized recruitment staff.');
   form.addSectionHeaderItem().setTitle('Terms and Conditions');
   form.addCheckboxItem().setTitle('Terms and conditions').setRequired(true).setChoiceValues([
-    'I agree to the terms and conditions provided by Jobs in Croatia (https://www.jobsincroatiaa.com/terms). ' +
+    'I agree to the terms and conditions provided by Jobs in Croatia. ' +
     'By providing my contact details, I agree to receive messages about my application.']);
   form.addCheckboxItem().setTitle('Privacy policy').setRequired(true).setChoiceValues([
-    'I agree to the privacy policy provided by Jobs in Croatia (https://www.jobsincroatiaa.com/privacy) and understand that ' +
+    'I agree to the privacy policy provided by Jobs in Croatia and understand that ' +
     'my information, photo and video will be used in accordance with the policy.']);
   // Newer Google Forms must be published before they accept answers.
   try { if (typeof form.setPublished === 'function') form.setPublished(true); } catch (_) { /* older forms are always published */ }
