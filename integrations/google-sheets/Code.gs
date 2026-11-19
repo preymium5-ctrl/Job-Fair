@@ -60,9 +60,11 @@ const CHAPTER_DRIVER_MAX_TOTAL_BYTES = 30 * 1024 * 1024;
 const CHAPTER_VIDEO_HEADERS = Object.freeze([
   'Application ID', 'Reference', 'Submitted at (UTC)', 'Complete name', 'Age', 'Nationality',
   'Position applying for', 'Years of experience (position)', 'WhatsApp number', 'Telegram number',
-  'Work video', 'Video length', 'Video file name', 'Terms accepted', 'Privacy consent'
+  'Work video', 'Video length', 'Video file name', 'Terms accepted', 'Privacy consent', 'Photo'
 ]);
 const CHAPTER_VIDEO_MAX_BYTES = 100 * 1024 * 1024;
+// The applicant's photo arrives with the submission, already re-encoded as JPG by the website.
+const CHAPTER_VIDEO_PHOTO_MAX_BYTES = 3 * 1024 * 1024;
 const CHAPTER_VIDEO_MIN_SECONDS = 60;
 const CHAPTER_VIDEO_TYPES = Object.freeze({ mp4: 'video/mp4', m4v: 'video/x-m4v', mov: 'video/quicktime', webm: 'video/webm', '3gp': 'video/3gpp' });
 const CHAPTER_VIDEO_SESSIONS = 'CHAPTER_VIDEO_SESSIONS';
@@ -76,7 +78,7 @@ function doGet() {
   return chapterJson_({ ok: true, service: 'chapter-applications', version: 1, schemaVersion: 7,
     columns: CHAPTER_FORM_HEADERS.length, supportedColumns: [CHAPTER_FORM_HEADERS.length, CHAPTER_V6_FORM_COLUMNS.length, CHAPTER_HEADERS.length],
     stagedUploads: 1, maxFileBytes: CHAPTER_MAX_CV_BYTES, maxUploadBytes: 15 * 1024 * 1024,
-    uploadChunkBytes: CHAPTER_UPLOAD_CHUNK_BYTES, videoApplications: 1, maxVideoBytes: CHAPTER_VIDEO_MAX_BYTES });
+    uploadChunkBytes: CHAPTER_UPLOAD_CHUNK_BYTES, videoApplications: 2, maxVideoBytes: CHAPTER_VIDEO_MAX_BYTES });
 }
 
 function doPost(event) {
@@ -1096,8 +1098,9 @@ function cleanupUnsubmittedVideos() {
 }
 
 function chapterValidateVideoPayload_(payload) {
-  chapterKeys_(payload, ['kind', 'version', 'application', 'video']);
-  chapterAssert_(payload.version === 1, 'INVALID_VERSION');
+  // Version 2 adds the applicant's photo; it is required.
+  chapterKeys_(payload, ['kind', 'version', 'application', 'video', 'photo']);
+  chapterAssert_(payload.version === 2, 'INVALID_VERSION');
   const application = payload.application;
   chapterKeys_(application, ['id', 'reference', 'submittedAt', 'jobId', 'jobTitle', 'fullName', 'age', 'nationality',
     'experienceYears', 'phone', 'telegram', 'termsAccepted', 'consent', 'applicationSource']);
@@ -1120,7 +1123,12 @@ function chapterValidateVideoPayload_(payload) {
     (video.durationSeconds === null || Number.isSafeInteger(video.durationSeconds) &&
       video.durationSeconds >= CHAPTER_VIDEO_MIN_SECONDS && video.durationSeconds <= 4 * 60 * 60), 'INVALID_VIDEO');
   chapterValidateVideoFile_(video.name, video.mime, video.size);
-  return { application: application, video: video };
+  const photo = payload.photo;
+  chapterKeys_(photo, ['id', 'name', 'mime', 'base64']);
+  chapterAssert_(photo.id === application.id + '-photo' && photo.mime === 'image/jpeg', 'INVALID_PHOTO');
+  // Checks the JPG signature, extension and size; decoded again just before storage.
+  try { chapterValidateFile_(photo, CHAPTER_VIDEO_PHOTO_MAX_BYTES, true); } catch (_) { chapterAssert_(false, 'INVALID_PHOTO'); }
+  return { application: application, video: video, photo: photo };
 }
 
 function chapterVideoSheet_(config) {
@@ -1136,6 +1144,12 @@ function chapterVideoSheet_(config) {
     sheet.setFrozenRows(1);
     // Cosmetic only: a styling problem must never block a submission.
     try { chapterStyleDriverSheet_(spreadsheet, sheet, config, CHAPTER_VIDEO_HEADERS); } catch (_) { /* keep the plain tab */ }
+  } else if (sheet.getLastColumn() === columns - 1 && sheet.getRange(1, 1, 1, columns - 1).getValues()[0]
+      .every(function (header, index) { return header === CHAPTER_VIDEO_HEADERS[index]; })) {
+    // A tab made before photos were added: append the Photo column at the end; earlier rows keep it blank.
+    if (sheet.getMaxColumns() < columns) sheet.insertColumnsAfter(sheet.getMaxColumns(), columns - sheet.getMaxColumns());
+    sheet.getRange(1, columns).setValue(CHAPTER_VIDEO_HEADERS[columns - 1]);
+    try { sheet.getRange(1, columns - 1).copyFormatToRange(sheet, columns, columns, 1, sheet.getMaxRows()); } catch (_) { /* cosmetic only */ }
   }
   chapterAssert_(sheet.getMaxColumns() >= columns && sheet.getLastColumn() <= columns &&
     sheet.getRange(1, 1, 1, columns).getValues()[0].every(function (header, index) { return header === CHAPTER_VIDEO_HEADERS[index]; }), 'HEADER_MISMATCH');
@@ -1176,6 +1190,10 @@ function chapterSaveVideoApplication_(config, payload) {
     Number(file.size) <= CHAPTER_VIDEO_MAX_BYTES && properties.chapterVideoUploadId === video.uploadId &&
     (!properties.chapterApplicationId || properties.chapterApplicationId === application.id), 'VIDEO_UNAVAILABLE');
   chapterPrivatePermissions_(file.id);
+  // Store the photo privately next to the video. A retry finds the same photo by its private ID.
+  const photo = payload.photo;
+  const photoFile = chapterGetOrCreateCv_(config, application, photo, chapterValidateFile_(photo, CHAPTER_VIDEO_PHOTO_MAX_BYTES, true),
+    photo.id, { maxFiles: 3, maxBytes: CHAPTER_VIDEO_PHOTO_MAX_BYTES });
   // Name the file after the application so staff can find it in the Drive folder.
   chapterGoogleJson_('https://www.googleapis.com/drive/v3/files/' + encodeURIComponent(file.id) + '?fields=id',
     { method: 'patch', contentType: 'application/json', payload: JSON.stringify({
@@ -1185,7 +1203,8 @@ function chapterSaveVideoApplication_(config, payload) {
     : Math.floor(video.durationSeconds / 60) + ':' + ('0' + video.durationSeconds % 60).slice(-2);
   const row = [application.id, application.reference, new Date(application.submittedAt).toISOString(), application.fullName,
     application.age, application.nationality, application.jobTitle, application.experienceYears, application.phone, application.telegram,
-    'https://drive.google.com/file/d/' + file.id + '/view', length, video.name, 'Yes', 'Yes'];
+    'https://drive.google.com/file/d/' + file.id + '/view', length, video.name, 'Yes', 'Yes',
+    'https://drive.google.com/file/d/' + photoFile.id + '/view'];
   const rowNumber = sheet.getLastRow() + 1;
   if (rowNumber > sheet.getMaxRows()) sheet.insertRowsAfter(sheet.getMaxRows(), 100);
   chapterWriteValues_(target.config, rowNumber, 'A', chapterColumnName_(row.length), row);

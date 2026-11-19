@@ -41,13 +41,16 @@ export interface DriverSheetsPayload {
 /** Quick video application: answers plus the Drive ID of a video the browser already uploaded. */
 export interface VideoSheetsPayload {
   kind: "video-application";
-  version: 1;
+  /** Version 2 adds the applicant's photo. */
+  version: 2;
   application: {
     id: string; reference: string; submittedAt: string; jobId: string; jobTitle: string;
     fullName: string; age: number; nationality: string; experienceYears: number;
     phone: string; telegram: string; termsAccepted: true; consent: true; applicationSource: "Jobs in Croatia";
   };
   video: { uploadId: string; fileId: string; name: string; mime: string; size: number; durationSeconds: number | null };
+  /** A checked, re-encoded JPG of the applicant. */
+  photo: { id: string; name: string; mime: "image/jpeg"; base64: string };
 }
 /** Asks the receiver to open a private Drive upload that the applicant's browser fills directly. */
 export interface VideoUploadSessionPayload {

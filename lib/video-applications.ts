@@ -14,6 +14,12 @@ export const MAX_VIDEO_BYTES = 100 * 1024 * 1024;
 export const MIN_VIDEO_SECONDS = 60;
 /** Drive needs every part except the last to be a multiple of 256 KiB. */
 export const VIDEO_CHUNK_BYTES = 8 * 1024 * 1024;
+/**
+ * The applicant's photo travels with the final submission (Vercel's 4.5 MB request
+ * limit), so it is kept small: big phone photos are resized in the browser first.
+ */
+export const MAX_PHOTO_BYTES = 3 * 1024 * 1024;
+export const PHOTO_ACCEPT = ".jpg,.jpeg,.png";
 
 /** File extension -> the type Drive stores the video as. */
 export const videoTypes = {
@@ -77,6 +83,14 @@ export const uploadedVideoSchema = z.object({
   if (!file.success) for (const issue of file.error.issues) context.addIssue({ code: "custom", path: issue.path, message: issue.message });
 });
 export type UploadedVideo = z.output<typeof uploadedVideoSchema>;
+
+/** The photo as sent with the final submission: a JPG or PNG, base64-encoded. */
+export const photoSchema = z.object({
+  name: z.string().min(1).max(200).regex(/^[^\\/\x00-\x1f\x7f]+\.(jpe?g|png)$/i, "Choose a JPG or PNG photo."),
+  base64: z.string().min(4).max(Math.ceil(MAX_PHOTO_BYTES / 3) * 4, "The photo must be 3 MB or smaller.")
+    .regex(/^[A-Za-z0-9+/]+={0,2}$/, "Choose the photo again."),
+}).strict();
+export type PhotoUpload = z.output<typeof photoSchema>;
 
 export function isUploadId(value: unknown): value is string {
   return typeof value === "string" && UUID.test(value);

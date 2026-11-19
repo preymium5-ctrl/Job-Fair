@@ -44,7 +44,9 @@ The receiver creates the tab and its 30-column `A:AD` header row on the first dr
 
 ## Video Applications tab
 
-`/apply/video` is a short form: complete name, age, nationality, position applying for, total years of experience in that position, WhatsApp number, Telegram number (both required), and one video of at least one minute showing the applicant doing the actual work. It writes to its own **Video Applications** tab (15 columns, `A:O`; override the name with the optional `CHAPTER_VIDEO_SHEET_NAME` script property). The tab is created on the first submission.
+`/apply/video` is a short form: complete name, age, nationality, position applying for, total years of experience in that position, WhatsApp number, Telegram number (both required), a required photo of the applicant, and one video of at least one minute showing the applicant doing the actual work. It writes to its own **Video Applications** tab (16 columns, `A:P`; override the name with the optional `CHAPTER_VIDEO_SHEET_NAME` script property). The tab is created on the first submission. A tab created by the earlier 15-column receiver gets the **Photo** column appended at P on the next submission; earlier rows keep it blank.
+
+The photo (JPG or PNG) is resized in the browser, then sent with the final submission, at most 3 MB. The website decodes it and re-encodes it as a clean JPG; the receiver stores it privately in the applicant folder and writes its link in **Photo**.
 
 A video may be up to **100 MB** (MP4, MOV, M4V, WEBM or 3GP). That is far beyond the 4.5 MB Vercel request limit, so the video never passes through the website server:
 
@@ -54,7 +56,7 @@ A video may be up to **100 MB** (MP4, MOV, M4V, WEBM or 3GP). That is far beyond
 
 The browser reads the video length before uploading and refuses videos shorter than one minute. If the browser cannot read the format, the **Video length** cell says *Not checked*. Limits: 40 upload links per hour in total and 5 per WhatsApp number; 30 submissions per hour in total and 3 per WhatsApp number. Videos that were uploaded but never submitted are moved to the Drive bin after 24 hours, a few at a time whenever a new upload starts. To clean them all at once, run `cleanupUnsubmittedVideos` from the editor, or put it on a daily time trigger.
 
-**Deploying the video form:** paste the updated `Code.gs` into the existing Apps Script project and update the **existing deployment** to a new version, exactly as for the driver forms. The health response then shows `videoApplications: 1`. No new scopes, Script Properties or setup runs are needed. Until the receiver is updated, the form shows "We couldn’t start the video upload" and nothing is stored.
+**Deploying the video form:** paste the updated `Code.gs` into the existing Apps Script project and update the **existing deployment** to a new version, exactly as for the driver forms. The health response then shows `videoApplications: 2` (the photo-capable receiver). No new scopes, Script Properties or setup runs are needed. Until the receiver is updated, the form shows "We couldn’t start the video upload" and nothing is stored; a receiver still on `videoApplications: 1` accepts the video upload but refuses the final submission, so applicants see a retry message.
 
 ## One-time Google authorization and deployment
 

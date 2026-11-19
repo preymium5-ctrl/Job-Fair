@@ -6,8 +6,9 @@ import Image from "next/image";
 import { ArrowLeft, ArrowRight, CheckCircle2, FileText, LockKeyhole } from "lucide-react";
 import type { Job } from "@/lib/types";
 import { fieldErrors } from "@/lib/validation";
-import { MAX_VIDEO_BYTES, MIN_VIDEO_SECONDS, VIDEO_ACCEPT, VIDEO_FORM_VERSION, videoApplicationSchema, videoMime } from "@/lib/video-applications";
+import { MAX_PHOTO_BYTES, MAX_VIDEO_BYTES, MIN_VIDEO_SECONDS, PHOTO_ACCEPT, VIDEO_ACCEPT, VIDEO_FORM_VERSION, videoApplicationSchema, videoMime } from "@/lib/video-applications";
 import { readVideoDuration, uploadVideoToDrive, VideoUploadError } from "@/lib/video-upload-client";
+import { shrinkPhoto } from "@/lib/shrink-photo";
 import { BrandLockup } from "@/components/ui/Brand";
 import AttachmentUpload from "./AttachmentUpload";
 import styles from "./ApplicationForm.module.css";
@@ -23,6 +24,22 @@ type UploadState = { file: File; uploadId: string; uploadUrl: string; started: b
 
 const VIDEO_MB = MAX_VIDEO_BYTES / 1024 / 1024;
 
+function readBase64(file: File) {
+  return new Promise<string>((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result).replace(/^data:[^,]*,/, ""));
+    reader.onerror = () => reject(reader.error);
+    reader.readAsDataURL(file);
+  });
+}
+
+function photoProblem(file: File | null) {
+  if (!file) return "Add a photo of yourself.";
+  if (!/\.(jpe?g|png)$/i.test(file.name)) return "Choose a JPG or PNG photo.";
+  if (!file.size) return "This photo is empty. Choose it again.";
+  if (file.size > MAX_PHOTO_BYTES) return "This photo is too large. Take a new photo or choose a smaller one (3 MB or less).";
+}
+
 function minutes(seconds: number) {
   const whole = Math.round(seconds);
   return `${Math.floor(whole / 60)}:${String(whole % 60).padStart(2, "0")}`;
@@ -33,6 +50,8 @@ export default function VideoApplicationForm({ jobs, additionalJobs = [] }: { jo
     fullName: "", age: "", nationality: "", jobId: "", experienceYears: "", phone: "", telegram: "", termsAccepted: false, consent: false,
   });
   const [video, setVideo] = useState<File | null>(null);
+  const [photo, setPhoto] = useState<File | null>(null);
+  const [preparingPhoto, setPreparingPhoto] = useState(false);
   /** undefined while the browser reads the length; null when it cannot. */
   const [duration, setDuration] = useState<number | null | undefined>(undefined);
   const [errors, setErrors] = useState<FormErrors>({});
@@ -49,6 +68,7 @@ export default function VideoApplicationForm({ jobs, additionalJobs = [] }: { jo
   const submissionKeyRef = useRef<string | null>(null);
   const uploadRef = useRef<UploadState | null>(null);
   const videoTokenRef = useRef(0);
+  const photoTokenRef = useRef(0);
 
   function update<K extends keyof Answers>(key: K, value: Answers[K]) {
     submissionKeyRef.current = null;
@@ -67,6 +87,19 @@ export default function VideoApplicationForm({ jobs, additionalJobs = [] }: { jo
     if (token !== videoTokenRef.current) return;
     setDuration(length);
     setErrors((current) => ({ ...current, video: videoProblem(file, length) }));
+  }
+  async function choosePhoto(file: File | null) {
+    submissionKeyRef.current = null;
+    const token = ++photoTokenRef.current;
+    setErrors((current) => ({ ...current, photo: undefined }));
+    if (!file) { setPhoto(null); return; }
+    // Phone photos are often 4–10 MB; resize them so they fit the 3 MB limit.
+    setPreparingPhoto(true);
+    const prepared = /\.(jpe?g|png)$/i.test(file.name) ? await shrinkPhoto(file, 1600, 0.85) : file;
+    if (token !== photoTokenRef.current) return;
+    setPreparingPhoto(false);
+    setPhoto(prepared);
+    setErrors((current) => ({ ...current, photo: photoProblem(prepared) }));
   }
   function videoProblem(file: File | null, length: number | null | undefined) {
     if (!file) return "Add a video of yourself doing the actual work.";
@@ -102,7 +135,9 @@ export default function VideoApplicationForm({ jobs, additionalJobs = [] }: { jo
     if (duration === undefined && video) next.video = "We are still checking your video. Wait a moment, then select Submit.";
     const problem = videoProblem(video, duration);
     if (problem) next.video = problem;
-    if (Object.values(next).some(Boolean) || !parsed.success || !video) { showErrors(next); return; }
+    const photoIssue = preparingPhoto ? "We are still preparing your photo. Wait a moment, then select Submit." : photoProblem(photo);
+    if (photoIssue) next.photo = photoIssue;
+    if (Object.values(next).some(Boolean) || !parsed.success || !video || !photo) { showErrors(next); return; }
     submittingRef.current = true;
     setBusy(true); setError(""); setStage("upload"); setProgress(0);
     const fail = (message: string) => { setError(message); setBusy(false); submittingRef.current = false; };
@@ -134,11 +169,12 @@ export default function VideoApplicationForm({ jobs, additionalJobs = [] }: { jo
           return;
         }
       }
-      // 3. Record the answers with the stored video.
+      // 3. Record the answers and the photo with the stored video.
       setStage("confirm"); setProgress(97);
       submissionKeyRef.current ||= crypto.randomUUID();
       const saved = await postJson("/api/video-applications", {
         payload: parsed.data, submissionKey: submissionKeyRef.current, applicationCheck,
+        photo: { name: photo.name, base64: await readBase64(photo) },
         video: { uploadId: upload.uploadId, fileId: upload.fileId, name: video.name, size: video.size, durationSeconds: duration ?? null },
       });
       if (saved.ok && saved.answer.reference && saved.answer.jobTitle) {
@@ -230,27 +266,31 @@ export default function VideoApplicationForm({ jobs, additionalJobs = [] }: { jo
           </section>
 
           <section className={styles.section} aria-labelledby="video-heading">
-            <h2 id="video-heading">Your work video</h2><span className={styles.rule} />
-            <p className={styles.sectionIntro}>Record <strong>at least one minute</strong> of yourself <strong>doing the actual work</strong> for the position you chose, for example welding, cooking, cleaning a room, driving or operating a machine. Make sure we can see your face and your hands at work.</p>
+            <h2 id="video-heading">Your photo and work video</h2><span className={styles.rule} />
+            <p className={styles.sectionIntro}>Upload a <strong>clear, recent photo of yourself</strong>. Then record <strong>at least one minute</strong> of yourself <strong>doing the actual work</strong> for the position you chose, for example welding, cooking, cleaning a room, driving or operating a machine. Make sure we can see your face and your hands at work.</p>
             <div className={styles.uploads}>
+              {/* Big phone photos are resized after selection, so the box accepts them; the 3 MB limit is checked afterwards. */}
+              <AttachmentUpload id="photo" label="Upload your photo" required accept={PHOTO_ACCEPT} maxBytes={25 * 1024 * 1024}
+                hint="A clear, recent photo of yourself with your face fully visible, for example a passport-style or full-body photo. JPG or PNG; big phone photos are made smaller automatically."
+                file={photo} error={errors.photo} disabled={busy || preparingPhoto} onChange={(file) => { void choosePhoto(file); }} />
               <AttachmentUpload id="video" label="Upload your video (at least 1 minute)" required accept={VIDEO_ACCEPT} maxBytes={MAX_VIDEO_BYTES}
                 hint={`One video, at least 1 minute long and up to ${VIDEO_MB} MB. If your video is too big, record in HD (720p or 1080p) instead of 4K.`}
                 file={video} error={errors.video} disabled={busy} onChange={(file) => { void chooseVideo(file); }} />
             </div>
             {videoHelp && <p className={styles.help} role="status">{videoHelp}</p>}
-            <p className={styles.privacyHint}><LockKeyhole size={16} aria-hidden="true" />Your video is private and available only to authorized recruitment staff.</p>
+            <p className={styles.privacyHint}><LockKeyhole size={16} aria-hidden="true" />Your photo and video are private and available only to authorized recruitment staff.</p>
           </section>
 
           <section className={styles.section} aria-labelledby="terms-heading">
             <h2 id="terms-heading">Terms and Conditions</h2><span className={styles.rule} />
             <label className={styles.consent}><input id="termsAccepted" type="checkbox" checked={values.termsAccepted} disabled={busy} aria-required="true" aria-invalid={Boolean(errors.termsAccepted)} aria-describedby={errors.termsAccepted ? "termsAccepted-error" : undefined} onChange={(event) => update("termsAccepted", event.target.checked)} /><span>I agree to the <Link href="/terms" target="_blank" rel="noopener noreferrer">terms and conditions</Link> provided by Jobs in Croatia. By providing my contact details, I agree to receive messages about my application.</span></label>
             {errorText("termsAccepted")}
-            <label className={styles.consent}><input id="consent" type="checkbox" checked={values.consent} disabled={busy} aria-required="true" aria-invalid={Boolean(errors.consent)} aria-describedby={errors.consent ? "consent-error" : undefined} onChange={(event) => update("consent", event.target.checked)} /><span>I agree to the <Link href="/privacy" target="_blank" rel="noopener noreferrer">privacy policy</Link> provided by Jobs in Croatia and understand that my information and video will be used in accordance with the policy.</span></label>
+            <label className={styles.consent}><input id="consent" type="checkbox" checked={values.consent} disabled={busy} aria-required="true" aria-invalid={Boolean(errors.consent)} aria-describedby={errors.consent ? "consent-error" : undefined} onChange={(event) => update("consent", event.target.checked)} /><span>I agree to the <Link href="/privacy" target="_blank" rel="noopener noreferrer">privacy policy</Link> provided by Jobs in Croatia and understand that my information, photo and video will be used in accordance with the policy.</span></label>
             {errorText("consent")}
             <p className={styles.feeNotice}><CheckCircle2 size={20} aria-hidden="true" /><strong>No placement fee.</strong></p>
           </section>
           {error && <p className={styles.errorSummary} role="alert">{error}</p>}
-          {busy && <div className={styles.progress} role="status"><p>{stage === "upload" ? "Uploading your video — keep this page open" : "Confirming receipt…"}<span>{progress}%</span></p><progress value={progress} max={100} aria-label="Upload progress" /></div>}
+          {busy && <div className={styles.progress} role="status"><p>{stage === "upload" ? "Uploading your video — keep this page open" : "Sending your photo and confirming receipt…"}<span>{progress}%</span></p><progress value={progress} max={100} aria-label="Upload progress" /></div>}
           <button className={styles.submit} type="submit" disabled={busy}>{busy ? "Submitting…" : "Submit"}<ArrowRight size={18} aria-hidden="true" /></button>
           <p className={styles.saveNote}>Check your answers before submitting. A 100 MB video can take several minutes on mobile data; Wi-Fi is faster.</p>
           <div className={styles.policyLinks}><Link href="/privacy">Privacy Policy</Link><span>|</span><Link href="/terms">Terms of Service</Link></div>

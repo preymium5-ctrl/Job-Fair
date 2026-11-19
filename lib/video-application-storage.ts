@@ -31,19 +31,22 @@ export async function saveVideoApplicationToGoogle(
   input: VideoApplication,
   job: Pick<Job, "id" | "title">,
   video: UploadedVideo,
+  /** Already checked and re-encoded as JPG on the server. */
+  photo: { name: string; bytes: Buffer },
   submissionKey: string,
   transport: VideoSheetsTransport = sendVideoApplicationToSheets,
 ) {
   const mime = videoMime(video.name);
   if (!mime) throw new Error("UNSUPPORTED_VIDEO");
-  // The ID stays the same for a retry; the reference binds the answers and the stored video.
+  // The ID stays the same for a retry; the reference binds the answers, the stored video and the photo.
   const id = `va-${submissionKey}`;
-  const requestHash = createHash("sha256").update(JSON.stringify({ input, video })).digest("hex");
+  const photoHash = createHash("sha256").update(photo.bytes).digest("hex");
+  const requestHash = createHash("sha256").update(JSON.stringify({ input, video, photo: { name: photo.name, sha256: photoHash } })).digest("hex");
   const reference = `VA-${createHmac("sha256", secret())
     .update(`video-application-v1\0${submissionKey}\0${requestHash}`).digest("hex").slice(0, 24).toUpperCase()}`;
   const payload: VideoSheetsPayload = {
     kind: "video-application",
-    version: 1,
+    version: 2,
     application: {
       id, reference, submittedAt: new Date().toISOString(), jobId: job.id, jobTitle: job.title,
       fullName: input.fullName, age: input.age, nationality: input.nationality, experienceYears: input.experienceYears,
@@ -51,6 +54,7 @@ export async function saveVideoApplicationToGoogle(
     },
     video: { uploadId: video.uploadId, fileId: video.fileId, name: video.name, mime, size: video.size,
       durationSeconds: video.durationSeconds === null ? null : Math.round(video.durationSeconds) },
+    photo: { id: `${id}-photo`, name: photo.name, mime: "image/jpeg", base64: photo.bytes.toString("base64") },
   };
   const acknowledgement = await transport(payload, { timeoutMs: 60_000 });
   // Never show a success/reference until the durable receiver confirms this record.

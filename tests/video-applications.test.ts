@@ -4,6 +4,7 @@ import { readFileSync } from "node:fs";
 import vm from "node:vm";
 import { after, before, beforeEach, test } from "node:test";
 import { NextRequest } from "next/server";
+import sharp from "sharp";
 import { POST as openUpload } from "../app/api/video-applications/upload/route";
 import { POST as submitVideoApplication } from "../app/api/video-applications/route";
 import { MAX_VIDEO_BYTES, uploadedVideoSchema, videoApplicationSchema, videoFileSchema, videoMime } from "../lib/video-applications";
@@ -27,11 +28,16 @@ function answers(overrides: Record<string, unknown> = {}) {
 function video(overrides: Record<string, unknown> = {}) {
   return { name: "welding.mp4", size: 40 * 1024 * 1024, durationSeconds: 75.4, ...overrides };
 }
+let jpeg: Buffer;
+function photo(overrides: Record<string, unknown> = {}) {
+  return { name: "me.jpg", base64: jpeg.toString("base64"), ...overrides };
+}
 function post(url: string, body: unknown) {
   return new NextRequest(`${origin}${url}`, { method: "POST", body: JSON.stringify(body), headers: { origin, "content-type": "application/json" } });
 }
 
-before(() => {
+before(async () => {
+  jpeg = await sharp({ create: { width: 40, height: 30, channels: 3, background: "#c01020" } }).jpeg().toBuffer();
   Object.assign(process.env, {
     APPLICATION_STORAGE: "google-sheets", CHAPTER_LOCAL_MODE: "false", APP_ORIGIN: origin,
     GOOGLE_SHEETS_WEBHOOK_URL: "https://script.google.com/macros/s/test-video-receiver/exec", GOOGLE_SHEETS_WEBHOOK_SECRET: secret,
@@ -104,9 +110,17 @@ test("opening a video upload validates the answers, then returns only a Google D
   assert.equal((await openUpload(post("/api/video-applications/upload", { payload: answers(), uploadId: randomUUID(), video: video() }))).status, 429);
 });
 
-test("submitting records the answers with the uploaded video and returns a stable reference", async () => {
+test("submitting records the answers, photo and uploaded video and returns a stable reference", async () => {
   const submissionKey = randomUUID();
-  const body = { payload: answers(), submissionKey, applicationCheck: "", video: { ...video(), uploadId: randomUUID(), fileId: "drive-video-file-1" } };
+  const body = { payload: answers(), submissionKey, applicationCheck: "", photo: photo(), video: { ...video(), uploadId: randomUUID(), fileId: "drive-video-file-1" } };
+  // The photo is required, and must really be a JPG or PNG image.
+  const noPhoto = await submitVideoApplication(post("/api/video-applications", { ...body, photo: undefined }));
+  assert.equal(noPhoto.status, 422);
+  assert.ok((await noPhoto.json()).fieldErrors.photo);
+  const fakePhoto = await submitVideoApplication(post("/api/video-applications", { ...body, photo: photo({ base64: Buffer.from("not an image").toString("base64") }) }));
+  assert.equal(fakePhoto.status, 422);
+  assert.equal((await submitVideoApplication(post("/api/video-applications", { ...body, photo: photo({ name: "me.pdf" }) }))).status, 422);
+  assert.equal(sent.length, 0, "a missing or invalid photo never reaches Google");
   const response = await submitVideoApplication(post("/api/video-applications", body));
   assert.equal(response.status, 201);
   const { reference, jobTitle } = await response.json();
@@ -116,6 +130,11 @@ test("submitting records the answers with the uploaded video and returns a stabl
   assert.equal(delivered.application.id, `va-${submissionKey}`);
   assert.equal(delivered.video.durationSeconds, 75);
   assert.equal(delivered.video.mime, "video/mp4");
+  assert.equal(delivered.version, 2);
+  assert.equal(delivered.photo.id, `va-${submissionKey}-photo`);
+  assert.equal(delivered.photo.mime, "image/jpeg");
+  assert.equal(delivered.photo.name, "me.jpg");
+  assert.deepEqual([...Buffer.from(delivered.photo.base64, "base64").subarray(0, 3)], [255, 216, 255]);
   // A retry of the same submission gets the same reference.
   assert.equal((await (await submitVideoApplication(post("/api/video-applications", body))).json()).reference, reference);
 
@@ -129,7 +148,7 @@ test("submitting records the answers with the uploaded video and returns a stabl
 test("a mismatched receiver acknowledgement never confirms a video application", async () => {
   const input = videoApplicationSchema.parse(answers());
   const uploaded = uploadedVideoSchema.parse({ ...video(), uploadId: randomUUID(), fileId: "drive-video-file-1" });
-  await assert.rejects(saveVideoApplicationToGoogle(input, { id: "job", title: "Welder" }, uploaded, randomUUID(),
+  await assert.rejects(saveVideoApplicationToGoogle(input, { id: "job", title: "Welder" }, uploaded, { name: "me.jpg", bytes: jpeg }, randomUUID(),
     async (payload) => ({ ok: true, applicationId: payload.application.id, reference: "VA-WRONG", row: 2, duplicate: false })), /INVALID_APPLICATION_ACKNOWLEDGEMENT/);
 });
 
@@ -151,6 +170,8 @@ test("the receiver opens a Drive upload for the site's origin, then writes the v
       getRange: (row: number, column: number, count = 1, columns = 1) => ({
         getValues: () => Array.from({ length: count }, (_, index) => Array.from({ length: columns }, (_, offset) => tab.rows[row - 1 + index]?.[column - 1 + offset] ?? "")),
         setValues: (values: unknown[][]) => values.forEach((cells, index) => { tab.rows[row - 1 + index] = [...cells]; }),
+        setValue: (value: unknown) => { (tab.rows[row - 1] ??= [])[column - 1] = value; },
+        copyFormatToRange: () => undefined,
         setFontWeight: () => undefined,
       }),
     };
@@ -160,27 +181,50 @@ test("the receiver opens a Drive upload for the site's origin, then writes the v
     insertSheet: (name: string) => { tabs.set(name, { rows: [], maxColumns: 26, frozen: 0 }); return sheetHandle(name); },
   };
   tabs.set("Applications", { rows: [["untouched"]], maxColumns: 36, frozen: 1 });
+  // A Video Applications tab created before photos were added: 15 columns, no Photo column.
+  const earlierHeaders = ["Application ID", "Reference", "Submitted at (UTC)", "Complete name", "Age", "Nationality", "Position applying for",
+    "Years of experience (position)", "WhatsApp number", "Telegram number", "Work video", "Video length", "Video file name", "Terms accepted", "Privacy consent"];
+  tabs.set("Video Applications", { rows: [[...earlierHeaders]], maxColumns: 15, frozen: 1 });
+  let photoMetadata: Record<string, unknown> | undefined;
   const reply = (data: unknown, headers = {}, status = 200) => ({ getResponseCode: () => status, getContentText: () => JSON.stringify(data), getAllHeaders: () => headers });
   const context = vm.createContext({
     PropertiesService: { getScriptProperties: () => ({ getProperty: (key: string) => properties.get(key) ?? null, setProperty: (key: string, value: string) => properties.set(key, value) }) },
     ContentService: { MimeType: { JSON: "json" }, createTextOutput: (text: string) => ({ setMimeType: () => JSON.parse(text) }) },
-    Utilities: { Charset: { UTF_8: "utf8" }, computeHmacSha256Signature: (value: string, key: string) => [...createHmac("sha256", key).update(value).digest()] },
+    Utilities: {
+      Charset: { UTF_8: "utf8" }, computeHmacSha256Signature: (value: string, key: string) => [...createHmac("sha256", key).update(value).digest()],
+      base64Decode: (value: string) => [...Buffer.from(value, "base64")].map((byte) => byte > 127 ? byte - 256 : byte),
+      newBlob: (bytes: number[]) => Buffer.from(bytes.map((byte) => (byte + 256) % 256)),
+    },
     LockService: { getScriptLock: () => ({ tryLock: () => true, releaseLock: () => undefined }) },
     SpreadsheetApp: { openById: () => spreadsheet },
     ScriptApp: { getOAuthToken: () => "token" },
     UrlFetchApp: { fetch: (url: string, options: Record<string, unknown>) => {
       if (url.includes("/permissions?")) return reply({ permissions: [{ type: "user", role: "owner" }] });
       if (url.includes(`/files/${folderId}?`)) return reply({ id: folderId, mimeType: "application/vnd.google-apps.folder", trashed: false });
-      if (url.includes("/drive/v3/files?q=")) return reply({ files: [] });
+      if (url.includes("/drive/v3/files?q=")) {
+        const query = decodeURIComponent(url);
+        if (query.includes("createdTime")) return reply({ files: [] });
+        const applicationId = /key='chapterApplicationId' and value='([^']+)'/.exec(query)?.[1];
+        return reply({ files: [...files.values()].filter((file) => (file.appProperties as Record<string, string>).chapterApplicationId === applicationId) });
+      }
+      if (url.includes("upload_id=photo")) {
+        const file = { ...photoMetadata, id: "drive-photo-file-1", size: String((options.payload as Buffer).length), trashed: false };
+        files.set(file.id, file);
+        return reply(file);
+      }
+      if (url.includes("uploadType=resumable") && String(options.payload).includes('"image/jpeg"')) {
+        photoMetadata = JSON.parse(String(options.payload));
+        return reply({}, { Location: "https://www.googleapis.com/upload/drive/v3/files?upload_id=photo-1" });
+      }
       if (url.includes("uploadType=resumable")) {
         sessions.push({ metadata: JSON.parse(String(options.payload)), headers: options.headers as Record<string, string> });
         return reply({}, { Location: `https://www.googleapis.com/upload/drive/v3/files?uploadType=resumable&upload_id=session-${sessions.length}` });
       }
-      const values = /\/values\/'Video Applications'!A(\d+):O(\d+)\?valueInputOption=RAW$/.exec(decodeURIComponent(url));
+      const values = /\/values\/'Video Applications'!A(\d+):P(\d+)\?valueInputOption=RAW$/.exec(decodeURIComponent(url));
       if (values) {
         const row = JSON.parse(String(options.payload)).values[0];
         tabs.get("Video Applications")!.rows[Number(values[1]) - 1] = row;
-        return reply({ updatedRows: 1, updatedColumns: row.length, updatedRange: `'Video Applications'!A${values[1]}:O${values[1]}` });
+        return reply({ updatedRows: 1, updatedColumns: row.length, updatedRange: `'Video Applications'!A${values[1]}:P${values[1]}` });
       }
       const fileMatch = /\/drive\/v3\/files\/([^?/]+)\?/.exec(url);
       if (fileMatch) {
@@ -223,12 +267,17 @@ test("the receiver opens a Drive upload for the site's origin, then writes the v
   // 3. Record the application.
   const id = `va-${randomUUID()}`;
   const payload = {
-    kind: "video-application", version: 1,
+    kind: "video-application", version: 2,
     application: { id, reference: "VA-0123456789ABCDEF01234567", submittedAt: new Date().toISOString(), jobId: "job", jobTitle: "Welder",
       fullName: "=SUM(1,1) Dela Cruz", age: 34, nationality: "Filipino", experienceYears: 6, phone: "+63 917 123 4567", telegram: "+63 917 765 4321",
       termsAccepted: true, consent: true, applicationSource: "Jobs in Croatia" },
     video: { uploadId, fileId: "drive-video-file-1", name: "welding.mp4", mime: "video/mp4", size: 1234567, durationSeconds: 75 },
+    photo: { id: `${id}-photo`, name: "me.jpg", mime: "image/jpeg", base64: jpeg.toString("base64") },
   };
+  assert.equal(call({ ...payload, photo: undefined }).code, "INVALID_SCHEMA", "the photo is required");
+  assert.equal(call({ ...payload, version: 1 }).code, "INVALID_VERSION");
+  assert.equal(call({ ...payload, photo: { ...payload.photo, base64: Buffer.from("%PDF-1.4").toString("base64") } }).code, "INVALID_PHOTO");
+  assert.equal(call({ ...payload, photo: { ...payload.photo, id: "other-photo" } }).code, "INVALID_PHOTO");
   assert.equal(call({ ...payload, video: { ...payload.video, uploadId: randomUUID() } }).code, "VIDEO_UNAVAILABLE", "a video from another upload is refused");
   assert.equal(call({ ...payload, video: { ...payload.video, fileId: "missing-file-id" } }).code, "VIDEO_UNAVAILABLE");
   assert.equal(call({ ...payload, video: { ...payload.video, size: 1234 } }).code, "VIDEO_UNAVAILABLE", "an incomplete upload is refused");
@@ -236,9 +285,18 @@ test("the receiver opens a Drive upload for the site's origin, then writes the v
   const first = call(payload);
   assert.deepEqual(first, { ok: true, applicationId: id, reference: payload.application.reference, row: 2, duplicate: false });
   const tab = tabs.get("Video Applications")!;
+  // The earlier 15-column tab gained the Photo column at the end.
   assert.deepEqual(tab.rows[0], [...vm.runInContext("CHAPTER_VIDEO_HEADERS", context)]);
+  assert.deepEqual(tab.rows[0], [...earlierHeaders, "Photo"]);
+  assert.equal(tab.maxColumns, 16);
   assert.deepEqual(tab.rows[1], [id, payload.application.reference, payload.application.submittedAt, "=SUM(1,1) Dela Cruz", 34, "Filipino", "Welder", 6,
-    "+63 917 123 4567", "+63 917 765 4321", "https://drive.google.com/file/d/drive-video-file-1/view", "1:15", "welding.mp4", "Yes", "Yes"]);
+    "+63 917 123 4567", "+63 917 765 4321", "https://drive.google.com/file/d/drive-video-file-1/view", "1:15", "welding.mp4", "Yes", "Yes",
+    "https://drive.google.com/file/d/drive-photo-file-1/view"]);
+  // The photo is stored privately in the applicant folder, tied to this application.
+  const storedPhoto = files.get("drive-photo-file-1")!;
+  assert.deepEqual(storedPhoto.parents, [folderId]);
+  assert.deepEqual(storedPhoto.appProperties, { chapterApplicationId: id, chapterReference: payload.application.reference, chapterDocumentId: `${id}-photo` });
+  assert.equal(storedPhoto.size, String(jpeg.length));
   assert.deepEqual(patches.at(-1), { name: "VA-0123456789ABCDEF01234567 — =SUM(1,1) Dela Cruz — welding.mp4",
     appProperties: { chapterApplicationId: id, chapterReference: payload.application.reference, chapterVideoPending: null } });
   assert.deepEqual(call(payload), { ...first, duplicate: true });
